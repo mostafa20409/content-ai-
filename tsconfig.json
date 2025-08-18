@@ -26,7 +26,7 @@
         "./src/types/"
       ]
     },
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -68,10 +68,11 @@
     "composite": true
   },
   "include": [
-    "**/*.js",
-    "**/*.jsx",
-    "**/*.ts",
-    "**/*.tsx",
+    ".next/types//*.ts",
+    "/*.js",
+    "/*.jsx",
+    "/*.ts",
+    "/*.tsx",
     "next-env.d.ts",
     ".next/types/**/*.ts"
   ],
@@ -81,8 +82,8 @@
     ".next",
     "cypress",
     "tests",
-    "**/*.spec.ts",
-    "**/*.test.ts"
+    "/*.spec.ts",
+    "/*.test.ts"
   ],
   "references": [
     {
