@@ -15,17 +15,12 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
-import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings } from "react-icons/fi";
+import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiArrowUp } from "react-icons/fi";
 import { FaChartLine, FaFileAlt, FaUsers, FaShoppingCart } from "react-icons/fa";
 
 /* ==========================================================================
-   DashboardClient.tsx
-   Large single-file Dashboard client component (TypeScript + React)
-   - No external theme/i18n libraries required
-   - Uses recharts and react-icons only
-   - Light / Dark mode support via CSS class on document.documentElement
-   - Well-typed props and internal types
-   - Lots of sections and placeholder content to expand file length
+   DashboardClient.tsx - مخصص لمشروع إنشاء المحتوى
+   - أدوات: محتوى (Content)، كتب (Books)، مولد إعلانات (Ad Generator)
    ========================================================================== */
 
 /* -------------------- أنواع البيانات (Types) -------------------- */
@@ -39,7 +34,7 @@ export type User = {
 export type Notification = {
   id: string;
   message: string;
-  date: string; // ISO or human
+  date: string;
   read?: boolean;
 };
 
@@ -47,7 +42,7 @@ export type StatItem = {
   icon: React.ReactNode;
   title: string;
   value: string;
-  change: string; // "+12%" or "-3%"
+  change: string;
   hint?: string;
   color?: string;
 };
@@ -59,32 +54,32 @@ export interface DashboardClientProps {
   initialDark?: boolean;
 }
 
-/* -------------------- بيانات تجريبية كبيرة (for demo / filler) -------------------- */
+/* -------------------- بيانات تجريبية -------------------- */
 const SAMPLE_SALES = [
-  { name: "Jan", sales: 4000 },
-  { name: "Feb", sales: 3000 },
-  { name: "Mar", sales: 5000 },
-  { name: "Apr", sales: 2780 },
-  { name: "May", sales: 1890 },
-  { name: "Jun", sales: 2390 },
-  { name: "Jul", sales: 3490 },
-  { name: "Aug", sales: 2000 },
-  { name: "Sep", sales: 2780 },
-  { name: "Oct", sales: 3000 },
-  { name: "Nov", sales: 4200 },
-  { name: "Dec", sales: 5300 },
+  { name: "يناير", sales: 4000 },
+  { name: "فبراير", sales: 3000 },
+  { name: "مارس", sales: 5000 },
+  { name: "أبريل", sales: 2780 },
+  { name: "مايو", sales: 1890 },
+  { name: "يونيو", sales: 2390 },
+  { name: "يوليو", sales: 3490 },
+  { name: "أغسطس", sales: 2000 },
+  { name: "سبتمبر", sales: 2780 },
+  { name: "أكتوبر", sales: 3000 },
+  { name: "نوفمبر", sales: 4200 },
+  { name: "ديسمبر", sales: 5300 },
 ];
 
 const SAMPLE_TRAFFIC = [
-  { name: "Desktop", value: 400 },
-  { name: "Mobile", value: 700 },
-  { name: "Tablet", value: 300 },
-  { name: "Other", value: 100 },
+  { name: "كمبيوتر", value: 400 },
+  { name: "جوال", value: 700 },
+  { name: "تابلت", value: 300 },
+  { name: "أخرى", value: 100 },
 ];
 
-const SAMPLE_NOTES = Array.from({ length: 18 }).map((_, i) => ({
+const SAMPLE_NOTES = Array.from({ length: 8 }).map((_, i) => ({
   id: String(i + 1),
-  message: `Sample notification number ${i + 1}`,
+  message: `إشعار جديد ${i + 1}`,
   date: new Date(Date.now() - i * 1000 * 60 * 60).toISOString(),
   read: i % 3 === 0,
 }));
@@ -98,16 +93,14 @@ const PALETTE = [
   "#10B981", // green
 ];
 
-/* -------------------- مساعدة صغيرة (helpers) -------------------- */
+/* -------------------- مساعدة صغيرة -------------------- */
 const formatDateShort = (iso?: string) => {
   if (!iso) return "";
   const d = new Date(iso);
   return d.toLocaleString();
 };
 
-
-/* -------------------- مكونات صغيرة متعددة -------------------- */
-
+/* -------------------- مكونات صغيرة -------------------- */
 const IconButton: React.FC<{
   title?: string;
   onClick?: () => void;
@@ -149,7 +142,16 @@ const IconButton: React.FC<{
   );
 };
 
-const Card: React.FC<{ style?: React.CSSProperties; children?: React.ReactNode }> = ({ style, children }) => (
+// تحديث واجهة مكون Card لقبول معالجات الأحداث
+interface CardProps {
+  style?: React.CSSProperties;
+  children?: React.ReactNode;
+  onClick?: () => void;
+  onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
+}
+
+const Card: React.FC<CardProps> = ({ style, children, onClick, onMouseEnter, onMouseLeave }) => (
   <div
     style={{
       background: "var(--card-bg, #fff)",
@@ -159,6 +161,9 @@ const Card: React.FC<{ style?: React.CSSProperties; children?: React.ReactNode }
       border: "1px solid rgba(2,6,23,0.05)",
       ...style,
     }}
+    onClick={onClick}
+    onMouseEnter={onMouseEnter}
+    onMouseLeave={onMouseLeave}
   >
     {children}
   </div>
@@ -201,12 +206,12 @@ const Sidebar: React.FC<{
               fontWeight: 700,
             }}
           >
-            B
+            AI
           </div>
           {open && (
             <div>
-              <div style={{ fontWeight: 700, color: "var(--text, #0f172a)" }}>{lang === "ar" ? "كتاب.آي" : "Book.AI"}</div>
-              <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "لوحة تحكم" : "Dashboard"}</div>
+              <div style={{ fontWeight: 700, color: "var(--text, #0f172a)" }}>ContentAI</div>
+              <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "منصة المحتوى" : "Content Platform"}</div>
             </div>
           )}
         </div>
@@ -231,10 +236,11 @@ const Sidebar: React.FC<{
       <nav aria-label="Main navigation" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {[
           { key: "overview", label: lang === "ar" ? "الرئيسية" : "Overview", icon: "🏠" },
-          { key: "analytics", label: lang === "ar" ? "التحليلات" : "Analytics", icon: "📊" },
-          { key: "users", label: lang === "ar" ? "المستخدمون" : "Users", icon: "👥" },
-          { key: "products", label: lang === "ar" ? "المنتجات" : "Products", icon: "🛍️" },
-          { key: "settings", label: lang === "ar" ? "الإعدادات" : "Settings", icon: "⚙️" },
+          { key: "analytics", label: lang === "ar" ? "الإحصائيات" : "Analytics", icon: "📊" },
+          { key: "content", label: lang === "ar" ? "المحتوى" : "Content", icon: "📝" },
+          { key: "books", label: lang === "ar" ? "الكتب" : "Books", icon: "📚" },
+          { key: "ads", label: lang === "ar" ? "الإعلانات" : "Ads", icon: "📢" },
+          { key: "settings", label: lang === "ar" ? "الإعدادات" : "Settings", icon: "⚙" },
         ].map((it) => (
           <button
             key={it.key}
@@ -259,36 +265,66 @@ const Sidebar: React.FC<{
         ))}
       </nav>
 
-      <div style={{ marginTop: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* زر الترقية */}
         <button
-          onClick={onToggleDark}
+          onClick={() => window.location.href = "/upgrade"}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
-            padding: 10,
-            borderRadius: 8,
+            gap: 12,
+            padding: 12,
+            borderRadius: 10,
+            background: "linear-gradient(135deg, #F59E0B, #F97316)",
             border: "none",
+            textAlign: "left",
             cursor: "pointer",
+            color: "white",
+            fontWeight: 600,
           }}
         >
-          {dark ? <FiSun /> : <FiMoon />} {open && <span>{dark ? (lang === "ar" ? "فاتح" : "Light") : (lang === "ar" ? "داكن" : "Dark")}</span>}
+          <FiStar style={{ fontSize: 18 }} />
+          {open && <span>{lang === "ar" ? "ترقية الخطة" : "Upgrade Plan"}</span>}
         </button>
+        
+        {/* إعدادات المظهر واللغة */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={onToggleDark}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: 10,
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              background: "transparent",
+              color: "var(--text,#0f172a)",
+            }}
+          >
+            {dark ? <FiSun /> : <FiMoon />} 
+            {open && <span>{dark ? (lang === "ar" ? "فاتح" : "Light") : (lang === "ar" ? "داكن" : "Dark")}</span>}
+          </button>
 
-        <button
-          onClick={onChangeLang}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: 10,
-            borderRadius: 8,
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          <FiSettings /> {open && <span>{lang === "ar" ? "English" : "العربية"}</span>}
-        </button>
+          <button
+            onClick={onChangeLang}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: 10,
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              background: "transparent",
+              color: "var(--text,#0f172a)",
+            }}
+          >
+            <FiSettings /> 
+            {open && <span>{lang === "ar" ? "English" : "العربية"}</span>}
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -300,7 +336,8 @@ const Header: React.FC<{
   notificationsCount: number;
   onLogout: () => void;
   onMarkAllRead: () => void;
-}> = ({ user, notificationsCount, onLogout, onMarkAllRead }) => {
+  lang: "ar" | "en";
+}> = ({ user, notificationsCount, onLogout, onMarkAllRead, lang }) => {
   return (
     <header
       style={{
@@ -313,12 +350,75 @@ const Header: React.FC<{
       }}
     >
       <div>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Overview</h2>
-        <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>Welcome back</div>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{lang === "ar" ? "لوحة التحكم" : "Dashboard"}</h2>
+        <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "مرحباً بعودتك" : "Welcome back"}</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <IconButton title="Notifications" badge={notificationsCount} onClick={onMarkAllRead}>
+        {/* أزرار الأدوات السريعة */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => window.location.href = "/content"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "none",
+              background: "rgba(124,58,237,0.1)",
+              color: "#7C3AED",
+              cursor: "pointer",
+              fontWeight: 500,
+              fontSize: 14,
+            }}
+          >
+            <FiFileText size={16} />
+            <span>{lang === "ar" ? "المحتوى" : "Content"}</span>
+          </button>
+          
+          <button
+            onClick={() => window.location.href = "/books"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "none",
+              background: "rgba(96,165,250,0.1)",
+              color: "#60A5FA",
+              cursor: "pointer",
+              fontWeight: 500,
+              fontSize: 14,
+            }}
+          >
+            <FiBook size={16} />
+            <span>{lang === "ar" ? "الكتب" : "Books"}</span>
+          </button>
+          
+          <button
+            onClick={() => window.location.href = "/ad-generator"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "none",
+              background: "rgba(16,185,129,0.1)",
+              color: "#10B981",
+              cursor: "pointer",
+              fontWeight: 500,
+              fontSize: 14,
+            }}
+          >
+            <FiTrendingUp size={16} />
+            <span>{lang === "ar" ? "مولد الإعلانات" : "Ad Generator"}</span>
+          </button>
+        </div>
+
+        <IconButton title={lang === "ar" ? "الإشعارات" : "Notifications"} badge={notificationsCount} onClick={onMarkAllRead}>
           <FiBell />
         </IconButton>
 
@@ -350,14 +450,96 @@ const Header: React.FC<{
               borderRadius: 8,
               cursor: "pointer",
               background: "transparent",
+              color: "var(--text,#0f172a)",
             }}
-            title="Logout"
+            title={lang === "ar" ? "تسجيل الخروج" : "Logout"}
           >
             <FiLogOut />
           </button>
         </div>
       </div>
     </header>
+  );
+};
+
+/* -------------------- قسم الأدوات الرئيسية -------------------- */
+const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+  const tools = [
+    {
+      id: "content",
+      title: lang === "ar" ? "منشئ المحتوى" : "Content Creator",
+      description: lang === "ar" ? "أنشئ محتوى متميز بمساعدة الذكاء الاصطناعي" : "Create premium content with AI assistance",
+      icon: <FiFileText size={32} />,
+      color: "#7C3AED",
+      path: "/content"
+    },
+    {
+      id: "books",
+      title: lang === "ar" ? "منشئ الكتب" : "Book Generator",
+      description: lang === "ar" ? "اصنع كتباً إلكترونية بجودة عالية" : "Generate high-quality e-books",
+      icon: <FiBook size={32} />,
+      color: "#60A5FA",
+      path: "/books"
+    },
+    {
+      id: "ads",
+      title: lang === "ar" ? "منشئ الإعلانات" : "Ad Generator",
+      description: lang === "ar" ? "صمم إعلانات جذابة وفعالة" : "Create compelling and effective ads",
+      icon: <FiTrendingUp size={32} />,
+      color: "#10B981",
+      path: "/ad-generator"
+    }
+  ];
+
+  return (
+    <section style={{ marginBottom: 24 }}>
+      <h2 style={{ marginBottom: 16 }}>{lang === "ar" ? "أدوات المحتوى" : "Content Tools"}</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+        {tools.map((tool) => (
+          <Card 
+            key={tool.id} 
+            style={{ 
+              cursor: "pointer", 
+              transition: "transform 0.2s, box-shadow 0.2s",
+              borderLeft: `4px solid ${tool.color}`,
+            }}
+            onClick={() => window.location.href = tool.path}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-4px)";
+              e.currentTarget.style.boxShadow = "0 12px 40px rgba(2,6,23,0.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 8px 30px rgba(2,6,23,0.06)";
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <div style={{ color: tool.color }}>{tool.icon}</div>
+              <h3 style={{ margin: 0, fontSize: 18 }}>{tool.title}</h3>
+            </div>
+            <p style={{ margin: 0, color: "var(--muted,#6b7280)", fontSize: 14 }}>
+              {tool.description}
+            </p>
+            <div style={{ marginTop: 16, textAlign: "right" }}>
+              <button
+                style={{
+                  background: tool.color,
+                  color: "white",
+                  border: "none",
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
+              >
+                {lang === "ar" ? "ابدأ الآن" : "Start Now"}
+              </button>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </section>
   );
 };
 
@@ -371,8 +553,10 @@ const OverviewSection: React.FC<{
   dark: boolean;
 }> = ({ lang, stats, salesData, traffic, notifications, dark }) => {
   return (
-    <section style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+    <section style={{ display: "grid", gap: 24 }}>
+      <ToolsSection lang={lang} />
+      
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
         {stats.map((s) => (
           <Card key={s.title}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -381,17 +565,17 @@ const OverviewSection: React.FC<{
                 <div style={{ fontSize: 20, fontWeight: 700 }}>{s.value}</div>
                 <div style={{ marginTop: 8, color: s.change.startsWith("+") ? "#10B981" : "#ef4444", fontWeight: 600 }}>{s.change}</div>
               </div>
-              <div style={{ fontSize: 28 }}>{s.icon}</div>
+              <div style={{ fontSize: 28, color: s.color }}>{s.icon}</div>
             </div>
           </Card>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
         <Card style={{ minHeight: 320 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <h3 style={{ margin: 0 }}>{lang === "ar" ? "اتجاه المبيعات" : "Sales Trend"}</h3>
-            <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>Last 12 months</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ margin: 0 }}>{lang === "ar" ? "إحصائيات المحتوى" : "Content Statistics"}</h3>
+            <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "آخر 12 شهر" : "Last 12 months"}</div>
           </div>
           <div style={{ width: "100%", height: 260 }}>
             <ResponsiveContainer>
@@ -408,9 +592,9 @@ const OverviewSection: React.FC<{
         </Card>
 
         <Card style={{ minHeight: 320 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <h3 style={{ margin: 0 }}>{lang === "ar" ? "مصادر الزيارات" : "Traffic Sources"}</h3>
-            <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>Distribution</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ margin: 0 }}>{lang === "ar" ? "نوع المحتوى" : "Content Types"}</h3>
+            <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "التوزيع" : "Distribution"}</div>
           </div>
           <div style={{ width: "100%", height: 260 }}>
             <ResponsiveContainer>
@@ -436,10 +620,10 @@ const OverviewSection: React.FC<{
         </Card>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <h3 style={{ margin: 0 }}>{lang === "ar" ? "الإشعارات" : "Notifications"}</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ margin: 0 }}>{lang === "ar" ? "الإشعارات الحديثة" : "Recent Notifications"}</h3>
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => {
@@ -461,23 +645,33 @@ const OverviewSection: React.FC<{
             {notifications.length === 0 ? (
               <div style={{ color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "لا توجد إشعارات" : "No notifications"}</div>
             ) : (
-              notifications.slice(0, 8).map((n) => (
+              notifications.slice(0, 5).map((n) => (
                 <div
                   key={n.id}
                   style={{
-                    padding: 10,
+                    padding: 12,
                     borderRadius: 8,
-                    background: n.read ? "rgba(2,6,23,0.02)" : "rgba(124,58,237,0.04)",
+                    background: n.read ? "rgba(2,6,23,0.02)" : "rgba(124,58,237,0.05)",
+                    border: "1px solid rgba(2,6,23,0.04)",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600 }}>{n.message}</div>
+                    <div style={{ fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
                     <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{formatDateShort(n.date)}</div>
                   </div>
-                  <div style={{ fontSize: 14 }}>{n.read ? "✓" : "•"}</div>
+                  {!n.read && (
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "#7C3AED",
+                      }}
+                    />
+                  )}
                 </div>
               ))
             )}
@@ -488,253 +682,172 @@ const OverviewSection: React.FC<{
   );
 };
 
-/* -------------------- قسم Analytics (placeholder heavy) -------------------- */
-const AnalyticsSection: React.FC<{ lang: "ar" | "en" }> = ({ }) => {
-  // heavy placeholder content to grow file
-  const panels = Array.from({ length: 12 }).map((_, i) => `Metric ${i + 1}`);
-  return (
-    <section style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-        {panels.slice(0, 3).map((p, i) => (
-          <Card key={i}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{p}</div>
-                <div style={{ fontSize: 20, fontWeight: 700 }}>{Math.round(Math.random() * 10000)}</div>
-              </div>
-              <div style={{ fontSize: 24 }}>{i % 2 ? "📈" : "📉"}</div>
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <div style={{ height: 80, background: "linear-gradient(90deg, rgba(2,6,23,0.03), rgba(2,6,23,0.02))", borderRadius: 8 }} />
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
-        {panels.slice(3, 7).map((p, i) => (
-          <Card key={i}>
-            <h4 style={{ margin: 0 }}>{p}</h4>
-            <div style={{ marginTop: 8, color: "var(--muted,#6b7280)" }}>Detailed breakdown and filters will appear here.</div>
-            <div style={{ height: 120, marginTop: 12, borderRadius: 8, background: "#fafafa" }} />
-          </Card>
-        ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
-        {panels.slice(7).map((p, i) => (
-          <Card key={i}>
-            <div style={{ fontWeight: 600 }}>{p}</div>
-            <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>Visualization</div>
-            <div style={{ height: 60, marginTop: 8, borderRadius: 8, background: "#f3f4f6" }} />
-          </Card>
-        ))}
-      </div>
-    </section>
-  );
-};
-
-/* -------------------- Users / Products / Settings placeholders -------------------- */
-
-const UsersSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
-  const rows = Array.from({ length: 16 }).map((_, i) => ({
-    id: i + 1,
-    name: `User ${i + 1}`,
-    email: `user${i + 1}@example.com`,
-    role: i % 3 === 0 ? "admin" : "user",
-  }));
-  return (
-    <section>
-      <Card>
-        <h3>{lang === "ar" ? "قائمة المستخدمين" : "User list"}</h3>
-        <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-          {rows.map((r) => (
-            <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 10, borderRadius: 8, background: "#fff" }}>
-              <div>
-                <div style={{ fontWeight: 700 }}>{r.name}</div>
-                <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{r.email}</div>
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>{r.role}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </section>
-  );
-};
-
-const ProductsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
-  const items = Array.from({ length: 12 }).map((_, i) => ({
-    id: i + 1,
-    title: `Product ${i + 1}`,
-    price: (Math.random() * 200).toFixed(2),
-    stock: Math.floor(Math.random() * 200),
-  }));
-
-  return (
-    <section>
-      <Card>
-        <h3>{lang === "ar" ? "المنتجات" : "Products"}</h3>
-        <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-          {items.map((it) => (
-            <div key={it.id} style={{ padding: 10, borderRadius: 8, background: "#fff" }}>
-              <div style={{ fontWeight: 700 }}>{it.title}</div>
-              <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>${it.price}</div>
-              <div style={{ marginTop: 6, fontSize: 12 }}>{it.stock} in stock</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </section>
-  );
-};
-
-const SettingsSection: React.FC<{ lang: "ar" | "en"; dark: boolean; toggleDark: () => void }> = ({ lang, dark, toggleDark }) => {
-  return (
-    <section>
-      <Card>
-        <h3>{lang === "ar" ? "الإعدادات" : "Settings"}</h3>
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontWeight: 700 }}>{lang === "ar" ? "الوضع الداكن" : "Dark mode"}</div>
-              <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "تحكم في المظهر" : "Toggle theme"}</div>
-            </div>
-            <button onClick={toggleDark} style={{ padding: 8, borderRadius: 8 }}>
-              {dark ? "☀️" : "🌙"}
-            </button>
-          </div>
-
-          <div>
-            <div style={{ fontWeight: 700 }}>{lang === "ar" ? "معلومات الحساب" : "Account info"}</div>
-            <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "تحكم في حسابك" : "Manage your account"}</div>
-          </div>
-        </div>
-      </Card>
-    </section>
-  );
-};
-
-/* -------------------- المكون الرئيسي DashboardClient -------------------- */
-export default function DashboardClient({
+/* -------------------- المكوّن الرئيسي -------------------- */
+const DashboardClient: React.FC<DashboardClientProps> = ({
   user,
-  notifications: initialNotifications = SAMPLE_NOTES,
+  notifications = SAMPLE_NOTES,
   initialLang = "ar",
   initialDark = false,
-}: DashboardClientProps) {
-  // state
-  const [dark, setDark] = useState<boolean>(initialDark);
+}) => {
+  const [dark, setDark] = useState(initialDark);
   const [lang, setLang] = useState<"ar" | "en">(initialLang);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "users" | "products" | "settings">("overview");
-  const [notes, setNotes] = useState<Notification[]>(initialNotifications);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeSection, setActiveSection] = useState("overview");
+  const [unreadCount, setUnreadCount] = useState(
+    notifications.filter((n) => !n.read).length
+  );
 
-  // effect: apply theme class to root
-  useEffect(() => {
-    const root = document.documentElement;
-    if (dark) {
-      root.classList.add("dashboard-dark");
-      // set CSS vars for dark
-      root.style.setProperty("--card-bg", "#0b1220");
-      root.style.setProperty("--text", "#e6eef8");
-      root.style.setProperty("--muted", "#9ca3af");
-      root.style.setProperty("--accent", "#7C3AED");
-    } else {
-      root.classList.remove("dashboard-dark");
-      root.style.setProperty("--card-bg", "#ffffff");
-      root.style.setProperty("--text", "#0f172a");
-      root.style.setProperty("--muted", "#6b7280");
-      root.style.setProperty("--accent", "#7C3AED");
-    }
-    // persist minimally
-    try {
-      localStorage.setItem("dashboard:dark", dark ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [dark]);
-
-  // mark all read
-  const markAllRead = () => {
-    setNotes((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  // logout
-  const logout = () => {
-    // clear token cookie and redirect to /login
-    try {
-      document.cookie = "token=; path=/; max-age=0";
-    } catch {
-      // ignore
-    }
-    window.location.href = "/login";
-  };
-
-  // stats
+  // إحصائيات تجريبية
   const stats: StatItem[] = useMemo(
     () => [
-      { icon: <FaChartLine />, title: lang === "ar" ? "إجمالي المبيعات" : "Revenue", value: "$12,345", change: "+12%", color: "#7C3AED" },
-      { icon: <FaFileAlt />, title: lang === "ar" ? "المستندات" : "Documents", value: "134", change: "+3%", color: "#60A5FA" },
-      { icon: <FaUsers />, title: lang === "ar" ? "المستخدمون" : "Users", value: "1,245", change: "+8%", color: "#6EE7B7" },
-      { icon: <FaShoppingCart />, title: lang === "ar" ? "الطلبات" : "Orders", value: "326", change: "-2%", color: "#F472B6" },
+      {
+        icon: <FaChartLine />,
+        title: lang === "ar" ? "إجمالي المحتوى" : "Total Content",
+        value: "1,248",
+        change: "+12%",
+        color: "#7C3AED",
+      },
+      {
+        icon: <FaFileAlt />,
+        title: lang === "ar" ? "المقالات" : "Articles",
+        value: "845",
+        change: "+8%",
+        color: "#60A5FA",
+      },
+      {
+        icon: <FaUsers />,
+        title: lang === "ar" ? "المستخدمون" : "Users",
+        value: "5,281",
+        change: "+23%",
+        color: "#10B981",
+      },
+      {
+        icon: <FaShoppingCart />,
+        title: lang === "ar" ? "المبيعات" : "Sales",
+        value: "2,451",
+        change: "+18%",
+        color: "#F59E0B",
+      },
     ],
     [lang]
   );
 
-  // derived values
-  const unreadCount = notes.filter((n) => !n.read).length;
+  // تطبيق وضع الظلام
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.style.setProperty("--text", "#f8fafc");
+      document.documentElement.style.setProperty("--muted", "#cbd5e1");
+      document.documentElement.style.setProperty("--card-bg", "#1e293b");
+      document.documentElement.style.background = "#0f172a";
+      document.documentElement.style.color = "#f8fafc";
+    } else {
+      document.documentElement.style.setProperty("--text", "#0f172a");
+      document.documentElement.style.setProperty("--muted", "#6b7280");
+      document.documentElement.style.setProperty("--card-bg", "#fff");
+      document.documentElement.style.background = "#f8fafc";
+      document.documentElement.style.color = "#0f172a";
+    }
+  }, [dark]);
 
-  /* -------------------- render -------------------- */
+  const handleLogout = () => {
+    // محاكاة تسجيل الخروج
+    console.log("Logging out...");
+  };
+
+  const handleMarkAllRead = () => {
+    setUnreadCount(0);
+    // في التطبيق الحقيقي، سنقوم بتحديث حالة القراءة في قاعدة البيانات
+  };
+
+  const toggleDark = () => setDark(!dark);
+  const toggleLang = () => setLang(lang === "ar" ? "en" : "ar");
+
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: dark ? "#071226" : "#f8fafc" }}>
-      <div style={{ width: sidebarOpen ? 260 : 78, transition: "width .22s ease" }}>
-        <Sidebar
-          open={sidebarOpen}
-          onToggle={() => setSidebarOpen((s) => !s)}
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        direction: lang === "ar" ? "rtl" : "ltr",
+      }}
+    >
+      <Sidebar
+        open={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        lang={lang}
+        onChangeLang={toggleLang}
+        dark={dark}
+        onToggleDark={toggleDark}
+        active={activeSection}
+        setActive={setActiveSection}
+      />
+
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--background, #f8fafc)",
+        }}
+      >
+        <Header
+          user={user}
+          notificationsCount={unreadCount}
+          onLogout={handleLogout}
+          onMarkAllRead={handleMarkAllRead}
           lang={lang}
-          onChangeLang={() => setLang((l) => (l === "ar" ? "en" : "ar"))}
-          dark={dark}
-          onToggleDark={() => setDark((d) => !d)}
-          active={activeTab}
-          setActive={(k) => {
-            // typed cast safe
-            setActiveTab(k as any);
-          }}
         />
-      </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <Header user={user} notificationsCount={unreadCount} onLogout={logout} onMarkAllRead={markAllRead} />
-
-        <main style={{ padding: 18 }}>
-          {/* choose active tab */}
-          {activeTab === "overview" && (
-            <OverviewSection lang={lang} stats={stats} salesData={SAMPLE_SALES} traffic={SAMPLE_TRAFFIC} notifications={notes} dark={dark} />
+        <div style={{ padding: 24, flex: 1 }}>
+          {activeSection === "overview" && (
+            <OverviewSection
+              lang={lang}
+              stats={stats}
+              salesData={SAMPLE_SALES}
+              traffic={SAMPLE_TRAFFIC}
+              notifications={notifications}
+              dark={dark}
+            />
           )}
-          {activeTab === "analytics" && <AnalyticsSection lang={lang} />}
-          {activeTab === "users" && <UsersSection lang={lang} />}
-          {activeTab === "products" && <ProductsSection lang={lang} />}
-          {activeTab === "settings" && <SettingsSection lang={lang} dark={dark} toggleDark={() => setDark((d) => !d)} />}
 
-          {/* filler content to expand file for "large" output */}
-          <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <Card key={idx}>
-                <h4 style={{ margin: 0 }}>{lang === "ar" ? `لوحة إضافية ${idx + 1}` : `Extra panel ${idx + 1}`}</h4>
-                <p style={{ color: "var(--muted,#6b7280)" }}>
-                  {lang === "ar"
-                    ? "محتوى تجريبي لتعبئة الصفحة — ضع هنا أي واجهة أو مكون ترغب في ربطه ببيانات حقيقية لاحقاً."
-                    : "Demo filler content to extend the dashboard. Replace with real components or API-driven widgets."}
-                </p>
-                <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                  <div style={{ flex: 1, height: 60, background: "linear-gradient(90deg, rgba(2,6,23,0.02), rgba(2,6,23,0.03))", borderRadius: 8 }} />
-                  <div style={{ width: 120, height: 60, background: "#f1f5f9", borderRadius: 8 }} />
-                </div>
-              </Card>
-            ))}
-          </div>
-        </main>
-      </div>
+          {activeSection === "analytics" && (
+            <div>
+              <h2>{lang === "ar" ? "التحليلات المتقدمة" : "Advanced Analytics"}</h2>
+              <p>{lang === "ar" ? "قسم التحليلات قيد التطوير..." : "Analytics section is under development..."}</p>
+            </div>
+          )}
+
+          {activeSection === "content" && (
+            <div>
+              <h2>{lang === "ar" ? "إدارة المحتوى" : "Content Management"}</h2>
+              <p>{lang === "ar" ? "قسم المحتوى قيد التطوير..." : "Content section is under development..."}</p>
+            </div>
+          )}
+
+          {activeSection === "books" && (
+            <div>
+              <h2>{lang === "ar" ? "إدارة الكتب" : "Books Management"}</h2>
+              <p>{lang === "ar" ? "قسم الكتب قيد التطوير..." : "Books section is under development..."}</p>
+            </div>
+          )}
+
+          {activeSection === "ads" && (
+            <div>
+              <h2>{lang === "ar" ? "منشئ الإعلانات" : "Ad Generator"}</h2>
+              <p>{lang === "ar" ? "قسم الإعلانات قيد التطوير..." : "Ads section is under development..."}</p>
+            </div>
+          )}
+
+          {activeSection === "settings" && (
+            <div>
+              <h2>{lang === "ar" ? "الإعدادات" : "Settings"}</h2>
+              <p>{lang === "ar" ? "قسم الإعدادات قيد التطوير..." : "Settings section is under development..."}</p>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
-}
+};
+ 
+export default DashboardClient;

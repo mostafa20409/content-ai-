@@ -1,79 +1,105 @@
-// app/api/auth/signup/route.ts
-import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
+// app/api/auth/signup/route.js
+import { NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
 
-type User = {
-  id: number;
-  name: string;
-  email: string;
-  password: string; // hashed password
-};
+const prisma = new PrismaClient();
 
-let users: User[] = [];
-let idCounter = 1;
-
-export async function POST(req: Request) {
+export async function POST(request) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password } = await request.json();
 
-    // التحقق من الإدخالات
+    // التحقق من صحة البيانات
     if (!name || !email || !password) {
       return NextResponse.json(
-        { error: "All fields (name, email, password) are required." },
+        { error: "جميع الحقول مطلوبة" },
         { status: 400 }
       );
     }
 
-    // تحقق من email format
+    // التحقق من صحة البريد الإلكتروني
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json(
-        { error: "Invalid email format." },
+        { error: "صيغة البريد الإلكتروني غير صحيحة" },
         { status: 400 }
       );
     }
 
-    // تحقق من طول الباسورد
+    // التحقق من قوة كلمة المرور
     if (password.length < 6) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters long." },
+        { error: "كلمة المرور يجب أن تكون على الأقل 6 أحرف" },
         { status: 400 }
       );
     }
 
-    // تأكد أن الإيميل مش موجود
-    if (users.find((u) => u.email === email)) {
+    // التحقق من وجود المستخدم مسبقاً
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
       return NextResponse.json(
-        { error: "User with this email already exists." },
-        { status: 400 }
+        { error: "هذا البريد الإلكتروني مسجل بالفعل" },
+        { status: 409 }
       );
     }
 
-    // Hash للباسورد
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // تشفير كلمة المرور
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    // إضافة المستخدم
-    const newUser: User = {
-      id: idCounter++,
-      name,
-      email,
-      password: hashedPassword,
-    };
+    // إنشاء مستخدم جديد مع تفعيله تلقائياً
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        verified: true, // ✅ الحساب مفعل تلقائياً
+        emailVerified: new Date(),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        verified: true,
+        createdAt: true
+      }
+    });
 
-    users.push(newUser);
+    // إنشاء token للمستخدم (اختياري)
+    // const token = jwt.sign({ userId: newUser.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     return NextResponse.json(
-      {
-        message: "User registered successfully!",
-        user: { id: newUser.id, name: newUser.name, email: newUser.email },
+      { 
+        message: "تم إنشاء الحساب بنجاح", 
+        user: newUser,
+        // token: token // إذا كنت تستخدم JWT
       },
       { status: 201 }
     );
-  } catch (err) {
-    console.error("Signup Error:", err);
+  } catch (error) {
+    console.error("Signup error:", error);
+    
+    // معالجة أخطاء Prisma المختلفة
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: "هذا البريد الإلكتروني مسجل بالفعل" },
+        { status: 409 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: "حدث خطأ في السيرفر أثناء إنشاء الحساب" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
+}
+
+// دالة للتحقق من صحة البريد الإلكتروني (يمكن نقلها لأداة مساعدة)
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 }
