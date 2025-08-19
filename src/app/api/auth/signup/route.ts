@@ -1,9 +1,9 @@
 // app/api/auth/signup/route.js
-import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
+import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+// Array مؤقت عشان نخزن فيه اليوزرز
+let users = [];
 
 export async function POST(request) {
   try {
@@ -35,10 +35,7 @@ export async function POST(request) {
     }
 
     // التحقق من وجود المستخدم مسبقاً
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
-
+    const existingUser = users.find((u) => u.email === email);
     if (existingUser) {
       return NextResponse.json(
         { error: "هذا البريد الإلكتروني مسجل بالفعل" },
@@ -49,57 +46,37 @@ export async function POST(request) {
     // تشفير كلمة المرور
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // إنشاء مستخدم جديد مع تفعيله تلقائياً
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        verified: true, // ✅ الحساب مفعل تلقائياً
-        emailVerified: new Date(),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        verified: true,
-        createdAt: true
-      }
-    });
+    // إنشاء مستخدم جديد
+    const newUser = {
+      id: Date.now(), // id بسيط
+      name,
+      email,
+      password: hashedPassword,
+      verified: true,
+      createdAt: new Date(),
+    };
 
-    // إنشاء token للمستخدم (اختياري)
-    // const token = jwt.sign({ userId: newUser.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    // إضافة المستخدم للـ array
+    users.push(newUser);
 
     return NextResponse.json(
-      { 
-        message: "تم إنشاء الحساب بنجاح", 
-        user: newUser,
-        // token: token // إذا كنت تستخدم JWT
+      {
+        message: "تم إنشاء الحساب بنجاح",
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          verified: newUser.verified,
+          createdAt: newUser.createdAt,
+        },
       },
       { status: 201 }
     );
   } catch (error) {
     console.error("Signup error:", error);
-    
-    // معالجة أخطاء Prisma المختلفة
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: "هذا البريد الإلكتروني مسجل بالفعل" },
-        { status: 409 }
-      );
-    }
-    
     return NextResponse.json(
       { error: "حدث خطأ في السيرفر أثناء إنشاء الحساب" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
-}
-
-// دالة للتحقق من صحة البريد الإلكتروني (يمكن نقلها لأداة مساعدة)
-function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
 }
