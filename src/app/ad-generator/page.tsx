@@ -47,8 +47,10 @@ const LENGTHS: AdLength[] = ["short", "medium", "long"];
 const MAX_HISTORY_ITEMS = 50;
 const MAX_ANALYTICS_ITEMS = 100;
 
-/* Primary color (change here to affect UI) */
-const PRIMARY_COLOR = "#7c3aed"; // purple (替换 بسهولة لو حبيت أسود/أبيض لاحقًا)
+/* Primary color */
+const PRIMARY_COLOR = "#2563eb";
+const SECONDARY_COLOR = "#64748b";
+const SUCCESS_COLOR = "#10b981";
 
 /* Platform colors */
 function platformColor(type: AdType) {
@@ -60,7 +62,7 @@ function platformColor(type: AdType) {
     linkedin: "#0077b5",
     tiktok: "#000000"
   };
-  return map[type] ?? "#666";
+  return map[type] ?? SECONDARY_COLOR;
 }
 
 /* ---------------- Component ---------------- */
@@ -180,12 +182,8 @@ export default function AdvancedAdGenerator() {
   const validateInput = (): string | null => {
     if (!input.product.trim()) return lang === "ar" ? "❌ يرجى إدخال اسم المنتج" : "❌ Please enter product name";
     if (!input.audience.trim()) return lang === "ar" ? "❌ يرجى إدخال الجمهور المستهدف" : "❌ Please enter audience";
-    if (!AD_TYPES.includes(input.type)) return lang === "ar" ? "❌ يرجى اختيار نوع منصة صحيحة" : "❌ Please select a valid platform";
-    if (!TONES.includes(input.tone)) return lang === "ar" ? "❌ يرجى اختيار نغمة صحيحة" : "❌ Please select a tone";
-    if (!LENGTHS.includes(input.length)) return lang === "ar" ? "❌ يرجى اختيار طول صحيح" : "❌ Please select a length";
     return null;
   };
-
 
   /* ---------------- history management ---------------- */
   const addToHistory = useCallback((adText: string) => {
@@ -240,7 +238,7 @@ export default function AdvancedAdGenerator() {
     });
   }, [history, searchTerm, selectedPlatform, selectedRating]);
 
-  /* ---------------- ad generation (mock) ---------------- */
+  /* ---------------- ad generation (using DeepSeek API) ---------------- */
   const generateAd = async () => {
     setError(null);
     setResult("");
@@ -255,9 +253,28 @@ export default function AdvancedAdGenerator() {
     const start = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     try {
-      // simulate API / model call
-      await new Promise(res => setTimeout(res, 900 + Math.random() * 600));
-      const text = generateMockAd(input, lang);
+      // استدعاء DeepSeek API بدلاً من المحاكاة
+      const response = await fetch('/api/generate-ad', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product: input.product,
+          audience: input.audience,
+          type: input.type,
+          maxTokens: input.length === 'short' ? 100 : input.length === 'medium' ? 200 : 300,
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(lang === "ar" ? "فشل في توليد الإعلان" : "Failed to generate ad");
+      }
+
+      const data = await response.json();
+      const text = data.adText;
+      
       setResult(text);
       addToHistory(text);
 
@@ -623,7 +640,6 @@ export default function AdvancedAdGenerator() {
 }
 
 /* ---------------- styles (JS object) ---------------- */
-/* Note: keep styles simple and readable; dynamic theme overrides applied in component */
 const styles: Record<string, any> = {
   appContainer: {
     minHeight: "100vh",
@@ -740,50 +756,3 @@ const styles: Record<string, any> = {
 
 /* ---------------- util helpers ---------------- */
 function merge(a: any, b: any) { return { ...(a||{}), ...(b||{}) }; }
-
-/* ---------------- mock ad generator (keeps emojis & platform formatting) ---------------- */
-const generateMockAd = (input: AdInput, uiLang: AdLanguage) => {
-  const product = input.product || (uiLang === "ar" ? "المنتج" : "the product");
-  const audience = input.audience || (uiLang === "ar" ? "الجمهور" : "the audience");
-  const keywords = input.keywords ? ` (${input.keywords})` : "";
-  const offer = input.specialOffers ? `\n\n${uiLang==="ar"?"عرض خاص:":"Special offer:"} ${input.specialOffers}` : "";
-
-  const arTones: Record<AdTone,string> = {
-    formal: `نقدم لكم ${product}، مُصمم ليلبي احتياجات ${audience}.${keywords}${offer}`,
-    friendly: `مرحباً! هل تبحث عن ${product}؟ الحل الأمثل لـ${audience} هنا الآن!${keywords}${offer}`,
-    humorous: `لا تفوّت المرح! جرب ${product} وانضم لـ${audience} السعداء 😄${keywords}${offer}`,
-    persuasive: `لا تفوّت الفرصة — ${product} هو الحل الذي يحتاجه ${audience}.${keywords}${offer}`,
-    urgent: `عرض محدود! ${product} متوفر الآن لـ${audience}. سارع قبل نفاذ الكمية!${keywords}${offer}`
-  };
-
-  const enTones: Record<AdTone,string> = {
-    formal: `Introducing ${product}, crafted to meet the needs of ${audience}.${keywords}${offer}`,
-    friendly: `Hey there! Looking for ${product}? Perfect for ${audience}!${keywords}${offer}`,
-    humorous: `Don't be ordinary — try ${product} and join happy ${audience}! 😄${keywords}${offer}`,
-    persuasive: `Don't miss out! ${product} is the solution ${audience} has been waiting for.${keywords}${offer}`,
-    urgent: `Limited time offer! ${product} available now for ${audience}. Hurry before it's gone!${keywords}${offer}`
-  };
-
-  const baseText = uiLang === "ar" ? arTones[input.tone] : enTones[input.tone];
-
-  const applyLength = (text: string) => {
-    switch (input.length) {
-      case "short": return text.split(/\s+/).slice(0, 30).join(" ");
-      case "medium": return text;
-      case "long": return `${text}\n\n${uiLang==="ar" ? "تفاصيل إضافية حول المنتج ومميزاته." : "More details about features and benefits."}`;
-    }
-  };
-
-  let ad = applyLength(baseText);
-
-  switch (input.type) {
-    case "facebook": ad = `🌟 ${ad}\n\n#${product.replace(/\s/g,"")} #${audience.replace(/\s/g,"")}`; break;
-    case "instagram": ad = `✨ ${ad}\n\nFollow us @username`; break;
-    case "google": ad = `• ${ad.replace(/\n/g,"\n• ")}`; break;
-    case "twitter": ad = `${ad}\n\n@username #${product.replace(/\s/g,"")}`; break;
-    case "linkedin": ad = `${uiLang==="ar" ? "نحن فخورون بالإعلان عن" : "We are proud to introduce"} ${product} — designed for ${audience}.${keywords}${offer}`; break;
-    case "tiktok": ad = `🔥 ${ad}\n\nWatch on our page! #${product.replace(/\s/g,"")}`; break;
-  }
-
-  return ad;
-};

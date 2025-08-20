@@ -112,12 +112,12 @@ export async function POST(req: Request) {
     user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
 
-    // 9️⃣ الرد
+    // 9️⃣ الرد مع إعادة التوجيه إلى dashboard
     return NextResponse.json(
       {
         success: true,
         message: "تم تسجيل الدخول بنجاح",
-        redirect: "/dashboard",
+        redirect: "/dashboard", // إعادة التوجيه إلى dashboard مباشرة
         user: {
           id: user._id.toString(),
           email: user.email,

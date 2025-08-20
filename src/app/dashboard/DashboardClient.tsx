@@ -286,7 +286,6 @@ const Sidebar: React.FC<{
       <nav aria-label="Main navigation" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {[
           { key: "overview", label: lang === "ar" ? "الرئيسية" : "Overview", icon: "🏠" },
-          { key: "analytics", label: lang === "ar" ? "الإحصائيات" : "Analytics", icon: "📊" },
           { key: "content", label: lang === "ar" ? "المحتوى" : "Content", icon: "📝" },
           { key: "books", label: lang === "ar" ? "الكتب" : "Books", icon: "📚" },
           { key: "ads", label: lang === "ar" ? "الإعلانات" : "Ads", icon: "📢" },
@@ -544,6 +543,9 @@ const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
   return (
     <section style={{ marginBottom: 24 }}>
       <h2 style={{ marginBottom: 16 }}>{lang === "ar" ? "أدوات المحتوى" : "Content Tools"}</h2>
+  );
+
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
         {tools.map((tool) => (
           <Card 
@@ -596,80 +598,12 @@ const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
 /* -------------------- قسم Overview -------------------- */
 const OverviewSection: React.FC<{
   lang: "ar" | "en";
-  stats: StatItem[];
-  salesData: typeof SAMPLE_SALES;
-  traffic: typeof SAMPLE_TRAFFIC;
   notifications: Notification[];
-  dark: boolean;
-}> = ({ lang, stats, salesData, traffic, notifications, dark }) => {
+}> = ({ lang, notifications }) => {
   return (
     <section style={{ display: "grid", gap: 24 }}>
       <ToolsSection lang={lang} />
       
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
-        {stats.map((s) => (
-          <Card key={s.title}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{s.title}</div>
-                <div style={{ fontSize: 20, fontWeight: 700 }}>{s.value}</div>
-                <div style={{ marginTop: 8, color: s.change.startsWith("+") ? "#10B981" : "#ef4444", fontWeight: 600 }}>{s.change}</div>
-              </div>
-              <div style={{ fontSize: 28, color: s.color }}>{s.icon}</div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-        <Card style={{ minHeight: 320 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>{lang === "ar" ? "إحصائيات المحتوى" : "Content Statistics"}</h3>
-            <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "آخر 12 شهر" : "Last 12 months"}</div>
-          </div>
-          <div style={{ width: "100%", height: 260 }}>
-            <ResponsiveContainer>
-              <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={dark ? "#2b2b2b" : "#eee"} />
-                <XAxis dataKey="name" stroke={dark ? "#cbd5e1" : "#475569"} />
-                <YAxis stroke={dark ? "#cbd5e1" : "#475569"} />
-                <Tooltip wrapperStyle={{ borderRadius: 6 }} />
-                <Legend />
-                <Line type="monotone" dataKey="sales" stroke="#7C3AED" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card style={{ minHeight: 320 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>{lang === "ar" ? "نوع المحتوى" : "Content Types"}</h3>
-            <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "التوزيع" : "Distribution"}</div>
-          </div>
-          <div style={{ width: "100%", height: 260 }}>
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie
-                  data={traffic}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={(entry) => `${entry.name}: ${Math.round(((entry.value ?? 0) / traffic.reduce((a, b) => a + b.value, 0)) * 100)}%`}
-                >
-                  {traffic.map((_entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -755,6 +689,7 @@ const ContentSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "إدارة المحتوى" : "Content Management"}</h2>
         <button
+          onClick={() => window.location.href = "/content/new"}
           style={{
             display: "flex",
             alignItems: "center",
@@ -860,6 +795,7 @@ const BooksSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "إدارة الكتب" : "Books Management"}</h2>
         <button
+          onClick={() => window.location.href = "/books/new"}
           style={{
             display: "flex",
             alignItems: "center",
@@ -955,6 +891,7 @@ const AdsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "منشئ الإعلانات" : "Ad Generator"}</h2>
         <button
+          onClick={() => window.location.href = "/ad-generator/new"}
           style={{
             display: "flex",
             alignItems: "center",
@@ -1265,41 +1202,6 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
     notifications.filter((n) => !n.read).length
   );
 
-  // إحصائيات تجريبية
-  const stats: StatItem[] = useMemo(
-    () => [
-      {
-        icon: <FaChartLine />,
-        title: lang === "ar" ? "إجمالي المحتوى" : "Total Content",
-        value: "1,248",
-        change: "+12%",
-        color: "#7C3AED",
-      },
-      {
-        icon: <FaFileAlt />,
-        title: lang === "ar" ? "المقالات" : "Articles",
-        value: "845",
-        change: "+8%",
-        color: "#60A5FA",
-      },
-      {
-        icon: <FaUsers />,
-        title: lang === "ar" ? "المستخدمون" : "Users",
-        value: "5,281",
-        change: "+23%",
-        color: "#10B981",
-      },
-      {
-        icon: <FaShoppingCart />,
-        title: lang === "ar" ? "المبيعات" : "Sales",
-        value: "2,451",
-        change: "+18%",
-        color: "#F59E0B",
-      },
-    ],
-    [lang]
-  );
-
   // تطبيق وضع الظلام
   useEffect(() => {
     if (dark) {
@@ -1374,19 +1276,8 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
           {activeSection === "overview" && (
             <OverviewSection
               lang={lang}
-              stats={stats}
-              salesData={SAMPLE_SALES}
-              traffic={SAMPLE_TRAFFIC}
               notifications={notifications}
-              dark={dark}
             />
-          )}
-
-          {activeSection === "analytics" && (
-            <div>
-              <h2>{lang === "ar" ? "التحليلات المتقدمة" : "Advanced Analytics"}</h2>
-              <p>{lang === "ar" ? "قسم التحليلات قيد التطوير..." : "Analytics section is under development..."}</p>
-            </div>
           )}
 
           {activeSection === "content" && (

@@ -1,6 +1,5 @@
 // app/api/generate/route.ts
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { z } from 'zod';
@@ -65,15 +64,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 7. 🤖 إعداد اتصال OpenAI
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('❌ مفتاح OpenAI غير موجود');
+    // 7. 🤖 إعداد اتصال DeepSeek API
+    if (!process.env.DEEPSEEK_API_KEY) {
+      throw new Error('❌ مفتاح DeepSeek API غير موجود');
     }
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 20000
-    });
 
     // 8. 🎭 إضافة بصمة سرية
     const contentFingerprint = createHmac('sha256', SECRET_KEY)
@@ -81,37 +75,54 @@ export async function POST(req: Request) {
       .digest('hex')
       .slice(0, 8);
 
-    // 9. ✍ توليد المحتوى
+    // 9. ✍ توليد المحتوى باستخدام DeepSeek API
     const lengthMap = {
       short: language === 'ar' ? 'مختصر' : 'short',
       medium: language === 'ar' ? 'متوسط' : 'medium',
       long: language === 'ar' ? 'طويل' : 'long'
     };
 
-    const response = await openai.chat.completions.create({
-      model: isPremium ? 'gpt-4-turbo' : 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content:
-            language === 'ar'
-              ? `أنت كاتب محترف. كل المحتوى يجب أن يحتوي على البصمة التالية: ${contentFingerprint}`
-              : `You're a professional writer. All content must include the fingerprint: ${contentFingerprint}`
-        },
-        {
-          role: 'user',
-          content:
-            language === 'ar'
-              ? `اكتب محتوى ${lengthMap[length]} عن: ${topic}`
-              : `Write a ${lengthMap[length]} piece of content about: ${topic}`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: length === 'short' ? 300 : length === 'medium' ? 600 : 1000
+    // تحديد نموذج DeepSeek المناسب
+    const model = isPremium ? 'deepseek-chat' : 'deepseek-coder'; // يمكن تعديل النماذج حسب الحاجة
+
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              language === 'ar'
+                ? `أنت كاتب محترف. كل المحتوى يجب أن يحتوي على البصمة التالية: ${contentFingerprint}`
+                : `You're a professional writer. All content must include the fingerprint: ${contentFingerprint}`
+          },
+          {
+            role: 'user',
+            content:
+              language === 'ar'
+                ? `اكتب محتوى ${lengthMap[length]} عن: ${topic}`
+                : `Write a ${lengthMap[length]} piece of content about: ${topic}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: length === 'short' ? 300 : length === 'medium' ? 600 : 1000
+      })
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`DeepSeek API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+
     // 10. 🔎 التحقق من المحتوى المُولد
-    const content = response.choices[0]?.message?.content;
+    const content = data.choices[0]?.message?.content;
     if (!content || !content.includes(contentFingerprint)) {
       throw new Error('🤖 المحتوى غير صالح أو تم التلاعب به!');
     }
@@ -122,8 +133,8 @@ export async function POST(req: Request) {
       data: {
         content,
         fingerprint: contentFingerprint,
-        model: response.model,
-        tokens: response.usage?.total_tokens,
+        model: data.model,
+        tokens: data.usage?.total_tokens,
         length
       }
     });
@@ -159,6 +170,7 @@ export async function GET() {
     features: {
       languages: ['ar', 'en'],
       lengths: ['short', 'medium', 'long']
-    }
+    },
+    provider: 'DeepSeek API'
   });
 }

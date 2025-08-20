@@ -1,10 +1,4 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
-
-// ✅ إنشاء عميل OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
 
 // ✅ إعداد خريطة لتتبع معدل الطلبات (Rate Limit)
 const globalAny = global as any;
@@ -12,6 +6,10 @@ if (!globalAny.__AD_RATE_MAP) {
   globalAny.__AD_RATE_MAP = new Map<string, { count: number; resetAt: number }>();
 }
 const RATE_LIMIT = { MAX: 10, WINDOW: 60 * 1000 }; // 10 طلبات في الدقيقة
+
+// ✅ تكوين DeepSeek API
+const DEEPSEEK_API_BASE = 'https://api.deepseek.com';
+const DEEPSEEK_CHAT_ENDPOINT = '/v1/chat/completions';
 
 function checkRateLimit(ip: string) {
   const now = Date.now();
@@ -25,12 +23,38 @@ function checkRateLimit(ip: string) {
   return false;
 }
 
+// ✅ دالة للتحقق من صحة DeepSeek API
+async function validateDeepSeekAPI(apiKey: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${DEEPSEEK_API_BASE}/v1/models`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('❌ DeepSeek API validation failed:', error);
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // ✅ التحقق من وجود مفتاح API
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.DEEPSEEK_API_KEY) {
       return NextResponse.json(
-        { error: "⚠️ مفتاح OpenAI API غير معرف في المتغيرات البيئية." },
+        { error: "⚠️ مفتاح DeepSeek API غير معرف في المتغيرات البيئية." },
+        { status: 500 }
+      );
+    }
+
+    // ✅ التحقق من صحة API
+    const isAPIValid = await validateDeepSeekAPI(process.env.DEEPSEEK_API_KEY);
+    if (!isAPIValid) {
+      return NextResponse.json(
+        { error: "❌ مشكلة في اتصال DeepSeek API. يرجى التحقق من المفتاح." },
         { status: 500 }
       );
     }
@@ -80,18 +104,46 @@ export async function POST(req: Request) {
       اجعل النص مناسبًا لطبيعة المنصة، مع لمسة إبداعية وCTA واضح.
     `;
 
-    // ✅ استدعاء OpenAI API
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "أنت مساعد ذكي متخصص في كتابة الإعلانات التسويقية." },
-        { role: "user", content: prompt },
-      ],
-      max_tokens,
-      temperature: temp,
+    // ✅ استدعاء DeepSeek API بدلاً من OpenAI
+    const apiUrl = `${DEEPSEEK_API_BASE}${DEEPSEEK_CHAT_ENDPOINT}`;
+    
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.DEEPSEEK_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: "أنت مساعد ذكي متخصص في كتابة الإعلانات التسويقية." },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: max_tokens,
+        temperature: temp,
+      }),
     });
 
-    const adText = response.choices?.[0]?.message?.content?.trim();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ DeepSeek API error:", response.status, errorText);
+      
+      let errorMessage = "خطأ في توليد الإعلان";
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error?.message || errorText;
+      } catch {
+        errorMessage = errorText;
+      }
+
+      return NextResponse.json(
+        { error: `❌ خطأ في DeepSeek API: ${errorMessage}` },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    const adText = data.choices?.[0]?.message?.content?.trim();
 
     if (!adText) {
       return NextResponse.json(
@@ -100,8 +152,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ الرد بنجاح
-    return NextResponse.json({ adText }, { status: 200 });
+    // ✅ الرد بنجاح مع معلومات إضافية
+    return NextResponse.json({ 
+      adText,
+      model: data.model,
+      tokens: data.usage?.total_tokens 
+    }, { status: 200 });
   } catch (error: any) {
     console.error("❌ Error in /api/generate-ad:", error);
     return NextResponse.json(
@@ -112,4 +168,13 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+// ✅ نقطة نهاية اختبارية
+export async function GET() {
+  return NextResponse.json({
+    status: '🟢 تعمل',
+    message: 'استخدم POST مع { product: "...", audience: "...", type: "..." }',
+    provider: 'DeepSeek API'
+  });
 }
