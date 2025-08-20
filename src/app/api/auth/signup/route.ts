@@ -1,15 +1,25 @@
-// app/api/auth/signup/route.js
+// app/api/auth/signup/route.ts
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
-// Array مؤقت عشان نخزن فيه اليوزرز
-let users = [];
+// تعريف نوع المستخدم
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  password: string;
+  verified: boolean;
+  createdAt: Date;
+}
 
-export async function POST(request) {
+// Array مؤقت لتخزين المستخدمين مع تحديد النوع
+let users: User[] = [];
+
+export async function POST(request: Request) {
   try {
     const { name, email, password } = await request.json();
 
-    // التحقق من صحة البيانات
+    // تحقق من صحة البيانات
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "جميع الحقول مطلوبة" },
@@ -17,7 +27,7 @@ export async function POST(request) {
       );
     }
 
-    // التحقق من صحة البريد الإلكتروني
+    // تحقق من صيغة البريد الإلكتروني
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json(
@@ -26,7 +36,7 @@ export async function POST(request) {
       );
     }
 
-    // التحقق من قوة كلمة المرور
+    // تحقق من قوة كلمة المرور
     if (password.length < 6) {
       return NextResponse.json(
         { error: "كلمة المرور يجب أن تكون على الأقل 6 أحرف" },
@@ -34,7 +44,7 @@ export async function POST(request) {
       );
     }
 
-    // التحقق من وجود المستخدم مسبقاً
+    // تحقق من وجود المستخدم مسبقًا
     const existingUser = users.find((u) => u.email === email);
     if (existingUser) {
       return NextResponse.json(
@@ -46,27 +56,26 @@ export async function POST(request) {
     // تشفير كلمة المرور
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // إنشاء مستخدم جديد
-    const newUser = {
-      id: Date.now(), // id بسيط
+    // إنشاء مستخدم جديد مفعل على طول
+    const newUser: User = {
+      id: Date.now(),
       name,
       email,
       password: hashedPassword,
-      verified: true,
+      verified: true, // ✅ مفعل مباشرة
       createdAt: new Date(),
     };
 
-    // إضافة المستخدم للـ array
     users.push(newUser);
 
     return NextResponse.json(
       {
-        message: "تم إنشاء الحساب بنجاح",
+        message: "تم إنشاء الحساب وتفعيله بنجاح ✅",
         user: {
           id: newUser.id,
           name: newUser.name,
           email: newUser.email,
-          verified: newUser.verified,
+          verified: newUser.verified, // يظهر في الرد أنه مفعل
           createdAt: newUser.createdAt,
         },
       },

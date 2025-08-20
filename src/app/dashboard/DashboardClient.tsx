@@ -15,7 +15,7 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
-import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiArrowUp } from "react-icons/fi";
+import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiArrowUp, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiUser, FiLock, FiMail } from "react-icons/fi";
 import { FaChartLine, FaFileAlt, FaUsers, FaShoppingCart } from "react-icons/fa";
 
 /* ==========================================================================
@@ -29,6 +29,7 @@ export type User = {
   name: string;
   email?: string;
   role?: string;
+  avatar?: string;
 };
 
 export type Notification = {
@@ -45,6 +46,36 @@ export type StatItem = {
   change: string;
   hint?: string;
   color?: string;
+};
+
+export type ContentItem = {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  views: number;
+  date: string;
+  category: string;
+};
+
+export type BookItem = {
+  id: string;
+  title: string;
+  author: string;
+  pages: number;
+  status: string;
+  downloads: number;
+  date: string;
+};
+
+export type AdItem = {
+  id: string;
+  title: string;
+  platform: string;
+  status: string;
+  clicks: number;
+  impressions: number;
+  date: string;
 };
 
 export interface DashboardClientProps {
@@ -71,9 +102,9 @@ const SAMPLE_SALES = [
 ];
 
 const SAMPLE_TRAFFIC = [
-  { name: "كمبيوتر", value: 400 },
-  { name: "جوال", value: 700 },
-  { name: "تابلت", value: 300 },
+  { name: "مقالات", value: 400 },
+  { name: "كتب", value: 700 },
+  { name: "إعلانات", value: 300 },
   { name: "أخرى", value: 100 },
 ];
 
@@ -83,6 +114,25 @@ const SAMPLE_NOTES = Array.from({ length: 8 }).map((_, i) => ({
   date: new Date(Date.now() - i * 1000 * 60 * 60).toISOString(),
   read: i % 3 === 0,
 }));
+
+const SAMPLE_CONTENT: ContentItem[] = [
+  { id: "1", title: "كيفية إنشاء محتوى جذاب", type: "مقال", status: "منشور", views: 1240, date: "2023-10-15", category: "التسويق" },
+  { id: "2", title: "أفضل أدوات الذكاء الاصطناعي", type: "مدونة", status: "مسودة", views: 0, date: "2023-10-18", category: "التكنولوجيا" },
+  { id: "3", title: "دليل التسويق بالبريد الإلكتروني", type: "دليل", status: "منشور", views: 3560, date: "2023-09-22", category: "التسويق" },
+  { id: "4", title: "أساسيات تحسين محركات البحث", type: "مقال", status: "مراجعة", views: 890, date: "2023-10-05", category: "التسويق" },
+];
+
+const SAMPLE_BOOKS: BookItem[] = [
+  { id: "1", title: "فن إنشاء المحتوى", author: "أحمد محمد", pages: 120, status: "مكتمل", downloads: 540, date: "2023-09-10" },
+  { id: "2", title: "استراتيجيات التسويق الرقمي", author: "سارة عبدالله", pages: 95, status: "قيد التحرير", downloads: 0, date: "2023-10-12" },
+  { id: "3", title: "الذكاء الاصطناعي في الأعمال", author: "محمد الخالد", pages: 210, status: "مكتمل", downloads: 1200, date: "2023-08-05" },
+];
+
+const SAMPLE_ADS: AdItem[] = [
+  { id: "1", title: "عرض خاص - أكتوبر", platform: "فيسبوك", status: "نشط", clicks: 240, impressions: 12000, date: "2023-10-01" },
+  { id: "2", title: "إطلاق المنتج الجديد", platform: "إنستغرام", status: "معلق", clicks: 0, impressions: 0, date: "2023-10-20" },
+  { id: "3", title: "خصم الخريف", platform: "جوجل", status: "مكتمل", clicks: 1250, impressions: 45000, date: "2023-09-15" },
+];
 
 const PALETTE = [
   "#7C3AED", // purple
@@ -240,7 +290,7 @@ const Sidebar: React.FC<{
           { key: "content", label: lang === "ar" ? "المحتوى" : "Content", icon: "📝" },
           { key: "books", label: lang === "ar" ? "الكتب" : "Books", icon: "📚" },
           { key: "ads", label: lang === "ar" ? "الإعلانات" : "Ads", icon: "📢" },
-          { key: "settings", label: lang === "ar" ? "الإعدادات" : "Settings", icon: "⚙" },
+          { key: "account", label: lang === "ar" ? "الحساب" : "Account", icon: "👤" },
         ].map((it) => (
           <button
             key={it.key}
@@ -682,6 +732,524 @@ const OverviewSection: React.FC<{
   );
 };
 
+/* -------------------- قسم إدارة المحتوى -------------------- */
+const ContentSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+  const [content, setContent] = useState<ContentItem[]>(SAMPLE_CONTENT);
+  const [filter, setFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date");
+
+  const filteredContent = content.filter(item => 
+    filter === "all" || item.status === filter
+  ).sort((a, b) => {
+    if (sortBy === "date") return new Date(b.date).getTime() - new Date(a.date).getTime();
+    if (sortBy === "views") return b.views - a.views;
+    return 0;
+  });
+
+  const handleDelete = (id: string) => {
+    setContent(content.filter(item => item.id !== id));
+  };
+
+  return (
+    <section>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2>{lang === "ar" ? "إدارة المحتوى" : "Content Management"}</h2>
+        <button
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 16px",
+            background: "#7C3AED",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          <FiPlus /> {lang === "ar" ? "محتوى جديد" : "New Content"}
+        </button>
+      </div>
+
+      <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(2,6,23,0.1)" }}
+        >
+          <option value="all">{lang === "ar" ? "الكل" : "All"}</option>
+          <option value="منشور">{lang === "ar" ? "منشور" : "Published"}</option>
+          <option value="مسودة">{lang === "ar" ? "مسودة" : "Draft"}</option>
+          <option value="مراجعة">{lang === "ar" ? "مراجعة" : "Review"}</option>
+        </select>
+
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(2,6,23,0.1)" }}
+        >
+          <option value="date">{lang === "ar" ? "الأحدث" : "Newest"}</option>
+          <option value="views">{lang === "ar" ? "الأكثر مشاهدة" : "Most Viewed"}</option>
+        </select>
+      </div>
+
+      <div style={{ display: "grid", gap: 16 }}>
+        {filteredContent.map((item) => (
+          <Card key={item.id}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: "0 0 8px 0" }}>{item.title}</h3>
+                <div style={{ display: "flex", gap: 16, fontSize: 14, color: "var(--muted,#6b7280)" }}>
+                  <span>{item.type}</span>
+                  <span>{item.category}</span>
+                  <span style={{ 
+                    padding: "2px 8px", 
+                    borderRadius: 4, 
+                    background: 
+                      item.status === "منشور" ? "rgba(16,185,129,0.1)" : 
+                      item.status === "مسودة" ? "rgba(245,158,11,0.1)" : 
+                      "rgba(59,130,246,0.1)",
+                    color: 
+                      item.status === "منشور" ? "#10B981" : 
+                      item.status === "مسودة" ? "#F59E0B" : 
+                      "#3B82F6"
+                  }}>
+                    {item.status}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 12 }}>
+                  <span>{lang === "ar" ? "المشاهدات:" : "Views:"} {item.views}</span>
+                  <span>{formatDateShort(item.date)}</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <IconButton title={lang === "ar" ? "معاينة" : "Preview"}>
+                  <FiEye />
+                </IconButton>
+                <IconButton title={lang === "ar" ? "تعديل" : "Edit"}>
+                  <FiEdit />
+                </IconButton>
+                <IconButton title={lang === "ar" ? "حذف" : "Delete"} onClick={() => handleDelete(item.id)}>
+                  <FiTrash />
+                </IconButton>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+/* -------------------- قسم إدارة الكتب -------------------- */
+const BooksSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+  const [books, setBooks] = useState<BookItem[]>(SAMPLE_BOOKS);
+  const [filter, setFilter] = useState("all");
+
+  const filteredBooks = books.filter(book => 
+    filter === "all" || book.status === filter
+  );
+
+  const handleDelete = (id: string) => {
+    setBooks(books.filter(book => book.id !== id));
+  };
+
+  return (
+    <section>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2>{lang === "ar" ? "إدارة الكتب" : "Books Management"}</h2>
+        <button
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 16px",
+            background: "#60A5FA",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          <FiPlus /> {lang === "ar" ? "كتاب جديد" : "New Book"}
+        </button>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(2,6,23,0.1)" }}
+        >
+          <option value="all">{lang === "ar" ? "الكل" : "All"}</option>
+          <option value="مكتمل">{lang === "ar" ? "مكتمل" : "Completed"}</option>
+          <option value="قيد التحرير">{lang === "ar" ? "قيد التحرير" : "Editing"}</option>
+        </select>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+        {filteredBooks.map((book) => (
+          <Card key={book.id} style={{ position: "relative" }}>
+            <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8 }}>
+              <IconButton title={lang === "ar" ? "تحميل" : "Download"}>
+                <FiDownload />
+              </IconButton>
+              <IconButton title={lang === "ar" ? "تعديل" : "Edit"}>
+                <FiEdit />
+              </IconButton>
+              <IconButton title={lang === "ar" ? "حذف" : "Delete"} onClick={() => handleDelete(book.id)}>
+                <FiTrash />
+              </IconButton>
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ margin: "0 0 8px 0" }}>{book.title}</h3>
+              <div style={{ fontSize: 14, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "بواسطة" : "By"} {book.author}</div>
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 14 }}>
+                <div>{book.pages} {lang === "ar" ? "صفحة" : "pages"}</div>
+                <div>{book.downloads} {lang === "ar" ? "تحميل" : "downloads"}</div>
+              </div>
+              
+              <span style={{ 
+                padding: "4px 8px", 
+                borderRadius: 4, 
+                background: book.status === "مكتمل" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
+                color: book.status === "مكتمل" ? "#10B981" : "#F59E0B",
+                fontSize: 12
+              }}>
+                {book.status}
+              </span>
+            </div>
+            
+            <div style={{ marginTop: 12, fontSize: 12, color: "var(--muted,#6b7280)" }}>
+              {formatDateShort(book.date)}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+/* -------------------- قسم منشئ الإعلانات -------------------- */
+const AdsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+  const [ads, setAds] = useState<AdItem[]>(SAMPLE_ADS);
+  const [filter, setFilter] = useState("all");
+  const [previewAd, setPreviewAd] = useState<AdItem | null>(null);
+
+  const filteredAds = ads.filter(ad => 
+    filter === "all" || ad.status === filter
+  );
+
+  const handleDelete = (id: string) => {
+    setAds(ads.filter(ad => ad.id !== id));
+  };
+
+  return (
+    <section>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2>{lang === "ar" ? "منشئ الإعلانات" : "Ad Generator"}</h2>
+        <button
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 16px",
+            background: "#10B981",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          <FiPlus /> {lang === "ar" ? "إعلان جديد" : "New Ad"}
+        </button>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(2,6,23,0.1)" }}
+        >
+          <option value="all">{lang === "ar" ? "الكل" : "All"}</option>
+          <option value="نشط">{lang === "ar" ? "نشط" : "Active"}</option>
+          <option value="معلق">{lang === "ar" ? "معلق" : "Pending"}</option>
+          <option value="مكتمل">{lang === "ar" ? "مكتمل" : "Completed"}</option>
+        </select>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div style={{ display: "grid", gap: 16 }}>
+          {filteredAds.map((ad) => (
+            <Card key={ad.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: "0 0 8px 0" }}>{ad.title}</h3>
+                  <div style={{ display: "flex", gap: 16, fontSize: 14, color: "var(--muted,#6b7280)" }}>
+                    <span>{ad.platform}</span>
+                    <span style={{ 
+                      padding: "2px 8px", 
+                      borderRadius: 4, 
+                      background: 
+                        ad.status === "نشط" ? "rgba(16,185,129,0.1)" : 
+                        ad.status === "معلق" ? "rgba(245,158,11,0.1)" : 
+                        "rgba(59,130,246,0.1)",
+                      color: 
+                        ad.status === "نشط" ? "#10B981" : 
+                        ad.status === "معلق" ? "#F59E0B" : 
+                        "#3B82F6"
+                    }}>
+                      {ad.status}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 12 }}>
+                    <span>{lang === "ar" ? "نقرات:" : "Clicks:"} {ad.clicks}</span>
+                    <span>{lang === "ar" ? "عرض:" : "Impressions:"} {ad.impressions}</span>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 12, color: "var(--muted,#6b7280)" }}>
+                    {formatDateShort(ad.date)}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <IconButton title={lang === "ar" ? "معاينة" : "Preview"} onClick={() => setPreviewAd(ad)}>
+                    <FiEye />
+                  </IconButton>
+                  <IconButton title={lang === "ar" ? "تعديل" : "Edit"}>
+                    <FiEdit />
+                  </IconButton>
+                  <IconButton title={lang === "ar" ? "حذف" : "Delete"} onClick={() => handleDelete(ad.id)}>
+                    <FiTrash />
+                  </IconButton>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <div>
+          <Card style={{ position: "sticky", top: 24 }}>
+            <h3 style={{ margin: "0 0 16px 0" }}>{lang === "ar" ? "معاينة الإعلان" : "Ad Preview"}</h3>
+            
+            {previewAd ? (
+              <div style={{ 
+                border: "1px solid rgba(2,6,23,0.1)", 
+                borderRadius: 8, 
+                padding: 16,
+                background: "rgba(2,6,23,0.02)"
+              }}>
+                <h4 style={{ margin: "0 0 8px 0" }}>{previewAd.title}</h4>
+                <p style={{ margin: "0 0 12px 0", color: "var(--muted,#6b7280)" }}>
+                  {lang === "ar" ? "هذا نموذج معاينة للإعلان. يمكنك رؤية كيف سيبدو الإعلان على منصة " : "This is an ad preview. You can see how the ad will look on "} 
+                  {previewAd.platform}.
+                </p>
+                <div style={{ 
+                  padding: "12px 16px", 
+                  background: "#7C3AED", 
+                  color: "white", 
+                  borderRadius: 6, 
+                  display: "inline-block",
+                  fontWeight: 500
+                }}>
+                  {lang === "ar" ? "نقر للعمل" : "Call to Action"}
+                </div>
+              </div>
+            ) : (
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center", 
+                minHeight: 200,
+                color: "var(--muted,#6b7280)"
+              }}>
+                {lang === "ar" ? "اختر إعلاناً للمعاينة" : "Select an ad to preview"}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+/* -------------------- قسم إعدادات الحساب -------------------- */
+const AccountSection: React.FC<{ lang: "ar" | "en"; user: User }> = ({ lang, user }) => {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email || "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const handleSaveProfile = () => {
+    // محاكاة حفظ البيانات
+    alert(lang === "ar" ? "تم حفظ المعلومات الشخصية" : "Profile information saved");
+  };
+
+  const handleChangePassword = () => {
+    // محاكاة تغيير كلمة المرور
+    if (newPassword !== confirmPassword) {
+      alert(lang === "ar" ? "كلمات المرور غير متطابقة" : "Passwords do not match");
+      return;
+    }
+    alert(lang === "ar" ? "تم تغيير كلمة المرور" : "Password changed successfully");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  return (
+    <section>
+      <h2 style={{ marginBottom: 24 }}>{lang === "ar" ? "إعدادات الحساب" : "Account Settings"}</h2>
+      
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <Card>
+          <h3 style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
+            <FiUser /> {lang === "ar" ? "المعلومات الشخصية" : "Personal Information"}
+          </h3>
+          
+          <div style={{ display: "grid", gap: 16 }}>
+            <div>
+              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
+                {lang === "ar" ? "الاسم" : "Name"}
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(2,6,23,0.1)",
+                  fontSize: 14
+                }}
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
+                {lang === "ar" ? "البريد الإلكتروني" : "Email"}
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(2,6,23,0.1)",
+                  fontSize: 14
+                }}
+              />
+            </div>
+            
+            <button
+              onClick={handleSaveProfile}
+              style={{
+                padding: "10px 16px",
+                background: "#7C3AED",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontWeight: 500,
+                marginTop: 8
+              }}
+            >
+              {lang === "ar" ? "حفظ التغييرات" : "Save Changes"}
+            </button>
+          </div>
+        </Card>
+        
+        <Card>
+          <h3 style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
+            <FiLock /> {lang === "ar" ? "تغيير كلمة المرور" : "Change Password"}
+          </h3>
+          
+          <div style={{ display: "grid", gap: 16 }}>
+            <div>
+              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
+                {lang === "ar" ? "كلمة المرور الحالية" : "Current Password"}
+              </label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(2,6,23,0.1)",
+                  fontSize: 14
+                }}
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
+                {lang === "ar" ? "كلمة المرور الجديدة" : "New Password"}
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(2,6,23,0.1)",
+                  fontSize: 14
+                }}
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
+                {lang === "ar" ? "تأكيد كلمة المرور" : "Confirm Password"}
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(2,6,23,0.1)",
+                  fontSize: 14
+                }}
+              />
+            </div>
+            
+            <button
+              onClick={handleChangePassword}
+              style={{
+                padding: "10px 16px",
+                background: "#10B981",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontWeight: 500,
+                marginTop: 8
+              }}
+            >
+              {lang === "ar" ? "تغيير كلمة المرور" : "Change Password"}
+            </button>
+          </div>
+        </Card>
+      </div>
+    </section>
+  );
+};
+
 /* -------------------- المكوّن الرئيسي -------------------- */
 const DashboardClient: React.FC<DashboardClientProps> = ({
   user,
@@ -752,6 +1320,10 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   const handleLogout = () => {
     // محاكاة تسجيل الخروج
     console.log("Logging out...");
+    // إزالة التوكن من الكوكيز
+    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    // إعادة التوجيه إلى صفحة تسجيل الدخول
+    window.location.href = "/login";
   };
 
   const handleMarkAllRead = () => {
@@ -818,31 +1390,19 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
           )}
 
           {activeSection === "content" && (
-            <div>
-              <h2>{lang === "ar" ? "إدارة المحتوى" : "Content Management"}</h2>
-              <p>{lang === "ar" ? "قسم المحتوى قيد التطوير..." : "Content section is under development..."}</p>
-            </div>
+            <ContentSection lang={lang} />
           )}
 
           {activeSection === "books" && (
-            <div>
-              <h2>{lang === "ar" ? "إدارة الكتب" : "Books Management"}</h2>
-              <p>{lang === "ar" ? "قسم الكتب قيد التطوير..." : "Books section is under development..."}</p>
-            </div>
+            <BooksSection lang={lang} />
           )}
 
           {activeSection === "ads" && (
-            <div>
-              <h2>{lang === "ar" ? "منشئ الإعلانات" : "Ad Generator"}</h2>
-              <p>{lang === "ar" ? "قسم الإعلانات قيد التطوير..." : "Ads section is under development..."}</p>
-            </div>
+            <AdsSection lang={lang} />
           )}
 
-          {activeSection === "settings" && (
-            <div>
-              <h2>{lang === "ar" ? "الإعدادات" : "Settings"}</h2>
-              <p>{lang === "ar" ? "قسم الإعدادات قيد التطوير..." : "Settings section is under development..."}</p>
-            </div>
+          {activeSection === "account" && (
+            <AccountSection lang={lang} user={user} />
           )}
         </div>
       </main>
