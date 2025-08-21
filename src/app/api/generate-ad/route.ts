@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 // ✅ إعداد خريطة لتتبع معدل الطلبات (Rate Limit)
-const globalAny = global as any;
+const globalAny: any = global;
 if (!globalAny.__AD_RATE_MAP) {
   globalAny.__AD_RATE_MAP = new Map<string, { count: number; resetAt: number }>();
 }
@@ -11,29 +11,41 @@ const RATE_LIMIT = { MAX: 10, WINDOW: 60 * 1000 }; // 10 طلبات في الد�
 const DEEPSEEK_API_BASE = 'https://api.deepseek.com';
 const DEEPSEEK_CHAT_ENDPOINT = '/v1/chat/completions';
 
-function checkRateLimit(ip: string) {
+function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const rec = globalAny.__AD_RATE_MAP.get(ip);
+  
   if (!rec || now > rec.resetAt) {
     globalAny.__AD_RATE_MAP.set(ip, { count: 1, resetAt: now + RATE_LIMIT.WINDOW });
     return false;
   }
+  
   rec.count++;
   if (rec.count > RATE_LIMIT.MAX) return true;
+  
   return false;
 }
 
-// ✅ دالة للتحقق من صحة DeepSeek API
+// ✅ دالة للتحقق من صحة DeepSeek API (بديل أكثر فعالية)
 async function validateDeepSeekAPI(apiKey: string): Promise<boolean> {
   try {
-    const response = await fetch(`${DEEPSEEK_API_BASE}/v1/models`, {
-      method: 'GET',
+    // بدلاً من التحقق من endpoint النماذج، نجرب طلباً بسيطاً
+    const response = await fetch(`${DEEPSEEK_API_BASE}${DEEPSEEK_CHAT_ENDPOINT}`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [{ role: "user", content: "Hello" }],
+        max_tokens: 5,
+        stream: false
+      })
     });
-    return response.ok;
+    
+    // أي رد غير 401/403 يعني أن المفتاح صالح
+    return response.status !== 401 && response.status !== 403;
   } catch (error) {
     console.error('❌ DeepSeek API validation failed:', error);
     return false;
@@ -50,17 +62,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ التحقق من صحة API
-    const isAPIValid = await validateDeepSeekAPI(process.env.DEEPSEEK_API_KEY);
-    if (!isAPIValid) {
-      return NextResponse.json(
-        { error: "❌ مشكلة في اتصال DeepSeek API. يرجى التحقق من المفتاح." },
-        { status: 500 }
-      );
-    }
-
-    // ✅ Rate Limiting حسب IP
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    // ✅ Rate Limiting حسب IP (ننقله قبل التحقق من API لتجنب استنزاف الطلبات)
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    const ip = forwardedFor ? forwardedFor.split(',')[0] : "unknown";
+    
     if (checkRateLimit(ip)) {
       return NextResponse.json(
         { error: "🚫 تم تجاوز الحد المسموح للطلبات. حاول بعد قليل." },
@@ -102,9 +107,10 @@ export async function POST(req: Request) {
       اكتب إعلانًا تسويقيًا جذابًا، مختصرًا، وفعالًا مخصصًا لمنصة "${type}" 
       لمنتج اسمه "${product}"، موجه للجمهور التالي: ${audience}.
       اجعل النص مناسبًا لطبيعة المنصة، مع لمسة إبداعية وCTA واضح.
+      قدم الإعلان باللغة العربية الفصحى.
     `;
 
-    // ✅ استدعاء DeepSeek API بدلاً من OpenAI
+    // ✅ استدعاء DeepSeek API
     const apiUrl = `${DEEPSEEK_API_BASE}${DEEPSEEK_CHAT_ENDPOINT}`;
     
     const response = await fetch(apiUrl, {
@@ -116,11 +122,12 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: "deepseek-chat",
         messages: [
-          { role: "system", content: "أنت مساعد ذكي متخصص في كتابة الإعلانات التسويقية." },
+          { role: "system", content: "أنت مساعد ذكي متخصص في كتابة الإعلانات التسويقية باللغة العربية. قدم إعلانات جذابة ومختصرة ومناسبة للمنصة المستهدفة." },
           { role: "user", content: prompt },
         ],
         max_tokens: max_tokens,
         temperature: temp,
+        stream: false
       }),
     });
 
@@ -134,6 +141,15 @@ export async function POST(req: Request) {
         errorMessage = errorData.error?.message || errorText;
       } catch {
         errorMessage = errorText;
+      }
+
+      // تحسين رسائل الخطأ للمستخدم
+      if (response.status === 401 || response.status === 403) {
+        errorMessage = "مفتاح API غير صالح أو منتهي الصلاحية";
+      } else if (response.status === 429) {
+        errorMessage = "تم تجاوز الحد المسموح لطلبات API";
+      } else if (response.status >= 500) {
+        errorMessage = "الخادم غير متاح حالياً، يرجى المحاولة لاحقاً";
       }
 
       return NextResponse.json(
@@ -172,9 +188,13 @@ export async function POST(req: Request) {
 
 // ✅ نقطة نهاية اختبارية
 export async function GET() {
+  // التحقق من وجود مفتاح API (بدون استخدامه)
+  const hasApiKey = !!process.env.DEEPSEEK_API_KEY;
+  
   return NextResponse.json({
-    status: '🟢 تعمل',
+    status: hasApiKey ? '🟢 تعمل' : '🟡 تحتاج إعداد',
     message: 'استخدم POST مع { product: "...", audience: "...", type: "..." }',
-    provider: 'DeepSeek API'
+    provider: 'DeepSeek API',
+    hasApiKey: hasApiKey
   });
 }

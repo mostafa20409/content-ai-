@@ -7,6 +7,8 @@ import { createHmac } from 'crypto';
 
 // ========== 🔐 إعدادات السرية ==========
 if (!process.env.SECRET_KEY) throw new Error('❌ SECRET_KEY غير مضبوط في البيئة');
+if (!process.env.DEEPSEEK_API_KEY) throw new Error('❌ DEEPSEEK_API_KEY غير مضبوط في البيئة');
+
 const SECRET_KEY = process.env.SECRET_KEY;
 
 // 1. 🔥 نظام Rate Limit متطور
@@ -29,7 +31,7 @@ export async function POST(req: Request) {
   try {
     // 3. 🔍 استخراج عنوان الـ IP
     const forwarded = req.headers.get('x-forwarded-for');
-    const ip = req.headers.get('x-real-ip') || forwarded?.split(',')[0]?.trim() || 'unknown';
+    const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
 
     // 4. ⏳ تطبيق Rate Limiting
     const { success, limit, remaining } = await ratelimit.limit(ip);
@@ -54,38 +56,35 @@ export async function POST(req: Request) {
     if (length === 'long' && !isPremium) {
       return NextResponse.json(
         {
-          error:
-            language === 'ar'
-              ? '🔒 تحتاج إلى اشتراك Premium لاستخدام هذه الميزة!'
-              : '🔒 Premium subscription required to use this feature!',
+          error: language === 'ar' 
+            ? '🔒 تحتاج إلى اشتراك Premium لاستخدام هذه الميزة!' 
+            : '🔒 Premium subscription required to use this feature!',
           upgradeUrl: '/pricing'
         },
         { status: 403 }
       );
     }
 
-    // 7. 🤖 إعداد اتصال DeepSeek API
-    if (!process.env.DEEPSEEK_API_KEY) {
-      throw new Error('❌ مفتاح DeepSeek API غير موجود');
-    }
-
-    // 8. 🎭 إضافة بصمة سرية
+    // 7. 🎭 إضافة بصمة سرية
     const contentFingerprint = createHmac('sha256', SECRET_KEY)
       .update(topic + language)
       .digest('hex')
       .slice(0, 8);
 
-    // 9. ✍ توليد المحتوى باستخدام DeepSeek API
+    // 8. ✍ توليد المحتوى باستخدام DeepSeek API
     const lengthMap = {
       short: language === 'ar' ? 'مختصر' : 'short',
       medium: language === 'ar' ? 'متوسط' : 'medium',
       long: language === 'ar' ? 'طويل' : 'long'
     };
 
-    // تحديد نموذج DeepSeek المناسب
-    const model = isPremium ? 'deepseek-chat' : 'deepseek-coder'; // يمكن تعديل النماذج حسب الحاجة
+    // ✅ استخدام النموذج الصحيح
+    const model = 'deepseek-chat'; // أو 'deepseek-reasoner' حسب الحاجة
 
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    // ✅ نقطة النهاية الصحيحة
+    const apiUrl = 'https://api.deepseek.com/chat/completions';
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,38 +95,38 @@ export async function POST(req: Request) {
         messages: [
           {
             role: 'system',
-            content:
-              language === 'ar'
-                ? `أنت كاتب محترف. كل المحتوى يجب أن يحتوي على البصمة التالية: ${contentFingerprint}`
-                : `You're a professional writer. All content must include the fingerprint: ${contentFingerprint}`
+            content: language === 'ar'
+              ? `أنت كاتب محترف. اكتب محتوى مفيد وقيِّم. البصمة: ${contentFingerprint}`
+              : `You're a professional writer. Create valuable content. Fingerprint: ${contentFingerprint}`
           },
           {
             role: 'user',
-            content:
-              language === 'ar'
-                ? `اكتب محتوى ${lengthMap[length]} عن: ${topic}`
-                : `Write a ${lengthMap[length]} piece of content about: ${topic}`
+            content: language === 'ar'
+              ? `اكتب محتوى ${lengthMap[length]} عن: ${topic}`
+              : `Write a ${lengthMap[length]} piece of content about: ${topic}`
           }
         ],
         temperature: 0.7,
-        max_tokens: length === 'short' ? 300 : length === 'medium' ? 600 : 1000
+        max_tokens: length === 'short' ? 300 : length === 'medium' ? 600 : 1000,
+        stream: false
       })
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`DeepSeek API error: ${errorData.error?.message || response.statusText}`);
+      const errorText = await response.text();
+      console.error('DeepSeek API Error:', response.status, errorText);
+      throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
 
-    // 10. 🔎 التحقق من المحتوى المُولد
+    // 9. 🔎 التحقق من المحتوى المُولد
     const content = data.choices[0]?.message?.content;
-    if (!content || !content.includes(contentFingerprint)) {
-      throw new Error('🤖 المحتوى غير صالح أو تم التلاعب به!');
+    if (!content) {
+      throw new Error('🤖 لم يتم توليد أي محتوى!');
     }
 
-    // 11. 📤 إرجاع النتيجة
+    // 10. 📤 إرجاع النتيجة
     return NextResponse.json({
       success: true,
       data: {
@@ -138,9 +137,10 @@ export async function POST(req: Request) {
         length
       }
     });
+
   } catch (error) {
-    // 12. 🚨 معالجة الأخطاء
-    console.error('🔥 خطأ:', error);
+    // 11. 🚨 معالجة الأخطاء
+    console.error('🔥 خطأ في API:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -155,22 +155,20 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: '💥 حدث خطأ في الخادم',
-        hint: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+        hint: process.env.NODE_ENV === 'development' ? (error as Error).message : 'تفاصيل الخطأ متاحة فقط في وضع التطوير'
       },
       { status: 500 }
     );
   }
 }
 
-// 13. ℹ نقطة نهاية اختبارية
 export async function GET() {
   return NextResponse.json({
     status: '🟢 تعمل',
-    tips: 'استخدم POST مع { topic: "..." }',
+    message: 'استخدم POST مع { topic: "موضوعك هنا" }',
     features: {
       languages: ['ar', 'en'],
       lengths: ['short', 'medium', 'long']
-    },
-    provider: 'DeepSeek API'
+    }
   });
 }

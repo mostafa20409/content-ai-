@@ -689,7 +689,7 @@ const ContentSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "إدارة المحتوى" : "Content Management"}</h2>
         <button
-          onClick={() => window.location.href = "/content/new"}
+          onClick={() => window.location.href = "/content"}
           style={{
             display: "flex",
             alignItems: "center",
@@ -795,7 +795,7 @@ const BooksSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "إدارة الكتب" : "Books Management"}</h2>
         <button
-          onClick={() => window.location.href = "/books/new"}
+          onClick={() => window.location.href = "/book"}
           style={{
             display: "flex",
             alignItems: "center",
@@ -891,7 +891,7 @@ const AdsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "منشئ الإعلانات" : "Ad Generator"}</h2>
         <button
-          onClick={() => window.location.href = "/ad-generator/new"}
+          onClick={() => window.location.href = "/ad-generator"}
           style={{
             display: "flex",
             alignItems: "center",
