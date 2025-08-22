@@ -1,26 +1,21 @@
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
-    const Prompt = body.prompt;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-    if (!prompt) {
-      return new Response(JSON.stringify({ error: "Prompt is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
 
-    const fakeResult = `Generating contet based on: ${prompt}`;
+const eslintConfig = [
+  ...compat.extends("next/core-web-vitals"),
+  {
+    rules: {
+      // قواعدك المخصصة هنا
+    },
+  },
+];
 
-    return new Response(JSON.stringify({ result: fakeResult }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-}
+export default eslintConfig; 

@@ -7,9 +7,9 @@ if (!globalAny.__AD_RATE_MAP) {
 }
 const RATE_LIMIT = { MAX: 10, WINDOW: 60 * 1000 }; // 10 طلبات في الدقيقة
 
-// ✅ تكوين DeepSeek API
+// ✅ تكوين DeepSeek API - التصحيح هنا
 const DEEPSEEK_API_BASE = 'https://api.deepseek.com';
-const DEEPSEEK_CHAT_ENDPOINT = '/v1/chat/completions';
+const DEEPSEEK_CHAT_ENDPOINT = '/chat/completions'; // تم التصحيح
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -26,10 +26,9 @@ function checkRateLimit(ip: string): boolean {
   return false;
 }
 
-// ✅ دالة للتحقق من صحة DeepSeek API (بديل أكثر فعالية)
+// ✅ دالة للتحقق من صحة DeepSeek API
 async function validateDeepSeekAPI(apiKey: string): Promise<boolean> {
   try {
-    // بدلاً من التحقق من endpoint النماذج، نجرب طلباً بسيطاً
     const response = await fetch(`${DEEPSEEK_API_BASE}${DEEPSEEK_CHAT_ENDPOINT}`, {
       method: 'POST',
       headers: {
@@ -44,7 +43,6 @@ async function validateDeepSeekAPI(apiKey: string): Promise<boolean> {
       })
     });
     
-    // أي رد غير 401/403 يعني أن المفتاح صالح
     return response.status !== 401 && response.status !== 403;
   } catch (error) {
     console.error('❌ DeepSeek API validation failed:', error);
@@ -62,7 +60,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Rate Limiting حسب IP (ننقله قبل التحقق من API لتجنب استنزاف الطلبات)
+    // ✅ التحقق من صحة API key قبل المتابعة
+    const isValidAPI = await validateDeepSeekAPI(process.env.DEEPSEEK_API_KEY);
+    if (!isValidAPI) {
+      return NextResponse.json(
+        { error: "❌ مفتاح DeepSeek API غير صالح أو منتهي الصلاحية." },
+        { status: 401 }
+      );
+    }
+
+    // ✅ Rate Limiting حسب IP
     const forwardedFor = req.headers.get("x-forwarded-for");
     const ip = forwardedFor ? forwardedFor.split(',')[0] : "unknown";
     
@@ -110,7 +117,7 @@ export async function POST(req: Request) {
       قدم الإعلان باللغة العربية الفصحى.
     `;
 
-    // ✅ استدعاء DeepSeek API
+    // ✅ استدعاء DeepSeek API - مع التصحيح
     const apiUrl = `${DEEPSEEK_API_BASE}${DEEPSEEK_CHAT_ENDPOINT}`;
     
     const response = await fetch(apiUrl, {

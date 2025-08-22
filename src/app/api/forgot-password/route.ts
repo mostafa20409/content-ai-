@@ -15,12 +15,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // تحقق من صيغة البريد الإلكتروني
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "صيغة البريد الإلكتروني غير صحيحة" },
+        { status: 400 }
+      );
+    }
+
     await connectToDB();
     const user = await User.findOne({ email });
 
+    // عدم الكشف عن وجود المستخدم من عدمه لأسباب أمنية
     if (!user) {
+      // إرجاع نفس الرسالة سواء كان البريد موجوداً أم لا لأسباب أمنية
       return NextResponse.json({
-        message: "إذا كان البريد صحيحًا، سيتم إرسال رابط إعادة التعيين.",
+        message: "إذا كان البريد مسجلاً في نظامنا، سيتم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني.",
       });
     }
 
@@ -48,16 +59,23 @@ export async function POST(req: NextRequest) {
       to: email,
       subject: "إعادة تعيين كلمة المرور",
       html: `
-        <p>لقد طلبت إعادة تعيين كلمة المرور.</p>
-        <p>اضغط على الرابط التالي لإعادة التعيين (صالح لمدة 10 دقائق):</p>
-        <a href="http://localhost:3000/reset-password/${resetToken}">
-          إعادة تعيين كلمة المرور
-        </a>
+        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <h2>إعادة تعيين كلمة المرور</h2>
+          <p>لقد طلبت إعادة تعيين كلمة المرور لحسابك.</p>
+          <p>اضغط على الرابط التالي لإعادة التعيين (صالح لمدة 10 دقائق فقط):</p>
+          <p>
+            <a href="http://localhost:3000/reset-password/${resetToken}" 
+               style="display: inline-block; padding: 10px 20px; background-color: #0070f3; color: white; text-decoration: none; border-radius: 5px;">
+              إعادة تعيين كلمة المرور
+            </a>
+          </p>
+          <p>إذا لم تطلب إعادة تعيين كلمة المرور، يمكنك تجاهل هذه الرسالة.</p>
+        </div>
       `,
     });
 
     return NextResponse.json({
-      message: "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.",
+      message: "إذا كان البريد مسجلاً في نظامنا، سيتم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني.",
     });
   } catch (error) {
     console.error(error);

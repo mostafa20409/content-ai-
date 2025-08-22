@@ -79,7 +79,8 @@ export default function LoginPage() {
     setError({});
 
     try {
-      const res = await fetch("/api/login", {
+      // التصحيح: تغيير المسار إلى /api/auth/login
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -93,8 +94,12 @@ export default function LoginPage() {
         return;
       }
 
-      // TODO: تخزين التوكن أو إعادة التوجيه بعد تسجيل الدخول بنجاح
-      alert(t.submit + " successful!");
+      // التصحيح: إعادة التوجيه إلى Dashboard بعد نجاح التسجيل
+      if (data.success && data.redirect) {
+        window.location.href = data.redirect; // إعادة التوجيه إلى Dashboard
+      } else {
+        alert(t.submit + " successful!");
+      }
     } catch (err) {
       setError({ general: "Network error. Please try again." });
     } finally {

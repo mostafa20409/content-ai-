@@ -1,6 +1,8 @@
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import "./BooksPage.css";
 
 /* ---------- الأنواع والواجهات ---------- */
@@ -105,6 +107,8 @@ const TRANSLATIONS = {
 
 /* ---------- المكون الرئيسي ---------- */
 export default function BooksPage() {
+  const router = useRouter();
+  
   // الحالة الرئيسية
   const [state, setState] = useState<BookState>({
     title: "",
@@ -470,7 +474,7 @@ export default function BooksPage() {
                 if (typeof window !== "undefined") {
                   localStorage.setItem("ui:theme", newDarkMode ? "dark" : "light");
                 }
-                setTimeout(() => setState(prev => ({ ...prev, notice: null })), 1500);
+                                setTimeout(() => setState(prev => ({ ...prev, notice: null })), 1500);
               }}
               title={state.darkMode ? t.lightMode : t.darkMode}
             >
@@ -666,7 +670,7 @@ export default function BooksPage() {
                         className="btn tiny" 
                         onClick={() => openEditor(ch)}
                       >
-                       
+                        {t.edit}
                       </button>
                     </div>
                   </div>

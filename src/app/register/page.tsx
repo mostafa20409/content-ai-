@@ -15,6 +15,7 @@ const locales = {
     invalidEmail: "Please enter a valid email.",
     passwordMismatch: "Passwords do not match.",
     minPassword: "Password must be at least 8 characters.",
+    nameMinLength: "Name must be at least 3 characters.",
   },
   ar: {
     registerTitle: "إنشاء حساب جديد",
@@ -28,6 +29,7 @@ const locales = {
     invalidEmail: "يرجى إدخال بريد إلكتروني صحيح.",
     passwordMismatch: "كلمتا المرور غير متطابقتين.",
     minPassword: "كلمة المرور يجب أن تكون 8 أحرف على الأقل.",
+    nameMinLength: "يجب أن يحتوي الاسم على 3 أحرف على الأقل.",
   },
 };
 
@@ -36,12 +38,7 @@ export default function RegisterPage() {
   const t = locales[lang];
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("email") || "";
-    }
-    return "";
-  });
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -55,8 +52,18 @@ export default function RegisterPage() {
   }>({});
   const [loading, setLoading] = useState(false);
 
+  // حل مشكلة localStorage مع SSR
   useEffect(() => {
-    localStorage.setItem("email", email);
+    const savedEmail = localStorage.getItem("email");
+    if (savedEmail) {
+      setEmail(savedEmail);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (email) {
+      localStorage.setItem("email", email);
+    }
   }, [email]);
 
   const validate = () => {
@@ -67,7 +74,7 @@ export default function RegisterPage() {
       errs.name = t.requiredField;
       valid = false;
     } else if (name.trim().length < 3) {
-      errs.name = lang === "ar" ? "يجب أن يحتوي الاسم على 3 أحرف على الأقل." : "Name must be at least 3 characters.";
+      errs.name = t.nameMinLength;
       valid = false;
     }
 
@@ -115,16 +122,26 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError({ general: data.error || "Registration failed" });
+        // معالجة أخطاء Zod من الـ API
+        if (data.details && Array.isArray(data.details)) {
+          const fieldErrors: Record<string, string> = {};
+          data.details.forEach((detail: { field: string; message: string }) => {
+            fieldErrors[detail.field] = detail.message;
+          });
+          setError(fieldErrors);
+        } else {
+          setError({ general: data.error || data.message || "Registration failed" });
+        }
         setLoading(false);
         return;
       }
 
       alert(lang === "ar" ? "تم التسجيل بنجاح!" : "Registration successful!");
-      // ممكن تعمل إعادة توجيه بعد التسجيل مثلاً للـ login page
+      // إعادة توجيه بعد التسجيل
+      window.location.href = "/login";
 
     } catch (err) {
-      setError({ general: "Network error. Please try again." });
+      setError({ general: lang === "ar" ? "خطأ في الشبكة. يرجى المحاولة مرة أخرى." : "Network error. Please try again." });
     } finally {
       setLoading(false);
     }
@@ -303,7 +320,7 @@ export default function RegisterPage() {
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="toggle-password"
-            aria-label={showPassword ? t.password : t.password}
+            aria-label={showPassword ? (lang === "ar" ? "إخفاء كلمة المرور" : "Hide password") : (lang === "ar" ? "إظهار كلمة المرور" : "Show password")}
           >
             {showPassword ? "🙈" : "👁"}
           </button>

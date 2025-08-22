@@ -27,14 +27,28 @@ export default function AccountPage() {
   const [localUser, setLocalUser] = useState<UserData | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
 
-  // جلب التوكن: نحاول من localStorage أولاً (لو حفظته)، وإلا نعتمد على الكوكيز الموجودة في المتصفح
+  // جلب التوكن من الكوكيز أولاً ثم localStorage
   const getAuthToken = () => {
+    try {
+      // محاولة الحصول على التوكن من الكوكيز أولاً
+      const cookieToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
+      
+      if (cookieToken) return cookieToken;
+    } catch (e) {
+      console.error("Error reading cookie:", e);
+    }
+    
+    // إذا لم يوجد في الكوكيز، جرب localStorage
     try {
       const t = localStorage.getItem("token");
       if (t) return t;
     } catch (e) {
-      // ignore
+      console.error("Error reading localStorage:", e);
     }
+    
     return null;
   };
 
@@ -48,31 +62,34 @@ export default function AccountPage() {
     setError("");
     setShowSuccessMessage(null);
     try {
-      const token = getAuthToken(); // optional
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const token = getAuthToken();
+      
+      // إذا لم يوجد توكن، توجيه إلى تسجيل الدخول
+      if (!token) {
+        setError("⚠ لم يتم العثور على التوكن. يرجى تسجيل الدخول.");
+        setTimeout(() => router.push("/login"), 1500);
+        return;
+      }
 
       const res = await fetch("/api/account", {
         method: "GET",
-        headers,
-        credentials: "include", // support cookie-based auth
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        credentials: "include",
       });
 
       const data = await res.json();
       if (!res.ok) {
-        // handle auth errors specifically
         if (res.status === 401 || res.status === 403) {
           setError(data.error || "حاجة غلط مع التوكن. هتتحول لتسجيل الدخول.");
-          // optional: redirect to login after brief pause
           setTimeout(() => router.push("/login"), 1500);
           return;
         }
         throw new Error(data.error || "حدث خطأ أثناء جلب بيانات الحساب.");
       }
 
-      // API returns { message, account }
       const account = data.account;
       setUser(account);
       setLocalUser(account);
@@ -88,7 +105,6 @@ export default function AccountPage() {
     setEditMode((v) => {
       const next = !v;
       if (next && user) {
-        // entering edit mode: copy user to local state
         setLocalUser({ ...user });
         setPreviewAvatar(user.avatar || null);
       }
@@ -106,11 +122,16 @@ export default function AccountPage() {
   function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // preview
+
+    // التحقق من حجم الملف (أقل من 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setError("حجم الصورة كبير جداً. الحد الأقصى 2MB");
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       setPreviewAvatar(String(reader.result));
-      // for demo, set localUser.avatar to base64; in real app you'd upload to storage and store URL
       setLocalUser((prev) => (prev ? { ...prev, avatar: String(reader.result) } : { avatar: String(reader.result) } as UserData));
     };
     reader.readAsDataURL(file);
@@ -122,19 +143,26 @@ export default function AccountPage() {
     setError("");
     try {
       const token = getAuthToken();
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (!token) {
+        setError("⚠ لم يتم العثور على التوكن. يرجى تسجيل الدخول.");
+        setTimeout(() => router.push("/login"), 1500);
+        return;
+      }
+
+      // تحويل الإعدادات إلى JSON string
+      const settingsString = localUser.settings ? JSON.stringify(localUser.settings) : "{}";
 
       const res = await fetch("/api/account", {
         method: "PUT",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         credentials: "include",
         body: JSON.stringify({
           name: localUser.name,
           avatar: localUser.avatar,
-          settings: localUser.settings,
+          settings: settingsString, // إرسال الإعدادات كـ JSON string
           subscription: localUser.subscription,
         }),
       });
@@ -149,13 +177,11 @@ export default function AccountPage() {
         throw new Error(data.error || "حدث خطأ أثناء حفظ التغييرات.");
       }
 
-      // تحديث الواجهة بناءً على ما رجع السيرفر
       setUser(data.account);
       setLocalUser(data.account);
       setPreviewAvatar(data.account?.avatar || null);
       setEditMode(false);
       setShowSuccessMessage("✅ تم حفظ التغييرات بنجاح.");
-      // clear message after 3s
       setTimeout(() => setShowSuccessMessage(null), 3000);
     } catch (err: any) {
       setError(err?.message || "حدث خطأ أثناء حفظ البيانات.");
@@ -165,16 +191,12 @@ export default function AccountPage() {
   }
 
   async function handleUpgrade() {
-    // direct to upgrade page (user flow)
     router.push("/upgrade");
   }
 
   async function handleLogout() {
     try {
-      // remove local storage token if any
       try { localStorage.removeItem("token"); } catch (e) { /* ignore */ }
-
-      // call backend logout to clear cookie server-side
       await fetch("/api/logout", { method: "POST", credentials: "include" });
     } catch (err) {
       // ignore
@@ -188,7 +210,6 @@ export default function AccountPage() {
     fetchAccount();
   }
 
-  // simple small UI while loading
   if (loading) {
     return (
       <div style={styles.page}>
@@ -230,7 +251,6 @@ export default function AccountPage() {
     );
   }
 
-  // ---------- Main render ----------
   return (
     <div style={styles.page}>
       <div style={styles.cardLarge}>
@@ -263,7 +283,7 @@ export default function AccountPage() {
                     onChange={handleAvatarChange}
                     style={{ marginTop: 10 }}
                   />
-                  <small style={{ color: "#666" }}>يمكنك رفع صورة جديدة (لن تُرفع للسيرفر في مثال محلي دون إعداد رفع ملفات)</small>
+                  <small style={{ color: "#666" }}>يمكنك رفع صورة جديدة (الحد الأقصى 2MB)</small>
                 </>
               ) : null}
             </div>
@@ -324,12 +344,10 @@ export default function AccountPage() {
                   value={localUser?.settings ? JSON.stringify(localUser.settings, null, 2) : "{}"}
                   onChange={(e) => {
                     const raw = e.target.value;
-                    // attempt to parse JSON safely
                     try {
                       const parsed = JSON.parse(raw);
                       setLocalUser((prev) => (prev ? { ...prev, settings: parsed } : { settings: parsed } as UserData));
                     } catch {
-                      // If invalid JSON, still set as string under settings.raw (so the user sees it)
                       setLocalUser((prev) => (prev ? { ...prev, settings: { raw } } : { settings: { raw } } as unknown as UserData));
                     }
                   }}
@@ -449,4 +467,6 @@ const styles: any = {
   errorBox: { background: "#ffe5e5", padding: 16, borderRadius: 8 },
   successMessage: { color: "#2e7d32", fontWeight: 700 },
   divider: { border: "none", borderTop: "1px solid #eee", margin: "18px 0" },
+  fieldValue: { margin: 0, padding: "8px 0" },
+  loading: { color: "#666", margin: 0 }
 };

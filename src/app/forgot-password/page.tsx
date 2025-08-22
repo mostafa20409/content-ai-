@@ -8,7 +8,23 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const validateEmail = (email: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
   const handleSubmit = async () => {
+    // تحقق من الصحة على جانب العميل
+    if (!email) {
+      setError("البريد الإلكتروني مطلوب");
+      return;
+    }
+    
+    if (!validateEmail(email)) {
+      setError("صيغة البريد الإلكتروني غير صحيحة");
+      return;
+    }
+
     setLoading(true);
     setMessage(null);
     setError(null);
@@ -36,6 +52,10 @@ export default function ForgotPasswordPage() {
   return (
     <div style={{ maxWidth: 400, margin: "60px auto", padding: 24, fontFamily: "Arial, sans-serif" }}>
       <h2 style={{ marginBottom: 24, textAlign: "center" }}>نسيت كلمة المرور</h2>
+      
+      <p style={{ marginBottom: 20, textAlign: "center", color: "#666" }}>
+        أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور
+      </p>
 
       <label htmlFor="email" style={{ display: "block", marginBottom: 6 }}>
         البريد الإلكتروني:
@@ -47,6 +67,7 @@ export default function ForgotPasswordPage() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         style={{ width: "100%", padding: 10, borderRadius: 6, border: "1px solid #ccc", marginBottom: 12 }}
+        disabled={loading}
       />
 
       <button
@@ -63,12 +84,35 @@ export default function ForgotPasswordPage() {
           cursor: loading ? "not-allowed" : "pointer",
           marginBottom: 12,
         }}
+        aria-label={loading ? "جاري الإرسال" : "إرسال رابط إعادة التعيين"}
       >
         {loading ? "جاري الإرسال..." : "إرسال رابط إعادة التعيين"}
       </button>
 
-      {message && <p style={{ color: "green", textAlign: "center" }}>{message}</p>}
-      {error && <p style={{ color: "red", textAlign: "center" }}>{error}</p>}
+      {message && (
+        <div style={{ 
+          color: "green", 
+          textAlign: "center", 
+          padding: 10, 
+          backgroundColor: "#f0fff0", 
+          borderRadius: 6,
+          marginBottom: 12
+        }}>
+          {message}
+        </div>
+      )}
+      {error && (
+        <div style={{ 
+          color: "red", 
+          textAlign: "center", 
+          padding: 10, 
+          backgroundColor: "#fff0f0", 
+          borderRadius: 6,
+          marginBottom: 12
+        }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }

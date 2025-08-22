@@ -47,6 +47,8 @@ export default function SignUpPage() {
     
     if (!formData.name.trim()) {
       newErrors.name = "الاسم مطلوب";
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = "الاسم يجب أن يكون على الأقل حرفين";
     }
     
     if (!formData.email.trim()) {
@@ -57,8 +59,10 @@ export default function SignUpPage() {
     
     if (!formData.password) {
       newErrors.password = "كلمة المرور مطلوبة";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "كلمة المرور يجب أن تكون على الأقل 6 أحرف";
+    } else if (formData.password.length < 8) {
+      newErrors.password = "كلمة المرور يجب أن تكون على الأقل 8 أحرف";
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_])/.test(formData.password)) {
+      newErrors.password = "يجب أن تحتوي كلمة المرور على حرف كبير، حرف صغير، رقم، ورمز خاص";
     }
     
     if (formData.password !== formData.confirmPassword) {
@@ -86,8 +90,8 @@ export default function SignUpPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
+          name: formData.name.trim(),
+          email: formData.email.toLowerCase().trim(),
           password: formData.password
         }),
       });
@@ -98,7 +102,7 @@ export default function SignUpPage() {
         // إذا نجح التسجيل، توجيه إلى Dashboard مباشرة
         router.push("/dashboard");
       } else {
-        setErrors({ submit: data.error || "حدث خطأ أثناء التسجيل" });
+        setErrors({ submit: data.error || data.message || "حدث خطأ أثناء التسجيل" });
       }
     } catch (error) {
       setErrors({ submit: "حدث خطأ في الاتصال بالخادم" });
@@ -166,6 +170,7 @@ export default function SignUpPage() {
               fontSize: "1rem",
               boxSizing: "border-box"
             }}
+            placeholder="أدخل اسمك الكامل"
           />
           {errors.name && <span style={{ color: "#d32f2f", fontSize: "0.85rem" }}>{errors.name}</span>}
         </div>
@@ -187,6 +192,7 @@ export default function SignUpPage() {
               fontSize: "1rem",
               boxSizing: "border-box"
             }}
+            placeholder="example@email.com"
           />
           {errors.email && <span style={{ color: "#d32f2f", fontSize: "0.85rem" }}>{errors.email}</span>}
         </div>
@@ -208,6 +214,7 @@ export default function SignUpPage() {
               fontSize: "1rem",
               boxSizing: "border-box"
             }}
+            placeholder="8 أحرف على الأقل مع رموز وأرقام"
           />
           {errors.password && <span style={{ color: "#d32f2f", fontSize: "0.85rem" }}>{errors.password}</span>}
         </div>
@@ -229,6 +236,7 @@ export default function SignUpPage() {
               fontSize: "1rem",
               boxSizing: "border-box"
             }}
+            placeholder="أعد إدخال كلمة المرور"
           />
           {errors.confirmPassword && <span style={{ color: "#d32f2f", fontSize: "0.85rem" }}>{errors.confirmPassword}</span>}
         </div>
@@ -255,7 +263,7 @@ export default function SignUpPage() {
 
         <div style={{ textAlign: "center" }}>
           <span style={{ color: "#666" }}>لديك حساب بالفعل؟ </span>
-          <Link href="/login" style={{ color: "#0070f3", textDecoration: "none" }}>
+          <Link href="/login" style={{ color: "#0070f3", textDecoration: "none", fontWeight: "500" }}>
             تسجيل الدخول
           </Link>
         </div>

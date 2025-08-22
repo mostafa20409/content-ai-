@@ -270,8 +270,7 @@ export default function ContentGenerator() {
 
   /* --------------------------------------------
      Generate content (API)
-     - شيلنا أي template literal مكسور
-     - رسائل الخطأ مضبوطه
+     - تم إصلاح body ال request ليشمل isPremium
   --------------------------------------------- */
   const generateContent = useCallback(async () => {
     if (!topic.trim()) {
@@ -289,18 +288,18 @@ export default function ContentGenerator() {
       await new Promise((r) => setTimeout(r, 800));
       setStage("writing");
 
-      // API request
+      // API request - تم إصلاح body ال request
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept-Language": language,
         },
         body: JSON.stringify({
           topic,
           language,
           length,
           tone,
+          isPremium: false // إضافة الحقل المطلوب في ال API
         }),
       });
 
@@ -314,7 +313,9 @@ export default function ContentGenerator() {
       }
 
       const data = await response.json();
-      const content: string | undefined = data?.content ?? data?.data?.content;
+      
+      // إصلاح استخراج المحتوى من الاستجابة
+      const content: string | undefined = data?.data?.content;
 
       if (!content) {
         throw new Error("No content generated");
@@ -324,8 +325,11 @@ export default function ContentGenerator() {
       notify(language === "ar" ? "✅ تم توليد المحتوى بنجاح" : "✅ Content generated successfully");
     } catch (error) {
       console.error("Generation error:", error);
-      setResult(language === "ar" ? "❌ حدث خطأ أثناء توليد المحتوى" : "❌ Failed to generate content");
-      notify(language === "ar" ? "⚠ فشل في توليد المحتوى" : "⚠ Content generation failed");
+      const errorMessage = language === "ar" 
+        ? "❌ حدث خطأ أثناء توليد المحتوى" 
+        : "❌ Failed to generate content";
+      setResult(errorMessage);
+      notify(errorMessage);
     } finally {
       setStage("idle");
       setLoading(false);
@@ -679,7 +683,7 @@ export default function ContentGenerator() {
             <div className="panel-header">
               <h2>{language === "ar" ? "النتيجة" : "Result"}</h2>
 
-            <div className="output-actions">
+              <div className="output-actions">
                 <motion.button
                   onClick={copyToClipboard}
                   disabled={!result}

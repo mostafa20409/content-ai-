@@ -24,6 +24,7 @@ const requestSchema = z.object({
   topic: z.string().min(3).max(100).regex(/^[^<>&]*$/, '🚫 لا يُسمح بـ XSS!'),
   language: z.enum(['ar', 'en']).default('ar'),
   length: z.enum(['short', 'medium', 'long']).default('medium'),
+  tone: z.enum(['professional', 'casual', 'friendly', 'academic']).default('professional'),
   isPremium: z.boolean().optional().default(false)
 });
 
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
 
     // 5. 📦 تحليل وتحقق من البيانات
     const rawData = await req.json();
-    const { topic, language, length, isPremium } = requestSchema.parse(rawData);
+    const { topic, language, length, tone, isPremium } = requestSchema.parse(rawData);
 
     // 6. 💎 تحقق من صلاحية المستخدم (نظام Premium)
     if (length === 'long' && !isPremium) {
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
 
     // 7. 🎭 إضافة بصمة سرية
     const contentFingerprint = createHmac('sha256', SECRET_KEY)
-      .update(topic + language)
+      .update(topic + language + tone)
       .digest('hex')
       .slice(0, 8);
 
@@ -78,8 +79,15 @@ export async function POST(req: Request) {
       long: language === 'ar' ? 'طويل' : 'long'
     };
 
+    const toneMap = {
+      professional: language === 'ar' ? 'احترافية' : 'professional',
+      casual: language === 'ar' ? 'عامية' : 'casual',
+      friendly: language === 'ar' ? 'ودية' : 'friendly',
+      academic: language === 'ar' ? 'أكاديمية' : 'academic'
+    };
+
     // ✅ استخدام النموذج الصحيح
-    const model = 'deepseek-chat'; // أو 'deepseek-reasoner' حسب الحاجة
+    const model = 'deepseek-chat';
 
     // ✅ نقطة النهاية الصحيحة
     const apiUrl = 'https://api.deepseek.com/chat/completions';
@@ -96,8 +104,8 @@ export async function POST(req: Request) {
           {
             role: 'system',
             content: language === 'ar'
-              ? `أنت كاتب محترف. اكتب محتوى مفيد وقيِّم. البصمة: ${contentFingerprint}`
-              : `You're a professional writer. Create valuable content. Fingerprint: ${contentFingerprint}`
+              ? `أنت كاتب محترف. اكتب محتوى مفيد وقيِّم باللغة العربية بنبرة ${toneMap[tone]}. البصمة: ${contentFingerprint}`
+              : `You're a professional writer. Create valuable content in English with ${toneMap[tone]} tone. Fingerprint: ${contentFingerprint}`
           },
           {
             role: 'user',
@@ -134,7 +142,8 @@ export async function POST(req: Request) {
         fingerprint: contentFingerprint,
         model: data.model,
         tokens: data.usage?.total_tokens,
-        length
+        length,
+        tone
       }
     });
 
@@ -168,7 +177,8 @@ export async function GET() {
     message: 'استخدم POST مع { topic: "موضوعك هنا" }',
     features: {
       languages: ['ar', 'en'],
-      lengths: ['short', 'medium', 'long']
+      lengths: ['short', 'medium', 'long'],
+      tones: ['professional', 'casual', 'friendly', 'academic']
     }
   });
 }

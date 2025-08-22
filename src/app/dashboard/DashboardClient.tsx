@@ -14,13 +14,14 @@ import {
   Cell,
   CartesianGrid,
   Legend,
+  BarChart,
+  Bar,
 } from "recharts";
-import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiArrowUp, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiUser, FiLock, FiMail } from "react-icons/fi";
+import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiArrowUp, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiUser, FiLock, FiMail, FiRefreshCw, FiActivity, FiPieChart, FiBarChart2 } from "react-icons/fi";
 import { FaChartLine, FaFileAlt, FaUsers, FaShoppingCart } from "react-icons/fa";
 
 /* ==========================================================================
    DashboardClient.tsx - مخصص لمشروع إنشاء المحتوى
-   - أدوات: محتوى (Content)، كتب (Books)، مولد إعلانات (Ad Generator)
    ========================================================================== */
 
 /* -------------------- أنواع البيانات (Types) -------------------- */
@@ -30,6 +31,13 @@ export type User = {
   email?: string;
   role?: string;
   avatar?: string;
+  subscription?: string;
+  usage?: {
+    ads: number;
+    keywords: number;
+    content: number;
+    books: number;
+  };
 };
 
 export type Notification = {
@@ -192,7 +200,6 @@ const IconButton: React.FC<{
   );
 };
 
-// تحديث واجهة مكون Card لقبول معالجات الأحداث
 interface CardProps {
   style?: React.CSSProperties;
   children?: React.ReactNode;
@@ -289,6 +296,7 @@ const Sidebar: React.FC<{
           { key: "content", label: lang === "ar" ? "المحتوى" : "Content", icon: "📝" },
           { key: "books", label: lang === "ar" ? "الكتب" : "Books", icon: "📚" },
           { key: "ads", label: lang === "ar" ? "الإعلانات" : "Ads", icon: "📢" },
+          { key: "analytics", label: lang === "ar" ? "التحليلات" : "Analytics", icon: "📊" },
           { key: "account", label: lang === "ar" ? "الحساب" : "Account", icon: "👤" },
         ].map((it) => (
           <button
@@ -315,7 +323,6 @@ const Sidebar: React.FC<{
       </nav>
 
       <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-        {/* زر الترقية */}
         <button
           onClick={() => window.location.href = "/upgrade"}
           style={{
@@ -336,7 +343,6 @@ const Sidebar: React.FC<{
           {open && <span>{lang === "ar" ? "ترقية الخطة" : "Upgrade Plan"}</span>}
         </button>
         
-        {/* إعدادات المظهر واللغة */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={onToggleDark}
@@ -386,7 +392,9 @@ const Header: React.FC<{
   onLogout: () => void;
   onMarkAllRead: () => void;
   lang: "ar" | "en";
-}> = ({ user, notificationsCount, onLogout, onMarkAllRead, lang }) => {
+  onRefresh: () => void;
+  loading?: boolean;
+}> = ({ user, notificationsCount, onLogout, onMarkAllRead, lang, onRefresh, loading }) => {
   return (
     <header
       style={{
@@ -400,12 +408,32 @@ const Header: React.FC<{
     >
       <div>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{lang === "ar" ? "لوحة التحكم" : "Dashboard"}</h2>
-        <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "مرحباً بعودتك" : "Welcome back"}</div>
+        <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "مرحباً بعودتك" : "Welcome back"}, {user.name}</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {/* أزرار الأدوات السريعة */}
         <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "none",
+              background: "rgba(124,58,237,0.1)",
+              color: "#7C3AED",
+              cursor: "pointer",
+              fontWeight: 500,
+              fontSize: 14,
+            }}
+          >
+            <FiRefreshCw size={16} className={loading ? "spinning" : ""} />
+            <span>{lang === "ar" ? "تحديث" : "Refresh"}</span>
+          </button>
+          
           <button
             onClick={() => window.location.href = "/content"}
             style={{
@@ -511,6 +539,67 @@ const Header: React.FC<{
   );
 };
 
+/* -------------------- قسم الإحصائيات -------------------- */
+const StatsSection: React.FC<{ 
+  lang: "ar" | "en"; 
+  user: User;
+  loading?: boolean;
+}> = ({ lang, user, loading }) => {
+  const stats = useMemo(() => [
+    {
+      icon: <FiFileText size={24} />,
+      title: lang === "ar" ? "المحتوى المنشور" : "Published Content",
+      value: user.usage?.content?.toString() || "0",
+      change: "+12%",
+      color: "#7C3AED",
+    },
+    {
+      icon: <FiBook size={24} />,
+      title: lang === "ar" ? "الكتب المنشورة" : "Published Books",
+      value: user.usage?.books?.toString() || "0",
+      change: "+8%",
+      color: "#60A5FA",
+    },
+    {
+      icon: <FiTrendingUp size={24} />,
+      title: lang === "ar" ? "الإعلانات النشطة" : "Active Ads",
+      value: user.usage?.ads?.toString() || "0",
+      change: "+23%",
+      color: "#10B981",
+    },
+    {
+      icon: <FiActivity size={24} />,
+      title: lang === "ar" ? "الكلمات المفتاحية" : "Keywords",
+      value: user.usage?.keywords?.toString() || "0",
+      change: "+15%",
+      color: "#F59E0B",
+    },
+  ], [lang, user.usage]);
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16, marginBottom: 24 }}>
+      {stats.map((stat, index) => (
+        <Card key={index} style={{ borderLeft: `4px solid ${stat.color}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ color: "var(--muted,#6b7280)", fontSize: 14, marginBottom: 8 }}>{stat.title}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "var(--text,#0f172a)" }}>
+                {loading ? "..." : stat.value}
+              </div>
+              <div style={{ fontSize: 12, color: stat.change.startsWith("+") ? "#10B981" : "#EF4444", marginTop: 4 }}>
+                {stat.change} {lang === "ar" ? "من الشهر الماضي" : "from last month"}
+              </div>
+            </div>
+            <div style={{ color: stat.color, padding: 8, borderRadius: 8, background: `${stat.color}20` }}>
+              {stat.icon}
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
 /* -------------------- قسم الأدوات الرئيسية -------------------- */
 const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
   const tools = [
@@ -543,8 +632,6 @@ const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
   return (
     <section style={{ marginBottom: 24 }}>
       <h2 style={{ marginBottom: 16 }}>{lang === "ar" ? "أدوات المحتوى" : "Content Tools"}</h2>
-  );
-
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
         {tools.map((tool) => (
@@ -595,78 +682,58 @@ const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
   );
 };
 
-/* -------------------- قسم Overview -------------------- */
-const OverviewSection: React.FC<{
-  lang: "ar" | "en";
-  notifications: Notification[];
-}> = ({ lang, notifications }) => {
+/* -------------------- قسم التحليلات -------------------- */
+const AnalyticsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
   return (
-    <section style={{ display: "grid", gap: 24 }}>
-      <ToolsSection lang={lang} />
+    <section>
+      <h2 style={{ marginBottom: 24 }}>{lang === "ar" ? "التحليلات والإحصائيات" : "Analytics & Statistics"}</h2>
       
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>{lang === "ar" ? "الإشعارات الحديثة" : "Recent Notifications"}</h3>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() => {
-                  // noop for demo
-                }}
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgba(2,6,23,0.06)",
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                }}
-              >
-                {lang === "ar" ? "عرض الكل" : "View all"}
-              </button>
-            </div>
-          </div>
+          <h3 style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
+            <FiBarChart2 /> {lang === "ar" ? "أداء المحتوى" : "Content Performance"}
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={SAMPLE_SALES}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="sales" stroke="#7C3AED" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
 
-          <div style={{ display: "grid", gap: 8 }}>
-            {notifications.length === 0 ? (
-              <div style={{ color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "لا توجد إشعارات" : "No notifications"}</div>
-            ) : (
-              notifications.slice(0, 5).map((n) => (
-                <div
-                  key={n.id}
-                  style={{
-                    padding: 12,
-                    borderRadius: 8,
-                    background: n.read ? "rgba(2,6,23,0.02)" : "rgba(124,58,237,0.05)",
-                    border: "1px solid rgba(2,6,23,0.04)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{formatDateShort(n.date)}</div>
-                  </div>
-                  {!n.read && (
-                    <div
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: "#7C3AED",
-                      }}
-                    />
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+        <Card>
+          <h3 style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
+            <FiPieChart /> {lang === "ar" ? "توزيع الزيارات" : "Traffic Distribution"}
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={SAMPLE_TRAFFIC}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+                label
+              >
+                {SAMPLE_TRAFFIC.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
         </Card>
       </div>
     </section>
   );
 };
-
-/* -------------------- قسم إدارة المحتوى -------------------- */
+ 
+ /* -------------------- قسم إدارة المحتوى -------------------- */
 const ContentSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
   const [content, setContent] = useState<ContentItem[]>(SAMPLE_CONTENT);
   const [filter, setFilter] = useState("all");
@@ -853,8 +920,8 @@ const BooksSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
               
               <span style={{ 
                 padding: "4px 8px", 
-                borderRadius: 4, 
-                background: book.status === "مكتمل" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
+                borderRadius: 4,
+                          background: book.status === "مكتمل" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
                 color: book.status === "مكتمل" ? "#10B981" : "#F59E0B",
                 fontSize: 12
               }}>
@@ -1186,6 +1253,122 @@ const AccountSection: React.FC<{ lang: "ar" | "en"; user: User }> = ({ lang, use
     </section>
   );
 };
+/* -------------------- قسم Overview -------------------- */
+const OverviewSection: React.FC<{
+  lang: "ar" | "en";
+  notifications: Notification[];
+  user: User;
+  loading?: boolean;
+}> = ({ lang, notifications, user, loading }) => {
+  return (
+    <section style={{ display: "grid", gap: 24 }}>
+      <StatsSection lang={lang} user={user} loading={loading} />
+      <ToolsSection lang={lang} />
+      
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ margin: 0 }}>{lang === "ar" ? "الإشعارات الحديثة" : "Recent Notifications"}</h3>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => {
+                  // noop for demo
+                }}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(2,6,23,0.06)",
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                }}
+              >
+                {lang === "ar" ? "عرض الكل" : "View all"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: 8 }}>
+            {notifications.length === 0 ? (
+              <div style={{ color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "لا توجد إشعارات" : "No notifications"}</div>
+            ) : (
+              notifications.slice(0, 5).map((n) => (
+                <div
+                  key={n.id}
+                  style={{
+                    padding: 12,
+                    borderRadius: 8,
+                    background: n.read ? "rgba(2,6,23,0.02)" : "rgba(124,58,237,0.05)",
+                    border: "1px solid rgba(2,6,23,0.04)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{formatDateShort(n.date)}</div>
+                  </div>
+                  {!n.read && (
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "#7C3AED",
+                      }}
+                    />
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <h3 style={{ margin: "0 0 16px 0" }}>{lang === "ar" ? "حالة الاشتراك" : "Subscription Status"}</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: "linear-gradient(135deg, #7C3AED, #60A5FA)",
+                display: "grid",
+                placeItems: "center",
+                color: "white",
+                fontWeight: 700,
+              }}
+            >
+              {user.subscription?.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, textTransform: "capitalize" }}>
+                {user.subscription || "free"}
+              </div>
+              <div style={{ fontSize: 14, color: "var(--muted,#6b7280)" }}>
+                {lang === "ar" ? "خطة الحالي" : "Current Plan"}
+              </div>
+            </div>
+            </div>
+            <button
+              onClick={() => window.location.href = "/upgrade"}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                background: "linear-gradient(135deg, #F59E0B, #F97316)",
+                color: "white",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              {lang === "ar" ? "ترقية الخطة" : "Upgrade Plan"}
+            </button>
+        </Card>
+      </div>
+    </section>
+  );
+};
 
 /* -------------------- المكوّن الرئيسي -------------------- */
 const DashboardClient: React.FC<DashboardClientProps> = ({
@@ -1201,6 +1384,28 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   const [unreadCount, setUnreadCount] = useState(
     notifications.filter((n) => !n.read).length
   );
+  const [loading, setLoading] = useState(false);
+  const [userData, setUserData] = useState<User>(user);
+
+  // جلب بيانات المستخدم الحقيقية من API
+  const fetchUserData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/me');
+      if (response.ok) {
+        const data = await response.json();
+        setUserData(prev => ({ ...prev, ...data.data }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
 
   // تطبيق وضع الظلام
   useEffect(() => {
@@ -1231,6 +1436,10 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   const handleMarkAllRead = () => {
     setUnreadCount(0);
     // في التطبيق الحقيقي، سنقوم بتحديث حالة القراءة في قاعدة البيانات
+  };
+
+  const handleRefresh = () => {
+    fetchUserData();
   };
 
   const toggleDark = () => setDark(!dark);
@@ -1265,11 +1474,13 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
         }}
       >
         <Header
-          user={user}
+          user={userData}
           notificationsCount={unreadCount}
           onLogout={handleLogout}
           onMarkAllRead={handleMarkAllRead}
           lang={lang}
+          onRefresh={handleRefresh}
+          loading={loading}
         />
 
         <div style={{ padding: 24, flex: 1 }}>
@@ -1277,6 +1488,8 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
             <OverviewSection
               lang={lang}
               notifications={notifications}
+              user={userData}
+              loading={loading}
             />
           )}
 
@@ -1292,13 +1505,27 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
             <AdsSection lang={lang} />
           )}
 
+          {activeSection === "analytics" && (
+            <AnalyticsSection lang={lang} />
+          )}
+
           {activeSection === "account" && (
-            <AccountSection lang={lang} user={user} />
+            <AccountSection lang={lang} user={userData} />
           )}
         </div>
       </main>
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .spinning {
+          animation: spin 1s linear infinite;
+        }
+      `}</style>
     </div>
   );
 };
- 
+
 export default DashboardClient;

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
 /* ---------------- Types ---------------- */
 type AdType = "facebook" | "instagram" | "google" | "twitter" | "linkedin" | "tiktok";
@@ -63,6 +64,11 @@ function platformColor(type: AdType) {
     tiktok: "#000000"
   };
   return map[type] ?? SECONDARY_COLOR;
+}
+
+/* ---------------- Utility Functions ---------------- */
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
 /* ---------------- Component ---------------- */
@@ -188,7 +194,7 @@ export default function AdvancedAdGenerator() {
   /* ---------------- history management ---------------- */
   const addToHistory = useCallback((adText: string) => {
     const newAd: GeneratedAd = {
-      id: typeof crypto !== "undefined" && (crypto as any).randomUUID ? (crypto as any).randomUUID() : String(Date.now()),
+      id: generateId(),
       text: adText,
       createdAt: new Date(),
       input: { ...input },
@@ -451,8 +457,8 @@ export default function AdvancedAdGenerator() {
             <div style={styles.resultActions}>
               <button onClick={() => copyToClipboard(result)} style={styles.actionButton}>{lang === "ar" ? "نسخ" : "Copy"} 📋</button>
               <button onClick={() => {
-                exportAd({
-                  id: typeof crypto !== "undefined" && (crypto as any).randomUUID ? (crypto as any).randomUUID() : String(Date.now()),
+               exportAd({
+                  id: generateId(),
                   text: result,
                   createdAt: new Date(),
                   input,

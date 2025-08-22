@@ -11,13 +11,14 @@ const limiter = rateLimit({
   uniqueTokenPerInterval: 500,
 });
 
-// تكوين DeepSeek API - استخدام base_url الصحيح
+// ✅ التصحيح: استخدام base_url الصحيح
 const DEEPSEEK_API_BASE = 'https://api.deepseek.com';
 const DEEPSEEK_CHAT_ENDPOINT = '/chat/completions'; // المسار الصحيح
 
 // دالة للتحقق من صحة DeepSeek API
 async function validateDeepSeekAPI(apiKey: string): Promise<boolean> {
   try {
+    // ✅ التصحيح: استخدام endpoint صحيح للتحقق
     const response = await fetch(`${DEEPSEEK_API_BASE}/models`, {
       method: 'GET',
       headers: {
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // التحقق من صحة API
+    // ✅ التحقق من صحة API
     const isAPIValid = await validateDeepSeekAPI(process.env.DEEPSEEK_API_KEY);
     if (!isAPIValid) {
       return NextResponse.json(
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
         Provide rich content with real value for the reader.
       `;
 
-    // استخدام DeepSeek API
+    // ✅ استخدام DeepSeek API مع endpoint الصحيح
     const apiUrl = `${DEEPSEEK_API_BASE}${DEEPSEEK_CHAT_ENDPOINT}`;
     
     console.log("📡 Sending request to DeepSeek API...");
