@@ -22,6 +22,12 @@ export const connectToDB = async () => {
       autoIndex: true,
       connectTimeoutMS: 10000,
       serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      family: 4,
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+      serverMonitoringMode: 'auto' as const,
     };
 
     cached.promise = mongoose

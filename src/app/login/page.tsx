@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const locales = {
   en: {
@@ -15,6 +16,8 @@ const locales = {
     hidePassword: "Hide Password",
     invalidEmail: "Please enter a valid email.",
     requiredField: "This field is required.",
+    networkError: "Network error. Please check your connection and try again.",
+    serverError: "Server error. Please try again later.",
   },
   ar: {
     loginTitle: "تسجيل الدخول إلى حسابك",
@@ -28,27 +31,36 @@ const locales = {
     hidePassword: "إخفاء كلمة المرور",
     invalidEmail: "يرجى إدخال بريد إلكتروني صحيح.",
     requiredField: "هذا الحقل مطلوب.",
+    networkError: "خطأ في الشبكة. يرجى التحقق من اتصالك والمحاولة مرة أخرى.",
+    serverError: "خطأ في الخادم. يرجى المحاولة مرة أخرى لاحقاً.",
   },
 };
 
 export default function LoginPage() {
   const [lang, setLang] = useState<"ar" | "en">("ar");
   const t = locales[lang];
+  const router = useRouter();
 
-  const [email, setEmail] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("email") || "";
-    }
-    return "";
-  });
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
   const [error, setError] = useState<{ email?: string; password?: string; general?: string }>({});
   const [loading, setLoading] = useState(false);
 
+  // إصلاح مشكلة localStorage مع SSR
   useEffect(() => {
-    localStorage.setItem("email", email);
+    if (typeof window !== "undefined") {
+      const savedEmail = localStorage.getItem("email");
+      if (savedEmail) {
+        setEmail(savedEmail);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (email && typeof window !== "undefined") {
+      localStorage.setItem("email", email);
+    }
   }, [email]);
 
   const validate = () => {
@@ -79,175 +91,83 @@ export default function LoginPage() {
     setError({});
 
     try {
-      // التصحيح: تغيير المسار إلى /api/auth/login
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
         body: JSON.stringify({ email, password }),
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response:", text.substring(0, 200));
+        setError({ general: t.serverError });
+        return;
+      }
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError({ general: data.error || "Login failed" });
-        setLoading(false);
+        setError({ general: data.error || data.message || t.serverError });
         return;
       }
 
-      // التصحيح: إعادة التوجيه إلى Dashboard بعد نجاح التسجيل
-      if (data.success && data.redirect) {
-        window.location.href = data.redirect; // إعادة التوجيه إلى Dashboard
+      if (data.success) {
+        router.push(data.redirect || "/dashboard");
       } else {
-        alert(t.submit + " successful!");
+        setError({ general: data.error || "Login failed" });
       }
-    } catch (err) {
-      setError({ general: "Network error. Please try again." });
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError({ general: t.networkError });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <style>{`
-        * {
-          box-sizing: border-box;
-        }
-        body {
-          margin: 0; padding: 0; background: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .container {
-          max-width: 420px;
-          margin: 60px auto;
-          background: #fff;
-          padding: 32px 28px 40px 28px;
-          border-radius: 14px;
-          box-shadow: 0 12px 25px rgba(0,0,0,0.1);
-          direction: ${lang === "ar" ? "rtl" : "ltr"};
-          position: relative;
-        }
-        .lang-toggle {
-          position: absolute;
-          top: 18px;
-          ${lang === "ar" ? "left: 20px;" : "right: 20px;"}
-          background: transparent;
-          border: none;
-          font-weight: 700;
-          color: #0070f3;
-          cursor: pointer;
-          font-size: 14px;
-          user-select: none;
-          transition: color 0.3s ease;
-        }
-        .lang-toggle:hover {
-          color: #005bb5;
-        }
-        h2 {
-          margin-bottom: 28px;
-          font-weight: 700;
-          font-size: 26px;
-          color: #222;
-          text-align: center;
-        }
-        label {
-          display: block;
-          margin-bottom: 8px;
-          font-weight: 600;
-          color: #333;
-        }
-        input[type="email"], input[type="password"] {
-          width: 100%;
-          padding: 14px 16px;
-          font-size: 16px;
-          border: 2px solid #ddd;
-          border-radius: 10px;
-          transition: border-color 0.3s ease, box-shadow 0.3s ease;
-          outline: none;
-        }
-        input[type="email"]:focus, input[type="password"]:focus {
-          border-color: #0070f3;
-          box-shadow: 0 0 6px rgba(0,112,243,0.4);
-        }
-        .error-text {
-          color: #d93025;
-          font-size: 13px;
-          margin-top: 6px;
-          margin-bottom: 12px;
-          min-height: 18px;
-          font-weight: 600;
-          user-select: none;
-        }
-        .password-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .toggle-password {
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 600;
-          color: #0070f3;
-          background: none;
-          border: none;
-          user-select: none;
-          transition: color 0.3s ease;
-          ${lang === "ar" ? "left: 16px;" : "right: 16px;"}
-        }
-        .toggle-password:hover {
-          color: #005bb5;
-        }
-        button.submit-btn {
-          width: 100%;
-          padding: 14px 0;
-          margin-top: 16px;
-          background: #0070f3;
-          color: #fff;
-          font-weight: 700;
-          font-size: 18px;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          transition: background-color 0.3s ease;
-          user-select: none;
-        }
-        button.submit-btn:hover:not(:disabled) {
-          background: #005bb5;
-        }
-        button.submit-btn:disabled {
-          background: #999;
-          cursor: not-allowed;
-        }
-        .links {
-          margin-top: 18px;
-          display: flex;
-          justify-content: space-between;
-          font-size: 14px;
-        }
-        .links a {
-          color: #0070f3;
-          text-decoration: none;
-          user-select: none;
-          transition: color 0.3s ease;
-        }
-        .links a:hover {
-          text-decoration: underline;
-          color: #005bb5;
-        }
-        .general-error {
-          margin-top: 12px;
-          color: #d93025;
-          font-weight: 700;
-          text-align: center;
-          user-select: none;
-        }
-      `}</style>
-
-      <div className="container" role="main" aria-labelledby="login-title">
+    <div style={{
+      boxSizing: 'border-box',
+      margin: 0, 
+      padding: 0, 
+      background: '#f0f2f5',
+      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <div style={{
+        maxWidth: '420px',
+        width: '100%',
+        margin: '60px auto',
+        background: '#fff',
+        padding: '32px 28px 40px 28px',
+        borderRadius: '14px',
+        boxShadow: '0 12px 25px rgba(0,0,0,0.1)',
+        direction: lang === "ar" ? "rtl" : "ltr",
+        position: 'relative'
+      }}>
         <button
-          className="lang-toggle"
+          style={{
+            position: 'absolute',
+            top: '18px',
+            right: lang === "ar" ? 'auto' : '20px',
+            left: lang === "ar" ? '20px' : 'auto',
+            background: 'transparent',
+            border: 'none',
+            fontWeight: 700,
+            color: '#0070f3',
+            cursor: 'pointer',
+            fontSize: '14px',
+            userSelect: 'none',
+            transition: 'color 0.3s ease'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.color = '#005bb5'}
+          onMouseOut={(e) => e.currentTarget.style.color = '#0070f3'}
           aria-label="Toggle Language"
           onClick={() => setLang(lang === "ar" ? "en" : "ar")}
           type="button"
@@ -255,50 +175,162 @@ export default function LoginPage() {
           {t.languageToggle}
         </button>
 
-        <h2 id="login-title">{t.loginTitle}</h2>
+        <h2 style={{
+          marginBottom: '28px',
+          fontWeight: 700,
+          fontSize: '26px',
+          color: '#222',
+          textAlign: 'center'
+        }}>
+          {t.loginTitle}
+        </h2>
 
-        <label htmlFor="email">{t.email}</label>
+        <label htmlFor="email" style={{
+          display: 'block',
+          marginBottom: '8px',
+          fontWeight: 600,
+          color: '#333'
+        }}>
+          {t.email}
+        </label>
         <input
           id="email"
           type="email"
           autoComplete="username"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          aria-invalid={!!error.email}
-          aria-describedby={error.email ? "email-error" : undefined}
+          style={{
+            width: '100%',
+            padding: '14px 16px',
+            fontSize: '16px',
+            border: '2px solid #ddd',
+            borderRadius: '10px',
+            transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+            outline: 'none'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = '#0070f3';
+            e.target.style.boxShadow = '0 0 6px rgba(0,112,243,0.4)';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = '#ddd';
+            e.target.style.boxShadow = 'none';
+          }}
           placeholder={t.email}
+          disabled={loading}
         />
-        <div id="email-error" className="error-text" role="alert">
+        <div style={{
+          color: '#d93025',
+          fontSize: '13px',
+          marginTop: '6px',
+          marginBottom: '12px',
+          minHeight: '18px',
+          fontWeight: 600,
+          userSelect: 'none'
+        }}>
           {error.email || "\u00A0"}
         </div>
 
-        <label htmlFor="password">{t.password}</label>
-        <div className="password-wrapper">
+        <label htmlFor="password" style={{
+          display: 'block',
+          marginBottom: '8px',
+          fontWeight: 600,
+          color: '#333'
+        }}>
+          {t.password}
+        </label>
+        <div style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
           <input
             id="password"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            aria-invalid={!!error.password}
-            aria-describedby={error.password ? "password-error" : undefined}
+            style={{
+              width: '100%',
+              padding: '14px 16px',
+              fontSize: '16px',
+              border: '2px solid #ddd',
+              borderRadius: '10px',
+              transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+              outline: 'none',
+              paddingRight: lang === "ar" ? '16px' : '50px',
+              paddingLeft: lang === "ar" ? '50px' : '16px'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#0070f3';
+              e.target.style.boxShadow = '0 0 6px rgba(0,112,243,0.4)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#ddd';
+              e.target.style.boxShadow = 'none';
+            }}
             placeholder={t.password}
+            disabled={loading}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="toggle-password"
+            style={{
+              position: 'absolute',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#0070f3',
+              background: 'none',
+              border: 'none',
+              userSelect: 'none',
+              transition: 'color 0.3s ease',
+              right: lang === "ar" ? 'auto' : '16px',
+              left: lang === "ar" ? '16px' : 'auto'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#005bb5'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#0070f3'}
             aria-label={showPassword ? t.hidePassword : t.showPassword}
+            disabled={loading}
           >
             {showPassword ? "🙈" : "👁"}
           </button>
         </div>
-        <div id="password-error" className="error-text" role="alert">
+        <div style={{
+          color: '#d93025',
+          fontSize: '13px',
+          marginTop: '6px',
+          marginBottom: '12px',
+          minHeight: '18px',
+          fontWeight: 600,
+          userSelect: 'none'
+        }}>
           {error.password || "\u00A0"}
         </div>
 
         <button
-          className="submit-btn"
+          style={{
+            width: '100%',
+            padding: '14px 0',
+            marginTop: '16px',
+            background: loading ? '#999' : '#0070f3',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: '18px',
+            border: 'none',
+            borderRadius: '12px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.3s ease',
+            userSelect: 'none'
+          }}
+          onMouseOver={(e) => {
+            if (!loading) e.currentTarget.style.background = '#005bb5';
+          }}
+          onMouseOut={(e) => {
+            if (!loading) e.currentTarget.style.background = '#0070f3';
+          }}
           onClick={handleLogin}
           disabled={loading}
           aria-busy={loading}
@@ -306,13 +338,55 @@ export default function LoginPage() {
           {loading ? (lang === "ar" ? "جاري تسجيل الدخول..." : "Signing in...") : t.submit}
         </button>
 
-        {error.general && <p className="general-error" role="alert">{error.general}</p>}
+        {error.general && (
+          <div style={{
+            marginTop: '12px',
+            color: '#d93025',
+            fontWeight: 700,
+            textAlign: 'center',
+            userSelect: 'none',
+            padding: '10px',
+            background: '#ffebee',
+            borderRadius: '6px'
+          }}>
+            {error.general}
+            <br />
+            <small style={{ fontSize: "12px" }}>
+              {lang === "ar" ? "تحقق من console للمزيد من التفاصيل" : "Check console for details"}
+            </small>
+          </div>
+        )}
 
-        <div className="links">
-          <a href="/forgot-password">{t.forgotPassword}</a>
-          <a href="/register">{t.createAccount}</a>
+        <div style={{
+          marginTop: '18px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '14px'
+        }}>
+          <a href="/forgot-password" style={{
+            color: '#0070f3',
+            textDecoration: 'none',
+            userSelect: 'none',
+            transition: 'color 0.3s ease'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.color = '#005bb5'}
+          onMouseOut={(e) => e.currentTarget.style.color = '#0070f3'}
+          >
+            {t.forgotPassword}
+          </a>
+          <a href="/register" style={{
+            color: '#0070f3',
+            textDecoration: 'none',
+            userSelect: 'none',
+            transition: 'color 0.3s ease'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.color = '#005bb5'}
+          onMouseOut={(e) => e.currentTarget.style.color = '#0070f3'}
+          >
+            {t.createAccount}
+          </a>
         </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
 
 /* ---------------- Types ---------------- */
 type AdType = "facebook" | "instagram" | "google" | "twitter" | "linkedin" | "tiktok";
@@ -43,7 +42,6 @@ interface Analytics {
 const AD_TYPES: AdType[] = ["facebook", "instagram", "google", "twitter", "linkedin", "tiktok"];
 const LANGUAGES: AdLanguage[] = ["ar", "en"];
 const TONES: AdTone[] = ["formal", "friendly", "humorous", "persuasive", "urgent"];
-const LENGTHS: AdLength[] = ["short", "medium", "long"];
 
 const MAX_HISTORY_ITEMS = 50;
 const MAX_ANALYTICS_ITEMS = 100;
@@ -51,7 +49,6 @@ const MAX_ANALYTICS_ITEMS = 100;
 /* Primary color */
 const PRIMARY_COLOR = "#2563eb";
 const SECONDARY_COLOR = "#64748b";
-const SUCCESS_COLOR = "#10b981";
 
 /* Platform colors */
 function platformColor(type: AdType) {

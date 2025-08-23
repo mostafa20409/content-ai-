@@ -10,20 +10,20 @@
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "@/": [
-        "./src/"
+      "@/*": [
+        "./src/*"
       ],
-      "@/components/": [
-        "./src/components/"
+      "@/components/*": [
+        "./src/components/*"
       ],
-      "@/lib/": [
-        "./src/lib/"
+      "@/lib/*": [
+        "./src/lib/*"
       ],
-      "@/models/": [
-        "./src/models/"
+      "@/models/*": [
+        "./src/models/*"
       ],
-      "@/types/": [
-        "./src/types/"
+      "@/types/*": [
+        "./src/types/*"
       ]
     },
     "strict": false,
@@ -68,11 +68,7 @@
     "composite": true
   },
   "include": [
-    ".next/types//*.ts",
-    "/*.js",
-    "/*.jsx",
-    "/*.ts",
-    "/*.tsx",
+    "src/**/*",
     "next-env.d.ts",
     ".next/types/**/*.ts"
   ],
@@ -82,12 +78,7 @@
     ".next",
     "cypress",
     "tests",
-    "/*.spec.ts",
-    "/*.test.ts"
-  ],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
-    }
+    "**/*.spec.ts",
+    "**/*.test.ts"
   ]
 }
