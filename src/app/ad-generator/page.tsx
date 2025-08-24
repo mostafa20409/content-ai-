@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 /* ---------------- Types ---------------- */
 type AdType = "facebook" | "instagram" | "google" | "twitter" | "linkedin" | "tiktok";
@@ -106,8 +106,20 @@ export default function AdvancedAdGenerator() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [lang, setLang] = useState<AdLanguage>("ar");
 
+  // استخدام useRef لتخزين القيم بدون إعادة تصيير
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isInitialLoad = useRef(true);
+
+  /* ---------------- helpers ---------------- */
+  const trackEvent = useCallback((_event: string, _data?: any) => {
+    // placeholder — replace with analytics call
+    // console.log("track:", event, data);
+  }, []);
+
   /* load persisted (localStorage) on client only */
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     try {
       const storedHistory = localStorage.getItem("adGeneratorHistory");
       if (storedHistory) {
@@ -147,26 +159,32 @@ export default function AdvancedAdGenerator() {
     }
     // track page visit after load
     trackEvent("page_visit");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    isInitialLoad.current = false;
+  }, [trackEvent]);
 
   /* persist history & analytics when changed */
   useEffect(() => {
+    if (isInitialLoad.current) return;
+    
     try {
       localStorage.setItem("adGeneratorHistory", JSON.stringify(history));
       localStorage.setItem("adGeneratorAnalytics", JSON.stringify(analytics));
     } catch (err) {
       console.error("persistData error:", err);
     }
-  }, [history, analytics]);
+  }, [history, analytics, trackEvent]);
 
   useEffect(() => {
+    if (isInitialLoad.current) return;
+    
     try {
       localStorage.setItem("adGeneratorLang", lang);
     } catch {}
   }, [lang]);
 
   useEffect(() => {
+    if (isInitialLoad.current) return;
+    
     try {
       localStorage.setItem("adGeneratorTheme", theme);
       // apply theme to document root for global CSS if desired
@@ -176,17 +194,11 @@ export default function AdvancedAdGenerator() {
     } catch {}
   }, [theme]);
 
-  /* ---------------- helpers ---------------- */
-  const trackEvent = (_event: string, _data?: any) => {
-    // placeholder — replace with analytics call
-    // console.log("track:", event, data);
-  };
-
-  const validateInput = (): string | null => {
+  const validateInput = useCallback((): string | null => {
     if (!input.product.trim()) return lang === "ar" ? "❌ يرجى إدخال اسم المنتج" : "❌ Please enter product name";
     if (!input.audience.trim()) return lang === "ar" ? "❌ يرجى إدخال الجمهور المستهدف" : "❌ Please enter audience";
     return null;
-  };
+  }, [input.product, input.audience, lang]);
 
   /* ---------------- history management ---------------- */
   const addToHistory = useCallback((adText: string) => {
@@ -200,27 +212,27 @@ export default function AdvancedAdGenerator() {
     };
     setHistory(prev => [newAd, ...prev].slice(0, MAX_HISTORY_ITEMS));
     trackEvent("ad_generated", { platform: input.type });
-  }, [input]);
+  }, [input, trackEvent]);
 
-  const updateAdInHistory = (id: string, updates: Partial<GeneratedAd>) => {
+  const updateAdInHistory = useCallback((id: string, updates: Partial<GeneratedAd>) => {
     setHistory(prev =>
       prev.map(ad => ad.id === id ? { ...ad, ...updates, modifiedAt: updates.text ? new Date() : ad.modifiedAt } : ad)
     );
-  };
+  }, []);
 
-  const deleteAdFromHistory = (id: string) => {
+  const deleteAdFromHistory = useCallback((id: string) => {
     setHistory(prev => prev.filter(ad => ad.id !== id));
     trackEvent("ad_deleted", { id });
-  };
+  }, [trackEvent]);
 
-  const rateAd = (id: string, rating: number) => {
+  const rateAd = useCallback((id: string, rating: number) => {
     updateAdInHistory(id, { rating });
     trackEvent("ad_rated", { id, rating });
-  };
+  }, [updateAdInHistory, trackEvent]);
 
-  const incrementAdViews = (id: string) => {
+  const incrementAdViews = useCallback((id: string) => {
     updateAdInHistory(id, { views: (history.find(a => a.id === id)?.views || 0) + 1 });
-  };
+  }, [history, updateAdInHistory]);
 
   /* ---------------- filters ---------------- */
   const filteredHistory = useMemo(() => {
@@ -242,7 +254,7 @@ export default function AdvancedAdGenerator() {
   }, [history, searchTerm, selectedPlatform, selectedRating]);
 
   /* ---------------- ad generation (using DeepSeek API) ---------------- */
-  const generateAd = async () => {
+  const generateAd = useCallback(async () => {
     setError(null);
     setResult("");
 
@@ -296,10 +308,10 @@ export default function AdvancedAdGenerator() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [input, lang, validateInput, addToHistory, trackEvent]);
 
   /* ---------------- helpers: clipboard/export/edit ---------------- */
-  const copyToClipboard = async (text: string, adId?: string) => {
+  const copyToClipboard = useCallback(async (text: string, adId?: string) => {
     try {
       await navigator.clipboard.writeText(text);
       if (adId) {
@@ -312,9 +324,9 @@ export default function AdvancedAdGenerator() {
       console.error(err);
       alert(lang === "ar" ? "فشل النسخ" : "Copy failed");
     }
-  };
+  }, [history, lang, updateAdInHistory]);
 
-  const exportAd = (ad: GeneratedAd) => {
+  const exportAd = useCallback((ad: GeneratedAd) => {
     const blob = new Blob([ad.text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -325,27 +337,29 @@ export default function AdvancedAdGenerator() {
     a.remove();
     URL.revokeObjectURL(url);
     trackEvent("ad_exported");
-  };
+  }, [lang, trackEvent]);
 
-  const startEditing = (ad: GeneratedAd) => {
+  const startEditing = useCallback((ad: GeneratedAd) => {
     setEditingAdId(ad.id);
     setEditText(ad.text);
-  };
-  const saveEdit = () => {
+  }, []);
+
+  const saveEdit = useCallback(() => {
     if (editingAdId) {
       updateAdInHistory(editingAdId, { text: editText });
       setEditingAdId(null);
     }
-  };
-  const cancelEdit = () => setEditingAdId(null);
+  }, [editingAdId, editText, updateAdInHistory]);
+
+  const cancelEdit = useCallback(() => setEditingAdId(null), []);
 
   /* ---------------- UI helpers ---------------- */
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target as any;
     setInput(prev => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
-  const platformName = (type: AdType) => {
+  const platformName = useCallback((type: AdType) => {
     const en: Record<AdType,string> = {
       facebook: "Facebook",
       instagram: "Instagram",
@@ -363,9 +377,9 @@ export default function AdvancedAdGenerator() {
       tiktok: "تيك توك"
     };
     return lang === "ar" ? ar[type] : en[type];
-  };
+  }, [lang]);
 
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     try {
       return date.toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
         year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
@@ -373,24 +387,39 @@ export default function AdvancedAdGenerator() {
     } catch {
       return date.toISOString();
     }
-  };
+  }, [lang]);
 
   /* ---------------- Theme & Lang toggles ---------------- */
-  const toggleTheme = () => setTheme(prev => prev === "light" ? "dark" : "light");
-  const switchLang = (l: AdLanguage) => setLang(l);
+  const toggleTheme = useCallback(() => setTheme(prev => prev === "light" ? "dark" : "light"), []);
+  const switchLang = useCallback((l: AdLanguage) => setLang(l), []);
 
   /* ---------------- Render subcomponents ---------------- */
-  const InputForm = () => (
+  const InputForm = useCallback(() => (
     <div style={merge(styles.formContainer, theme === "dark" ? styles.formContainerDark : {})}>
       <div style={styles.formGrid}>
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "اسم المنتج/الخدمة" : "Product / Service"}</label>
-          <input name="product" value={input.product} onChange={handleInputChange} placeholder={lang === "ar" ? "مثال: هاتف ذكي" : "e.g. High-end smartphone"} style={styles.input} disabled={loading} />
+          <input 
+            name="product" 
+            value={input.product} 
+            onChange={handleInputChange} 
+            placeholder={lang === "ar" ? "مثال: هاتف ذكي" : "e.g. High-end smartphone"} 
+            style={styles.input} 
+            disabled={loading} 
+            ref={inputRef}
+          />
         </div>
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "الجمهور المستهدف" : "Target audience"}</label>
-          <input name="audience" value={input.audience} onChange={handleInputChange} placeholder={lang === "ar" ? "مثال: رجال أعمال 25-40" : "e.g. 25-40 business professionals"} style={styles.input} disabled={loading} />
+          <input 
+            name="audience" 
+            value={input.audience} 
+            onChange={handleInputChange} 
+            placeholder={lang === "ar" ? "مثال: رجال أعمال 25-40" : "e.g. 25-40 business professionals"} 
+            style={styles.input} 
+            disabled={loading} 
+          />
         </div>
 
         <div style={styles.formGroup}>
@@ -441,9 +470,9 @@ export default function AdvancedAdGenerator() {
         </button>
       </div>
     </div>
-  );
+  ), [input, loading, lang, theme, handleInputChange, platformName, generateAd]);
 
-  const ResultDisplay = () => (
+  const ResultDisplay = useCallback(() => (
     <div style={merge(styles.resultContainer, theme === "dark" ? styles.resultContainerDark : {})}>
       {error && <div style={styles.errorAlert}><strong>!</strong>&nbsp;{error}</div>}
 
@@ -485,9 +514,9 @@ export default function AdvancedAdGenerator() {
         <div style={{ color: "#777" }}>{lang === "ar" ? "لا يوجد إعلان بعد — جرّب التوليد الآن" : "No ad yet — try generating one"}</div>
       )}
     </div>
-  );
+  ), [result, error, theme, lang, history, input, copyToClipboard, exportAd, rateAd]);
 
-  const HistoryList = () => (
+  const HistoryList = useCallback(() => (
     <div style={merge(styles.historyContainer, theme === "dark" ? styles.historyContainerDark : {})}>
       <div style={styles.historyFilters}>
         <input placeholder={lang === "ar" ? "ابحث..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
@@ -547,9 +576,9 @@ export default function AdvancedAdGenerator() {
         </div>
       )}
     </div>
-  );
+  ), [filteredHistory, searchTerm, selectedPlatform, selectedRating, theme, lang, editingAdId, editText, platformName, formatDate, incrementAdViews, copyToClipboard, exportAd, startEditing, deleteAdFromHistory, saveEdit, cancelEdit]);
 
-  const AnalyticsDashboard = () => {
+  const AnalyticsDashboard = useCallback(() => {
     // compute distribution
     const distribution = AD_TYPES.map(type => {
       const count = history.filter(h => h.input.type === type).length;
@@ -586,7 +615,7 @@ export default function AdvancedAdGenerator() {
         </div>
       </div>
     );
-  };
+  }, [analytics, history, theme, lang, platformName]);
 
   /* ---------------- main render ---------------- */
   return (

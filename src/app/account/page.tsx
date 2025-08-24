@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image"; // أضفنا استيراد Image
 
 type Subscription = "free" | "pro" | "premium";
 
@@ -270,9 +271,12 @@ export default function AccountPage() {
         <div style={styles.columns}>
           <div style={styles.leftCol}>
             <div style={styles.avatarWrap}>
-              <img
+              {/* استبدلنا img بـ Image */}
+              <Image
                 src={previewAvatar || "/default-avatar.png"}
                 alt="avatar"
+                width={160}
+                height={160}
                 style={styles.avatar}
               />
               {editMode ? (

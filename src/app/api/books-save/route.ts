@@ -3,22 +3,14 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { connectToDB } from '../../../lib/connectToDB';
-import rateLimit from '../../../lib/rateLimit';
 import Book from '../../../models/Book';
 import User from '../../../models/User';
 
-// تحديد معدل الطلبات لمنع السبام
-const limiter = rateLimit({
-  interval: 60 * 1000, // دقيقة واحدة
-  uniqueTokenPerInterval: 500,
-});
 
 export async function POST(req: Request) {
   try {
-    // التحقق من معدل الطلبات
-    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
-    await limiter.check(10, ip); // أقصى 10 محاولات في الدقيقة
-
+    
+    
     // قراءة التوكن من الكوكيز
     const token = (await cookies()).get('token')?.value;
     if (!token) {

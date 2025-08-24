@@ -14,11 +14,8 @@ import {
   Cell,
   CartesianGrid,
   Legend,
-  BarChart,
-  Bar,
 } from "recharts";
-import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiArrowUp, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiUser, FiLock, FiMail, FiRefreshCw, FiActivity, FiPieChart, FiBarChart2 } from "react-icons/fi";
-import { FaChartLine, FaFileAlt, FaUsers, FaShoppingCart } from "react-icons/fa";
+import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiUser, FiLock, FiRefreshCw, FiActivity, FiPieChart, FiBarChart2 } from "react-icons/fi";
 
 /* ==========================================================================
    DashboardClient.tsx - مخصص لمشروع إنشاء المحتوى
@@ -719,7 +716,7 @@ const AnalyticsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
                 dataKey="value"
                 label
               >
-                {SAMPLE_TRAFFIC.map((entry, index) => (
+                {SAMPLE_TRAFFIC.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} />
                 ))}
               </Pie>

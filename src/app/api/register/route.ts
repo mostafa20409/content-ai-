@@ -2,8 +2,7 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import User from "../../../models/User";
-import { connectToDB } from "../../../lib/mongodb"; // عدّل المسار لو عندك مسار مختلف
-import rateLimit from "../../../lib/rateLimit";
+import { connectToDB } from "../../../lib/mongodb"; // تأكد من صحة المسار
 import { z } from "zod";
 
 /**
@@ -34,20 +33,49 @@ const registerSchema = z.object({
     .regex(/[^a-zA-Z0-9]/, { message: "يجب أن تحتوي على رمز خاص على الأقل" }),
 });
 
-/* ---------- limiter (adjustable) ---------- */
-const limiter = rateLimit({
-  interval: 15 * 60 * 1000, // 15 دقيقة
-  uniqueTokenPerInterval: 500,
-});
+// نظام بسيط للحد من المعدل
+const requestCache = new Map();
+const RATE_LIMIT = {
+  MAX_REQUESTS: 5,
+  WINDOW_MS: 15 * 60 * 1000 // 15 دقيقة
+};
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT.WINDOW_MS;
+  
+  // تنظيف الطلبات القديمة
+  for (const [key, timestamp] of requestCache.entries()) {
+    if (timestamp < windowStart) {
+      requestCache.delete(key);
+    }
+  }
+  
+  // عد الطلبات الحالية
+  const requestCount = Array.from(requestCache.values()).filter(
+    timestamp => timestamp >= windowStart
+  ).length;
+  
+  if (requestCount >= RATE_LIMIT.MAX_REQUESTS) {
+    return false;
+  }
+  
+  // إضافة الطلب الحالي
+  requestCache.set(ip, now);
+  return true;
+}
 
 export async function POST(request: Request) {
   try {
-    // ===== rate limit (use IP as key) =====
-    const ip =
-      (request.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
-      request.headers.get("x-real-ip") ||
-      "127.0.0.1";
-    await limiter.check(100, ip); // 100 محاولات لكل IP خلال الفترة
+    const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+    
+    // التحقق من المعدل
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: "لقد تجاوزت عدد المحاولات المسموح بها" },
+        { status: 429 }
+      );
+    }
 
     // ===== ensure JSON =====
     const contentType = request.headers.get("content-type") || "";
@@ -159,17 +187,6 @@ export async function POST(request: Request) {
     return res;
   } catch (err: any) {
     console.error("register route error:", err);
-
-    // rate-limit library might throw specific error.type or message
-    if (err && (err.type === "limit" || err.message === "Rate limit exceeded")) {
-      return NextResponse.json(
-        {
-          error: "لقد تجاوزت الحد المسموح من الطلبات",
-          message: "الرجاء المحاولة مرة أخرى لاحقًا",
-        },
-        { status: 429 }
-      );
-    }
 
     return NextResponse.json(
       {
