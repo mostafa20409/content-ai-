@@ -9,7 +9,7 @@ export default function AdsPage() {
   
   useEffect(() => {
     router.replace('/ad-generator');
-  }, []);
+  }, [router]); // أضف router إلى مصفوفة التبعيات
 
   return (
     <div style={{

@@ -518,6 +518,12 @@ export async function POST(req: Request) {
           tokens: data.usage?.total_tokens
         });
 
+        // تحديث التقدم
+        const progress = Math.round((results.length / chapters.length) * 100);
+        
+        // إرسال تحديث التقدم (يمكن استخدام Server-Sent Events أو WebSockets في الإصدارات المستقبلية)
+        console.log(`Progress: ${progress}% - Chapter ${results.length} of ${chapters.length}`);
+
         // تأخير بين الفصول
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -545,23 +551,27 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
       clearTimeout(timeoutId);
-      throw error;
+      
+      if (error.name === 'AbortError') {
+        return NextResponse.json(
+          { error: bookLanguage === 'ar' ? "انتهت مهلة الاتصال" : "Request timeout" },
+          { status: 408 }
+        );
+      }
+      
+      console.error("AI API error:", error);
+      throw new Error(bookLanguage === 'ar' ? "فشل في الاتصال بخدمة الذكاء الاصطناعي" : "Failed to connect to AI service");
     }
 
   } catch (error: any) {
-    if (error.name === 'AbortError') {
-      return NextResponse.json(
-        { error: "انتهت مهلة الاتصال" },
-        { status: 408 }
-      );
-    }
-
     console.error("❌ Advanced book generation error:", error);
+    
+    const errorMessage = error.message || "حدث خطأ في الخادم";
     
     return NextResponse.json(
       { 
-        error: "حدث خطأ في الخادم",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
     );

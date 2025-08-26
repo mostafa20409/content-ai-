@@ -331,7 +331,6 @@ export default function AdvancedAdGenerator() {
     const start = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     try {
-      // استدعاء DeepSeek API بدلاً من المحاكاة
       const response = await fetch('/api/generate-ad', {
         method: 'POST',
         headers: {
@@ -418,8 +417,20 @@ export default function AdvancedAdGenerator() {
 
   /* ---------------- UI helpers ---------------- */
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target as any;
+    const { name, value } = e.target;
     setInput(prev => ({ ...prev, [name]: value }));
+  }, []);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
+
+  const handlePlatformFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedPlatform(e.target.value as AdType | "all");
+  }, []);
+
+  const handleRatingFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedRating(e.target.value === "all" ? "all" : Number(e.target.value));
   }, []);
 
   const platformName = useCallback((type: AdType) => {
@@ -584,12 +595,25 @@ export default function AdvancedAdGenerator() {
   const HistoryList = useCallback(() => (
     <div style={merge(styles.historyContainer, theme === "dark" ? styles.historyContainerDark : {})}>
       <div style={styles.historyFilters}>
-        <input placeholder={lang === "ar" ? "ابحث..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
-        <select value={selectedPlatform} onChange={(e) => setSelectedPlatform(e.target.value as AdType | "all")} style={styles.filterSelect}>
+        <input 
+          placeholder={lang === "ar" ? "ابحث..." : "Search..."} 
+          value={searchTerm} 
+          onChange={handleSearchChange} 
+          style={styles.searchInput} 
+        />
+        <select 
+          value={selectedPlatform} 
+          onChange={handlePlatformFilterChange} 
+          style={styles.filterSelect}
+        >
           <option value="all">{lang === "ar" ? "كل المنصات" : "All platforms"}</option>
           {AD_TYPES.map(t => <option key={t} value={t}>{platformName(t)}</option>)}
         </select>
-        <select value={selectedRating} onChange={(e) => setSelectedRating(e.target.value === "all" ? "all" : Number(e.target.value))} style={styles.filterSelect}>
+        <select 
+          value={selectedRating} 
+          onChange={handleRatingFilterChange} 
+          style={styles.filterSelect}
+        >
           <option value="all">{lang === "ar" ? "كل التقييمات" : "All ratings"}</option>
           <option value="4">{lang === "ar" ? "4 نجوم فأكثر" : "4+ stars"}</option>
           <option value="3">{lang === "ar" ? "3 نجوم فأكثر" : "3+ stars"}</option>
@@ -641,7 +665,7 @@ export default function AdvancedAdGenerator() {
         </div>
       )}
     </div>
-  ), [filteredHistory, searchTerm, selectedPlatform, selectedRating, theme, lang, editingAdId, editText, platformName, formatDate, incrementAdViews, copyToClipboard, exportAd, startEditing, deleteAdFromHistory, saveEdit, cancelEdit]);
+  ), [filteredHistory, searchTerm, selectedPlatform, selectedRating, theme, lang, editingAdId, editText, platformName, formatDate, incrementAdViews, copyToClipboard, exportAd, startEditing, deleteAdFromHistory, saveEdit, cancelEdit, handleSearchChange, handlePlatformFilterChange, handleRatingFilterChange]);
 
   const AnalyticsDashboard = useCallback(() => {
     // compute distribution

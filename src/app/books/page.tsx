@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -405,6 +404,10 @@ export default function BooksPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       
+      // إضافة مؤقت للتحقق من اتصال API
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 ثانية timeout
+      
       const response = await fetch("/api/books/generate", {
         method: "POST",
         headers: {
@@ -446,23 +449,28 @@ export default function BooksPage() {
             coverImageStyle: "abstract"
           }
         }),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || t.genError);
       }
 
       const data = await response.json();
       
       // تحديث الفصول بالمحتوى الحقيقي من API
-      data.chapters.forEach((generatedChapter: any, index: number) => {
-        if (index < state.chapters.length) {
-          updateChapter(state.chapters[index].id, { 
-            content: generatedChapter.content 
-          });
-        }
-      });
+      if (data.chapters && Array.isArray(data.chapters)) {
+        data.chapters.forEach((generatedChapter: any, index: number) => {
+          if (index < state.chapters.length) {
+            updateChapter(state.chapters[index].id, { 
+              content: generatedChapter.content 
+            });
+          }
+        });
+      }
 
       setState(prev => ({
         ...prev,
@@ -480,11 +488,19 @@ export default function BooksPage() {
         }, 1000);
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Generation error:", err);
+      
+      let errorMessage = t.genError;
+      if (err.name === 'AbortError') {
+        errorMessage += state.lang === "ar" ? " (انتهت مهلة الانتظار)" : " (Request timeout)";
+      } else if (err.message) {
+        errorMessage += ": " + err.message;
+      }
+      
       setState(prev => ({
         ...prev,
-        error: t.genError + ": " + (err as Error).message
+        error: errorMessage
       }));
     } finally {
       setState(prev => ({
@@ -565,7 +581,7 @@ export default function BooksPage() {
         ...prev,
         notice: t.savedSuccess
       }));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setState(prev => ({
         ...prev,
