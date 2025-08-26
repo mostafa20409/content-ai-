@@ -16,6 +16,7 @@ import {
   Legend,
 } from "recharts";
 import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiUser, FiLock, FiRefreshCw, FiActivity, FiPieChart, FiBarChart2 } from "react-icons/fi";
+import { useRouter } from "next/navigation";
 
 /* ==========================================================================
    DashboardClient.tsx - مخصص لمشروع إنشاء المحتوى
@@ -152,7 +153,11 @@ const PALETTE = [
 const formatDateShort = (iso?: string) => {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleString();
+  return d.toLocaleDateString('ar-SA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
 };
 
 /* -------------------- مكونات صغيرة -------------------- */
@@ -392,6 +397,8 @@ const Header: React.FC<{
   onRefresh: () => void;
   loading?: boolean;
 }> = ({ user, notificationsCount, onLogout, onMarkAllRead, lang, onRefresh, loading }) => {
+  const router = useRouter();
+
   return (
     <header
       style={{
@@ -432,7 +439,7 @@ const Header: React.FC<{
           </button>
           
           <button
-            onClick={() => window.location.href = "/content"}
+            onClick={() => router.push("/content")}
             style={{
               display: "flex",
               alignItems: "center",
@@ -452,7 +459,7 @@ const Header: React.FC<{
           </button>
           
           <button
-            onClick={() => window.location.href = "/books"}
+            onClick={() => router.push("/books")}
             style={{
               display: "flex",
               alignItems: "center",
@@ -472,7 +479,7 @@ const Header: React.FC<{
           </button>
           
           <button
-            onClick={() => window.location.href = "/ad-generator"}
+            onClick={() => router.push("/ad-generator")}
             style={{
               display: "flex",
               alignItems: "center",
@@ -599,6 +606,8 @@ const StatsSection: React.FC<{
 
 /* -------------------- قسم الأدوات الرئيسية -------------------- */
 const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+  const router = useRouter();
+  
   const tools = [
     {
       id: "content",
@@ -639,7 +648,7 @@ const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
               transition: "transform 0.2s, box-shadow 0.2s",
               borderLeft: `4px solid ${tool.color}`,
             }}
-            onClick={() => window.location.href = tool.path}
+            onClick={() => router.push(tool.path)}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-4px)";
               e.currentTarget.style.boxShadow = "0 12px 40px rgba(2,6,23,0.1)";
@@ -732,6 +741,7 @@ const AnalyticsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
  
  /* -------------------- قسم إدارة المحتوى -------------------- */
 const ContentSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+  const router = useRouter();
   const [content, setContent] = useState<ContentItem[]>(SAMPLE_CONTENT);
   const [filter, setFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date");
@@ -748,12 +758,12 @@ const ContentSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
     setContent(content.filter(item => item.id !== id));
   };
 
-  return (
+return (
     <section>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "إدارة المحتوى" : "Content Management"}</h2>
         <button
-          onClick={() => window.location.href = "/content"}
+          onClick={() => router.push("/content")}
           style={{
             display: "flex",
             alignItems: "center",
@@ -842,15 +852,16 @@ const ContentSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
 };
 
 /* -------------------- قسم إدارة الكتب -------------------- */
-const BooksSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
-  const [books, setBooks] = useState<BookItem[]>(SAMPLE_BOOKS);
+const BooksSection = ({ lang }) => {
+  const router = useRouter();
+  const [books, setBooks] = useState(SAMPLE_BOOKS);
   const [filter, setFilter] = useState("all");
 
   const filteredBooks = books.filter(book => 
     filter === "all" || book.status === filter
   );
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id) => {
     setBooks(books.filter(book => book.id !== id));
   };
 
@@ -859,7 +870,7 @@ const BooksSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "إدارة الكتب" : "Books Management"}</h2>
         <button
-          onClick={() => window.location.href = "/book"}
+          onClick={() => router.push("/book")}
           style={{
             display: "flex",
             alignItems: "center",
@@ -918,7 +929,7 @@ const BooksSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
               <span style={{ 
                 padding: "4px 8px", 
                 borderRadius: 4,
-                          background: book.status === "مكتمل" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
+                background: book.status === "مكتمل" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
                 color: book.status === "مكتمل" ? "#10B981" : "#F59E0B",
                 fontSize: 12
               }}>
@@ -934,10 +945,11 @@ const BooksSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       </div>
     </section>
   );
-};
+}; 
 
 /* -------------------- قسم منشئ الإعلانات -------------------- */
 const AdsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+  const router = useRouter();
   const [ads, setAds] = useState<AdItem[]>(SAMPLE_ADS);
   const [filter, setFilter] = useState("all");
   const [previewAd, setPreviewAd] = useState<AdItem | null>(null);
@@ -955,7 +967,7 @@ const AdsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2>{lang === "ar" ? "منشئ الإعلانات" : "Ad Generator"}</h2>
         <button
-          onClick={() => window.location.href = "/ad-generator"}
+          onClick={() => router.push("/ad-generator")}
           style={{
             display: "flex",
             alignItems: "center",
@@ -1257,6 +1269,8 @@ const OverviewSection: React.FC<{
   user: User;
   loading?: boolean;
 }> = ({ lang, notifications, user, loading }) => {
+  const router = useRouter();
+
   return (
     <section style={{ display: "grid", gap: 24 }}>
       <StatsSection lang={lang} user={user} loading={loading} />
@@ -1347,7 +1361,7 @@ const OverviewSection: React.FC<{
             </div>
             </div>
             <button
-              onClick={() => window.location.href = "/upgrade"}
+              onClick={() => router.push("/upgrade")}
               style={{
                 width: "100%",
                 padding: "12px 16px",
@@ -1383,6 +1397,7 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   );
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState<User>(user);
+  const router = useRouter();
 
   // جلب بيانات المستخدم الحقيقية من API
   const fetchUserData = async () => {
@@ -1406,28 +1421,37 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
 
   // تطبيق وضع الظلام
   useEffect(() => {
-    if (dark) {
-      document.documentElement.style.setProperty("--text", "#f8fafc");
-      document.documentElement.style.setProperty("--muted", "#cbd5e1");
-      document.documentElement.style.setProperty("--card-bg", "#1e293b");
-      document.documentElement.style.background = "#0f172a";
-      document.documentElement.style.color = "#f8fafc";
-    } else {
-      document.documentElement.style.setProperty("--text", "#0f172a");
-      document.documentElement.style.setProperty("--muted", "#6b7280");
-      document.documentElement.style.setProperty("--card-bg", "#fff");
-      document.documentElement.style.background = "#f8fafc";
-      document.documentElement.style.color = "#0f172a";
+    if (typeof document !== 'undefined') {
+      if (dark) {
+        document.documentElement.style.setProperty("--text", "#f8fafc");
+        document.documentElement.style.setProperty("--muted", "#cbd5e1");
+        document.documentElement.style.setProperty("--card-bg", "#1e293b");
+        document.documentElement.style.background = "#0f172a";
+        document.documentElement.style.color = "#f8fafc";
+      } else {
+        document.documentElement.style.setProperty("--text", "#0f172a");
+        document.documentElement.style.setProperty("--muted", "#6b7280");
+        document.documentElement.style.setProperty("--card-bg", "#fff");
+        document.documentElement.style.background = "#f8fafc";
+        document.documentElement.style.color = "#0f172a";
+      }
     }
   }, [dark]);
 
-  const handleLogout = () => {
-    // محاكاة تسجيل الخروج
-    console.log("Logging out...");
-    // إزالة التوكن من الكوكيز
-    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    // إعادة التوجيه إلى صفحة تسجيل الدخول
-    window.location.href = "/login";
+  const handleLogout = async () => {
+    try {
+      // إرسال طلب تسجيل الخروج إلى API
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      // إعادة التوجيه إلى صفحة تسجيل الدخول
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      router.push('/login');
+    }
   };
 
   const handleMarkAllRead = () => {

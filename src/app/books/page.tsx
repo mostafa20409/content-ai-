@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./BooksPage.css";
 
 /* ---------- الأنواع والواجهات ---------- */
@@ -243,7 +244,7 @@ export default function BooksPage() {
     document.documentElement.setAttribute("data-theme", state.darkMode ? "dark" : "light");
   }, [state.lang, state.darkMode]);
 
-  // الحفظ التلقائي
+  // الحفظ التلقائي - تم التصحيح هنا
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -270,7 +271,60 @@ export default function BooksPage() {
         clearTimeout(autosaveTimer.current);
       }
     };
-  }, [state]);
+  // تم إصلاح مصفوفة التبعيات لتجنب الحلقة اللانهائية
+  }, [state.title, state.subtitle, state.description, state.bookType, state.chapters, 
+      state.chaptersCount, state.lang, state.plan, state.includeExamples, 
+      state.generateCover, state.authorName, state.coverStyle]);
+
+  // استخدام useCallback لمنع إنشاء دوال جديدة في كل render
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setState(prev => ({ ...prev, title: e.target.value }));
+  }, []);
+
+  const handleSubtitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setState(prev => ({ ...prev, subtitle: e.target.value }));
+  }, []);
+
+  const handleDescriptionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setState(prev => ({ ...prev, description: e.target.value }));
+  }, []);
+
+  const handleBookTypeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setState(prev => ({ ...prev, bookType: e.target.value as BookType }));
+  }, []);
+
+  const handleAuthorNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setState(prev => ({ ...prev, authorName: e.target.value }));
+  }, []);
+
+  const handlePlanChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setState(prev => ({
+      ...prev,
+      plan: e.target.value as "free" | "pro" | "premium"
+    }));
+  }, []);
+
+  const handleChaptersCountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setState(prev => ({
+      ...prev,
+      chaptersCount: Math.min(20, Math.max(1, Number(e.target.value)))
+    }));
+  }, []);
+
+  const handleIncludeExamplesChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setState(prev => ({ ...prev, includeExamples: e.target.checked }));
+  }, []);
+
+  const handleGenerateCoverChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setState(prev => ({ ...prev, generateCover: e.target.checked }));
+  }, []);
+
+  const handleCoverStyleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setState(prev => ({ 
+      ...prev, 
+      coverStyle: e.target.value as "minimal" | "modern" | "classic" | "elegant" 
+    }));
+  }, []);
 
   /* ---------- دوال إدارة الفصول ---------- */
   const createEmptyChapters = (count: number) => {
@@ -547,10 +601,7 @@ export default function BooksPage() {
             <label className="sr-only">{t.planLabel}</label>
             <select 
               value={state.plan} 
-              onChange={(e) => setState(prev => ({
-                ...prev,
-                plan: e.target.value as "free" | "pro" | "premium"
-              }))}
+              onChange={handlePlanChange}
               aria-label={t.planLabel}
             >
               <option value="free">Free</option>
@@ -606,7 +657,7 @@ export default function BooksPage() {
             <label>{t.titleLabel}</label>
             <input
               value={state.title}
-              onChange={(e) => setState(prev => ({ ...prev, title: e.target.value }))}
+              onChange={handleTitleChange}
               placeholder={state.lang === "ar" ? "مثال: دليل الكتابة الحديثة" : "e.g. Modern Writing Guide"}
             />
           </div>
@@ -615,7 +666,7 @@ export default function BooksPage() {
             <label>{t.subtitleLabel}</label>
             <input
               value={state.subtitle}
-              onChange={(e) => setState(prev => ({ ...prev, subtitle: e.target.value }))}
+              onChange={handleSubtitleChange}
               placeholder={state.lang === "ar" ? "مثال: طريقة مبتكرة" : "e.g. An innovative approach"}
             />
           </div>
@@ -625,7 +676,7 @@ export default function BooksPage() {
             <textarea
               rows={3}
               value={state.description}
-              onChange={(e) => setState(prev => ({ ...prev, description: e.target.value }))}
+              onChange={handleDescriptionChange}
               placeholder={state.lang === "ar" ? "اكتب سطرين يوجزان فكرة الكتاب" : "Write two lines describing the core idea"}
             />
           </div>
@@ -634,7 +685,7 @@ export default function BooksPage() {
             <label>{t.bookTypeLabel}</label>
             <select 
               value={state.bookType}
-              onChange={(e) => setState(prev => ({ ...prev, bookType: e.target.value as BookType }))}
+              onChange={handleBookTypeChange}
             >
               {Object.entries(BOOK_TYPES).map(([key, value]) => (
                 <option key={key} value={key}>
@@ -648,7 +699,7 @@ export default function BooksPage() {
             <label>{t.authorNameLabel}</label>
             <input
               value={state.authorName}
-              onChange={(e) => setState(prev => ({ ...prev, authorName: e.target.value }))}
+              onChange={handleAuthorNameChange}
               placeholder={state.lang === "ar" ? "اسم الكاتب" : "Author name"}
             />
           </div>
@@ -679,10 +730,7 @@ export default function BooksPage() {
                 min={1}
                 max={20}
                 value={state.chaptersCount}
-                onChange={(e) => setState(prev => ({
-                  ...prev,
-                  chaptersCount: Math.min(20, Math.max(1, Number(e.target.value)))
-                }))}
+                onChange={handleChaptersCountChange}
               />
             </div>
           </div>
@@ -696,7 +744,7 @@ export default function BooksPage() {
                 type="checkbox"
                 id="includeExamples"
                 checked={state.includeExamples}
-                onChange={(e) => setState(prev => ({ ...prev, includeExamples: e.target.checked }))}
+                onChange={handleIncludeExamplesChange}
               />
               <label htmlFor="includeExamples">{t.includeExamples}</label>
             </div>
@@ -706,7 +754,7 @@ export default function BooksPage() {
                 type="checkbox"
                 id="generateCover"
                 checked={state.generateCover}
-                onChange={(e) => setState(prev => ({ ...prev, generateCover: e.target.checked }))}
+                onChange={handleGenerateCoverChange}
               />
               <label htmlFor="generateCover">{t.generateCover}</label>
             </div>
@@ -716,10 +764,7 @@ export default function BooksPage() {
                 <label>{t.coverStyleLabel}</label>
                 <select 
                   value={state.coverStyle}
-                  onChange={(e) => setState(prev => ({ 
-                    ...prev, 
-                    coverStyle: e.target.value as "minimal" | "modern" | "classic" | "elegant" 
-                  }))}
+                  onChange={handleCoverStyleChange}
                 >
                   {Object.entries(COVER_STYLES).map(([key, value]) => (
                     <option key={key} value={key}>
@@ -926,7 +971,7 @@ export default function BooksPage() {
       <div className="toast-area" aria-live="polite">
         {state.notice && <div className="toast">{state.notice}</div>}
       </div>
-    </div>
+          </div>
   );
 }
 

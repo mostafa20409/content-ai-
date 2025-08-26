@@ -306,7 +306,6 @@ function DemoModal({
     try {
       await navigator.clipboard.writeText(result);
       // tiny feedback: browser-level; you may prefer toast
-      // eslint-disable-next-line no-alert
       alert(lang === "ar" ? "تم نسخ المحتوى!" : "Result copied!");
     } catch {
       // ignore
@@ -427,7 +426,7 @@ function DemoModal({
               onChange={(v) => setSettings((s) => ({ ...s, kind: v as ContentKind }))}
               options={[
                 { value: "article", label: lang === "ar" ? "مقال" : "Article" },
-                { value: "ad", label: lang === "ar" ? "إعلان" : "Ad" },
+                { value: "ad-generator", label: lang === "ar" ? "إعلان" : "Ad" },
                 { value: "book-intro", label: lang === "ar" ? "مقدمة كتاب" : "Book Intro" },
                 { value: "summary", label: lang === "ar" ? "ملخص" : "Summary" },
               ]}
@@ -623,7 +622,7 @@ export default function LandingPage() {
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router]); // تم إضافة router إلى dependencies
 
   // helpers to update history (persist)
   const saveHistoryItem = (item: HistoryItem) => {
@@ -651,7 +650,6 @@ export default function LandingPage() {
     try {
       await navigator.clipboard.writeText(text);
       // small UX feedback
-      // eslint-disable-next-line no-alert
       alert(lang === "ar" ? "تم النسخ!" : "Copied!");
     } catch {
       // ignore
