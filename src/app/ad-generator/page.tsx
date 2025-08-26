@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 /* ---------------- Types ---------------- */
-type AdType = "facebook" | "instagram" | "google" | "twitter" | "linkedin" | "tiktok";
+type AdType = "facebook" | "instagram" | "google" | "twitter" | "linkedin" | "tiktok" | "youtube";
 type AdLanguage = "ar" | "en";
 type AdTone = "formal" | "friendly" | "humorous" | "persuasive" | "urgent";
 type AdLength = "short" | "medium" | "long";
@@ -38,8 +38,32 @@ interface Analytics {
   averageRating: number;
 }
 
+/* أنواع جديدة */
+type MarketAnalysis = {
+  competitors: Competitor[];
+  trends: string[];
+  audienceInsights: string[];
+  recommendations: string[];
+  socialMediaTrends: SocialMediaTrend[];
+};
+
+type Competitor = {
+  name: string;
+  strengths: string[];
+  weaknesses: string[];
+  adExamples: string[];
+};
+
+type SocialMediaTrend = {
+  platform: AdType;
+  trendingContent: string[];
+  engagementRate: number;
+  popularHashtags: string[];
+};
+
+
 /* ---------------- Constants ---------------- */
-const AD_TYPES: AdType[] = ["facebook", "instagram", "google", "twitter", "linkedin", "tiktok"];
+const AD_TYPES: AdType[] = ["facebook", "instagram", "google", "twitter", "linkedin", "tiktok", "youtube"];
 const LANGUAGES: AdLanguage[] = ["ar", "en"];
 const TONES: AdTone[] = ["formal", "friendly", "humorous", "persuasive", "urgent"];
 
@@ -58,7 +82,8 @@ function platformColor(type: AdType) {
     google: "#4285f4",
     twitter: "#1da1f2",
     linkedin: "#0077b5",
-    tiktok: "#000000"
+    tiktok: "#000000",
+    youtube: "#FF0000"
   };
   return map[type] ?? SECONDARY_COLOR;
 }
@@ -94,7 +119,7 @@ export default function AdvancedAdGenerator() {
     averageRating: 0
   });
 
-  const [activeTab, setActiveTab] = useState<"generator" | "history" | "analytics">("generator");
+  const [activeTab, setActiveTab] = useState<"generator" | "history" | "analytics" | "market">("generator");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<AdType | "all">("all");
   const [selectedRating, setSelectedRating] = useState<number | "all">("all");
@@ -105,6 +130,10 @@ export default function AdvancedAdGenerator() {
   /* theme & lang: default fixed values, read persisted values in effect */
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [lang, setLang] = useState<AdLanguage>("ar");
+
+  /* إضافة حالة جديدة لتحليل السوق */
+  const [marketAnalysis, setMarketAnalysis] = useState<MarketAnalysis | null>(null);
+  const [analyzingMarket, setAnalyzingMarket] = useState(false);
 
   // استخدام useRef لتخزين القيم بدون إعادة تصيير
   const inputRef = useRef<HTMLInputElement>(null);
@@ -233,6 +262,40 @@ export default function AdvancedAdGenerator() {
   const incrementAdViews = useCallback((id: string) => {
     updateAdInHistory(id, { views: (history.find(a => a.id === id)?.views || 0) + 1 });
   }, [history, updateAdInHistory]);
+
+  /* ---------------- دالة لتحليل السوق والمنافسين ---------------- */
+  const analyzeMarket = useCallback(async () => {
+    setAnalyzingMarket(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/analyze-market', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product: input.product,
+          audience: input.audience,
+          type: input.type,
+          language: input.language
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(lang === "ar" ? "فشل في تحليل السوق" : "Failed to analyze market");
+      }
+
+      const data = await response.json();
+      setMarketAnalysis(data.analysis);
+      trackEvent("market_analysis_completed");
+    } catch (err) {
+      console.error(err);
+      setError(lang === "ar" ? "فشل في تحليل السوق" : "Failed to analyze market");
+    } finally {
+      setAnalyzingMarket(false);
+    }
+  }, [input, lang, trackEvent]);
 
   /* ---------------- filters ---------------- */
   const filteredHistory = useMemo(() => {
@@ -366,7 +429,8 @@ export default function AdvancedAdGenerator() {
       google: "Google",
       twitter: "Twitter",
       linkedin: "LinkedIn",
-      tiktok: "TikTok"
+      tiktok: "TikTok",
+      youtube: "YouTube"
     };
     const ar: Record<AdType,string> = {
       facebook: "فيسبوك",
@@ -374,7 +438,8 @@ export default function AdvancedAdGenerator() {
       google: "جوجل",
       twitter: "تويتر",
       linkedin: "لينكدإن",
-      tiktok: "تيك توك"
+      tiktok: "تيك توك",
+      youtube: "يوتيوب"
     };
     return lang === "ar" ? ar[type] : en[type];
   }, [lang]);
@@ -617,6 +682,134 @@ export default function AdvancedAdGenerator() {
     );
   }, [analytics, history, theme, lang, platformName]);
 
+  const MarketAnalysisTab = useCallback(() => (
+    <div style={merge(styles.marketAnalysisContainer, theme === "dark" ? styles.marketAnalysisContainerDark : {})}>
+      <div style={styles.analysisHeader}>
+        <h3 style={merge(styles.analysisTitle, { color: PRIMARY_COLOR })}>
+          {lang === "ar" ? "تحليل السوق والمنافسين" : "Market & Competitor Analysis"}
+        </h3>
+        <button 
+          onClick={analyzeMarket} 
+          disabled={analyzingMarket || !input.product.trim()}
+          style={analyzingMarket ? styles.buttonDisabled : merge(styles.analyzeButton, { backgroundColor: PRIMARY_COLOR })}
+        >
+          {analyzingMarket 
+            ? (lang === "ar" ? "جاري التحليل..." : "Analyzing...") 
+            : (lang === "ar" ? "تحليل السوق" : "Analyze Market")
+          }
+        </button>
+      </div>
+
+      {!input.product.trim() && (
+        <div style={styles.analysisPlaceholder}>
+          {lang === "ar" ? "أدخل اسم المنتج أولاً لتحليل السوق" : "Enter a product name to analyze the market"}
+        </div>
+      )}
+
+      {marketAnalysis ? (
+        <div style={styles.analysisResults}>
+          {/* قسم المنافسين */}
+          <div style={styles.analysisSection}>
+            <h4 style={styles.sectionTitle}>{lang === "ar" ? "المنافسون الرئيسيون" : "Key Competitors"}</h4>
+            <div style={styles.competitorsGrid}>
+              {marketAnalysis.competitors.slice(0, 3).map((competitor, index) => (
+                <div key={index} style={merge(styles.competitorCard, theme === "dark" ? styles.competitorCardDark : {})}>
+                  <h5 style={styles.competitorName}>{competitor.name}</h5>
+                  <div style={styles.competitorDetails}>
+                    <div style={styles.strengths}>
+                      <span style={styles.detailLabel}>{lang === "ar" ? "نقاط القوة:" : "Strengths:"}</span>
+                      <ul style={styles.detailList}>
+                        {competitor.strengths.slice(0, 3).map((strength, i) => (
+                          <li key={i}>{strength}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div style={styles.weaknesses}>
+                      <span style={styles.detailLabel}>{lang === "ar" ? "نقاط الضعف:" : "Weaknesses:"}</span>
+                      <ul style={styles.detailList}>
+                        {competitor.weaknesses.slice(0, 3).map((weakness, i) => (
+                          <li key={i}>{weakness}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* قسم اتجاهات السوق */}
+          <div style={styles.analysisSection}>
+            <h4 style={styles.sectionTitle}>{lang === "ar" ? "اتجاهات السوق" : "Market Trends"}</h4>
+            <div style={styles.trendsList}>
+              {marketAnalysis.trends.slice(0, 5).map((trend, index) => (
+                <div key={index} style={merge(styles.trendItem, theme === "dark" ? styles.trendItemDark : {})}>
+                  <span style={styles.trendBullet}>•</span>
+                  <span>{trend}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* قسم اتجاهات السوشيال ميديا */}
+          <div style={styles.analysisSection}>
+            <h4 style={styles.sectionTitle}>{lang === "ar" ? "اتجاهات وسائل التواصل" : "Social Media Trends"}</h4>
+            <div style={styles.socialTrends}>
+              {marketAnalysis.socialMediaTrends.slice(0, 2).map((trend, index) => (
+                <div key={index} style={merge(styles.platformTrend, theme === "dark" ? styles.platformTrendDark : {})}>
+                  <div style={styles.trendHeader}>
+                    <span style={merge(styles.platformTag, { backgroundColor: platformColor(trend.platform) })}>
+                      {platformName(trend.platform)}
+                    </span>
+                    <span style={styles.engagementRate}>
+                      {lang === "ar" ? "معدل التفاعل: " : "Engagement: "}
+                      {trend.engagementRate}%
+                    </span>
+                  </div>
+                  <div style={styles.trendContent}>
+                    <div style={styles.trendingTopics}>
+                      <span style={styles.trendLabel}>{lang === "ar" ? "المواضيع الرائجة:" : "Trending topics:"}</span>
+                      <div style={styles.topicList}>
+                        {trend.trendingContent.slice(0, 3).map((topic, i) => (
+                          <span key={i} style={styles.topicTag}>{topic}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={styles.hashtags}>
+                      <span style={styles.trendLabel}>{lang === "ar" ? "الهاشتاقات الشائعة:" : "Popular hashtags:"}</span>
+                      <div style={styles.hashtagList}>
+                        {trend.popularHashtags.slice(0, 5).map((hashtag, i) => (
+                          <span key={i} style={styles.hashtagTag}>#{hashtag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* قسم التوصيات */}
+          <div style={styles.analysisSection}>
+            <h4 style={styles.sectionTitle}>{lang === "ar" ? "توصيات استراتيجية" : "Strategic Recommendations"}</h4>
+            <div style={styles.recommendations}>
+              {marketAnalysis.recommendations.slice(0, 5).map((recommendation, index) => (
+                <div key={index} style={merge(styles.recommendationItem, theme === "dark" ? styles.recommendationItemDark : {})}>
+                  <div style={styles.recommendationNumber}>{index + 1}</div>
+                  <div style={styles.recommendationText}>{recommendation}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : input.product.trim() && !analyzingMarket && (
+        <div style={styles.analysisPlaceholder}>
+          {lang === "ar" ? "انقر فوق زر التحليل لمعرفة رؤى السوق والمنافسين" : "Click the analyze button to get market and competitor insights"}
+        </div>
+      )}
+    </div>
+  ), [input.product, analyzingMarket, marketAnalysis, theme, lang, analyzeMarket, platformName]);
+
   /* ---------------- main render ---------------- */
   return (
     <div style={merge(styles.appContainer, theme === "dark" ? styles.appContainerDark : {})}>
@@ -650,6 +843,9 @@ export default function AdvancedAdGenerator() {
         <button onClick={()=>setActiveTab("analytics")} style={activeTab==="analytics" ? merge(styles.activeTab, { borderBottomColor: PRIMARY_COLOR, color: PRIMARY_COLOR }) : styles.tab}>
           {lang === "ar" ? "التحليلات" : "Analytics"}
         </button>
+        <button onClick={()=>setActiveTab("market")} style={activeTab==="market" ? merge(styles.activeTab, { borderBottomColor: PRIMARY_COLOR, color: PRIMARY_COLOR }) : styles.tab}>
+          {lang === "ar" ? "تحليل السوق" : "Market Analysis"}
+        </button>
       </nav>
 
       <main style={styles.mainContent}>
@@ -662,6 +858,8 @@ export default function AdvancedAdGenerator() {
         {activeTab === "history" && <HistoryList />}
 
         {activeTab === "analytics" && <AnalyticsDashboard />}
+
+        {activeTab === "market" && <MarketAnalysisTab />}
       </main>
 
       <footer style={merge(styles.footer, theme === "dark" ? styles.footerDark : {})}>
@@ -783,7 +981,206 @@ const styles: Record<string, any> = {
   distributionBar: { height: "100%", borderRadius: 8 },
 
   footer: { textAlign: "center", padding: 14, background: "#f3f4f6", color: "#666" },
-  footerDark: { background: "#02040a", color: "#9fb7d8" }
+  footerDark: { background: "#02040a", color: "#9fb7d8" },
+
+  /* أنماط جديدة لتحليل السوق */
+  marketAnalysisContainer: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: "1.5rem",
+    boxShadow: "0 6px 24px rgba(2,6,23,0.04)"
+  },
+  marketAnalysisContainerDark: {
+    backgroundColor: "#0b1420",
+    boxShadow: "0 6px 20px rgba(0,0,0,0.6)"
+  },
+  analysisHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "1.5rem"
+  },
+  analysisTitle: {
+    margin: 0,
+    fontSize: "1.25rem",
+    fontWeight: 700
+  },
+  analyzeButton: {
+    padding: "0.75rem 1.5rem",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    fontSize: "1rem",
+    fontWeight: 600,
+    cursor: "pointer"
+  },
+  analysisPlaceholder: {
+    padding: "2rem",
+    textAlign: "center",
+    color: "#777",
+    fontStyle: "italic"
+  },
+  analysisResults: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.5rem"
+  },
+  analysisSection: {
+    padding: "1rem 0",
+    borderBottom: "1px solid #eee"
+  },
+  sectionTitle: {
+    margin: "0 0 1rem 0",
+    fontSize: "1.1rem",
+    fontWeight: 600,
+    color: PRIMARY_COLOR
+  },
+  competitorsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+    gap: "1rem"
+  },
+  competitorCard: {
+    border: "1px solid #e6e6e6",
+    borderRadius: 8,
+    padding: "1rem",
+    backgroundColor: "#fafafa"
+  },
+  competitorCardDark: {
+    backgroundColor: "#0f1e32",
+    borderColor: "rgba(255,255,255,0.1)"
+  },
+  competitorName: {
+    margin: "0 0 0.75rem 0",
+    fontSize: "1rem",
+    fontWeight: 600
+  },
+  competitorDetails: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem"
+  },
+  detailLabel: {
+    fontWeight: 600,
+    marginBottom: "0.25rem",
+    display: "block"
+  },
+  detailList: {
+    margin: 0,
+    paddingLeft: "1.2rem"
+  },
+  trendsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem"
+  },
+  trendItem: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "0.5rem"
+  },
+  trendItemDark: {
+    color: "#dbeafe"
+  },
+  trendBullet: {
+    color: PRIMARY_COLOR,
+    fontWeight: "bold"
+  },
+  socialTrends: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem"
+  },
+  platformTrend: {
+    border: "1px solid #e6e6e6",
+    borderRadius: 8,
+    padding: "1rem",
+    backgroundColor: "#fafafa"
+  },
+  platformTrendDark: {
+    backgroundColor: "#0f1e32",
+    borderColor: "rgba(255,255,255,0.1)"
+  },
+  trendHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "0.75rem"
+  },
+  platformTag: {
+    color: "#fff",
+    padding: "0.25rem 0.6rem",
+    borderRadius: 999,
+    fontWeight: 700,
+    fontSize: "0.8rem"
+  },
+  engagementRate: {
+    fontSize: "0.9rem",
+    fontWeight: 600
+  },
+  trendContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem"
+  },
+  trendLabel: {
+    fontWeight: 600,
+    marginBottom: "0.25rem",
+    display: "block"
+  },
+  topicList: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.5rem"
+  },
+  topicTag: {
+    backgroundColor: "#e6f7ff",
+    padding: "0.25rem 0.5rem",
+    borderRadius: 4,
+    fontSize: "0.85rem"
+  },
+  hashtagList: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.5rem"
+  },
+  hashtagTag: {
+    backgroundColor: "#f0f0f0",
+    padding: "0.25rem 0.5rem",
+    borderRadius: 4,
+    fontSize: "0.85rem"
+  },
+  recommendations: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem"
+  },
+  recommendationItem: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "0.75rem",
+    padding: "0.75rem",
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8
+  },
+  recommendationItemDark: {
+    backgroundColor: "#0f1e32"
+  },
+  recommendationNumber: {
+    backgroundColor: PRIMARY_COLOR,
+    color: "#fff",
+    width: "24px",
+    height: "24px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: "bold",
+    flexShrink: 0
+  },
+  recommendationText: {
+    margin: 0
+  }
 };
 
 /* ---------------- util helpers ---------------- */

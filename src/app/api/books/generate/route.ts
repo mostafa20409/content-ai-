@@ -5,9 +5,6 @@ import jwt from "jsonwebtoken";
 import { connectToDB } from '../../../../lib/connectToDB';
 import User from '../../../../models/User';
 
-const GROQ_API_BASE = 'https://api.groq.com/openai/v1';
-const GROQ_CHAT_ENDPOINT = '/chat/completions';
-
 // تخزين مؤقت بسيط لإدارة المعدل
 const requestCache = new Map();
 const RATE_LIMIT = {
@@ -102,7 +99,7 @@ interface ResearchData {
   references: string[];
 }
 
-// دالة البحث المتكاملة - أعلى مستوى
+// دالة البحث المتكاملة
 async function fetchResearchExamples(
   bookType: string, 
   topic: string, 
@@ -225,7 +222,7 @@ async function fetchResearchExamples(
   }
 }
 
-// دالة توليد غلاف متقدمة مع تخصيص كامل
+// دالة توليد غلاف متقدمة
 async function generateAdvancedBookCover(
   bookTitle: string,
   bookType: string,
@@ -326,7 +323,7 @@ function createAdvancedPrompt(
     ## ملاحظات مهمة:
     - تجنب الحشو غير الضروري
     - اهتم بالأسلوب الأدبي المناسب
-    - استخدم terminology متخصص يناسب النوع
+    - استخدم مصطلحات متخصصة تناسب النوع
     - حافظ على العمق الفكري المناسب للقارئ المتخصص
   ` : `
     # Advanced Content Generation Task
@@ -376,7 +373,7 @@ export async function POST(req: Request) {
   try {
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
     
-    // التحقق من المعدل باستخدام النظام البسيط
+    // التحقق من المعدل
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
         { error: "لقد تجاوزت عدد المحاولات المسموح بها" },
@@ -403,12 +400,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "المستخدم غير موجود" }, { status: 404 });
     }
 
-    // استقبال البيانات الجديدة مع التفاصيل الكاملة
+    // استقبال البيانات
     const { 
       title, 
       description, 
       language: bookLanguage, 
-      chapters, // مصفوفة الفصول مع العناوين والأوصاف
+      chapters,
       bookType,
       includeExamples = true,
       generateCover = false,
@@ -455,7 +452,7 @@ export async function POST(req: Request) {
 
     const results: GeneratedChapter[] = [];
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 ثانية
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     try {
       for (const chapter of chapters) {
@@ -475,7 +472,7 @@ export async function POST(req: Request) {
         );
 
         const requestBody = {
-          model: "llama3-70b-8192", // نموذج Groq الموصى به
+          model: "llama3-70b-8192",
           messages: [
             {
               role: "system",
@@ -491,6 +488,9 @@ export async function POST(req: Request) {
           frequency_penalty: 0.1,
           presence_penalty: 0.1
         };
+
+        const GROQ_API_BASE = 'https://api.groq.com/openai/v1';
+        const GROQ_CHAT_ENDPOINT = '/chat/completions';
 
         const aiRes = await fetch(`${GROQ_API_BASE}${GROQ_CHAT_ENDPOINT}`, {
           method: "POST",
@@ -518,7 +518,7 @@ export async function POST(req: Request) {
           tokens: data.usage?.total_tokens
         });
 
-        // إضافة تأخير بين الفصول لتجنب rate limiting
+        // تأخير بين الفصول
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 

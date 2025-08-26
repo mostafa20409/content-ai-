@@ -366,29 +366,7 @@ export default function BooksPage() {
     }));
   };
 
-  /* ---------- توليد المحتوى ---------- */
-  const generateChapterContent = (index: number, total: number, titleText: string, desc: string, chapterDesc: string, bookType: string, lang: LangKey) => {
-    const bookTypeName = BOOK_TYPES[bookType as BookType] || bookType;
-    
-    const heading = lang === "ar" 
-      ? `مقدمة عن ${titleText || "الموضوع"} - ${bookTypeName}`
-      : `Introduction to ${titleText || "the topic"} - ${bookTypeName}`;
-    
-    const paragraphs = [
-      `${heading}. ${desc}.`,
-      lang === "ar"
-        ? `في هذا الفصل سنستكشف الأفكار الأساسية حول: ${chapterDesc}. الفصل رقم ${index} من ${total}.`
-        : `In this chapter we will explore the core ideas about: ${chapterDesc}. Chapter ${index} of ${total}.`,
-      lang === "ar"
-        ? "أمثلة وتطبيقات مختصرة، ومخطط مبسط للنقاط الرئيسة التي ينبغي تغطيتها."
-        : "Short examples and practical tips, plus a concise outline of the main points to cover.",
-      state.includeExamples ? (lang === "ar" 
-        ? "يتضمن أمثلة واقعية من الأبحاث والدراسات."
-        : "Includes real examples from research and studies.") : ""
-    ];
-    return paragraphs.filter(p => p).join("\n\n");
-  };
-
+  /* ---------- توليد المحتوى الحقيقي باستخدام API ---------- */
   const handleGenerateBook = async () => {
     if (!state.title.trim()) {
       setState(prev => ({ ...prev, error: t.titleLabel + (state.lang === "ar" ? " مطلوب" : " is required") }));
@@ -425,31 +403,66 @@ export default function BooksPage() {
     genCancelRef.current.cancelled = false;
 
     try {
-      for (let i = 0; i < state.chapters.length; i++) {
-        if (genCancelRef.current.cancelled) throw new Error("cancelled");
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      
+      const response = await fetch("/api/books/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          title: state.title,
+          description: state.description,
+          language: state.lang,
+          bookType: state.bookType,
+          chapters: state.chapters.map((ch, index) => ({
+            chapterNumber: index + 1,
+            title: ch.title,
+            description: ch.description
+          })),
+          includeExamples: state.includeExamples,
+          generateCover: state.generateCover,
+          authorName: state.authorName,
+          researchDepth: "advanced",
+          authorStyle: "professional",
+          designOptions: {
+            authorName: state.authorName,
+            coverLayout: state.coverStyle,
+            colorScheme: { 
+              primary: "#2C3E50", 
+              secondary: "#34495E", 
+              accent: "#E74C3C",
+              background: "#FFFFFF",
+              text: "#2C3E50"
+            },
+            typography: { 
+              fontFamily: "Traditional", 
+              titleSize: "2.5rem",
+              authorSize: "1.5rem"
+            },
+            includeAuthorOnCover: true,
+            customGraphics: [],
+            coverImageStyle: "abstract"
+          }
+        }),
+      });
 
-        const chapter = state.chapters[i];
-        setState(prev => ({
-          ...prev,
-          progressPercent: Math.round((i / state.chapters.length) * 100)
-        }));
-
-        // محاكاة استدعاء API
-        await new Promise(r => setTimeout(r, 800 + Math.random() * 400));
-        
-        const simulatedContent = generateChapterContent(
-          i + 1, 
-          state.chapters.length, 
-          state.title, 
-          state.description, 
-          chapter.description,
-          state.bookType,
-          state.lang
-        );
-
-        updateChapter(chapter.id, { content: simulatedContent });
-        await new Promise(r => setTimeout(r, 150));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || t.genError);
       }
+
+      const data = await response.json();
+      
+      // تحديث الفصول بالمحتوى الحقيقي من API
+      data.chapters.forEach((generatedChapter: any, index: number) => {
+        if (index < state.chapters.length) {
+          updateChapter(state.chapters[index].id, { 
+            content: generatedChapter.content 
+          });
+        }
+      });
 
       setState(prev => ({
         ...prev,
@@ -458,7 +471,7 @@ export default function BooksPage() {
       }));
 
       // إذا كان توليد الغلاف مفعلاً، نضيف معاينة الغلاف
-      if (state.generateCover) {
+      if (state.generateCover && data.cover) {
         setTimeout(() => {
           setState(prev => ({
             ...prev,
@@ -468,18 +481,11 @@ export default function BooksPage() {
       }
 
     } catch (err) {
-      if ((err as Error).message === "cancelled") {
-        setState(prev => ({
-          ...prev,
-          notice: state.lang === "ar" ? "تم إلغاء التوليد" : "Generation cancelled"
-        }));
-      } else {
-        console.error(err);
-        setState(prev => ({
-          ...prev,
-          error: t.genError
-        }));
-      }
+      console.error("Generation error:", err);
+      setState(prev => ({
+        ...prev,
+        error: t.genError + ": " + (err as Error).message
+      }));
     } finally {
       setState(prev => ({
         ...prev,
@@ -508,8 +514,8 @@ export default function BooksPage() {
       state.description,
       "",
       ...state.chapters.flatMap((ch, i) => [
-        `## الفصل ${i + 1}: ${ch.title}`,
-        `### الوصف: ${ch.description}`,
+        `## ${state.lang === "ar" ? "الفصل" : "Chapter"} ${i + 1}: ${ch.title}`,
+        `### ${state.lang === "ar" ? "الوصف" : "Description"}: ${ch.description}`,
         "",
         ch.content || "",
         "",
@@ -833,7 +839,7 @@ export default function BooksPage() {
         {/* اللوحة اليمنى */}
         <section className="panel-right">
           <div className="panel-header">
-            <h3>فصول الكتاب ({state.chapters.length})</h3>
+            <h3>{state.lang === "ar" ? "فصول الكتاب" : "Book Chapters"} ({state.chapters.length})</h3>
             <button 
               className="btn tiny"
               onClick={addNewChapter}
@@ -971,7 +977,7 @@ export default function BooksPage() {
       <div className="toast-area" aria-live="polite">
         {state.notice && <div className="toast">{state.notice}</div>}
       </div>
-          </div>
+    </div>
   );
 }
 
