@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiArrowRight, FiLoader, FiCopy, FiDownload, FiTrash2, FiClock, FiSun, FiMoon, FiGlobe } from "react-icons/fi";
+import { FiArrowRight, FiLoader, FiCopy, FiDownload, FiTrash2, FiClock } from "react-icons/fi";
 
 /**
  * Landing / Home page (client)
@@ -97,26 +97,18 @@ function IconButton({
   onClick,
   children,
   disabled,
-  variant = "default"
 }: {
   title?: string;
   onClick?: () => void;
   children: React.ReactNode;
   disabled?: boolean;
-  variant?: "default" | "primary" | "danger";
 }) {
-  const variantClasses = {
-    default: "bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200",
-    primary: "bg-blue-500 hover:bg-blue-600 text-white",
-    danger: "bg-red-500 hover:bg-red-600 text-white"
-  };
-
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`inline-flex items-center gap-2 p-2 rounded-md border transition ${variantClasses[variant]} ${
+      className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border transition ${
         disabled ? "opacity-60 cursor-not-allowed" : "hover:shadow-sm"
       }`}
     >
@@ -142,7 +134,7 @@ function Select<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+        className="px-3 py-2 rounded-lg border"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -339,17 +331,33 @@ function DemoModal({
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 p-5"
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        background: "rgba(0,0,0,0.45)",
+        padding: 20,
+      }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-4xl max-h-[90vh] overflow-auto rounded-xl shadow-2xl p-6 ${
-          darkMode ? "bg-gray-900 text-gray-100" : "bg-white text-gray-900"
-        }`}
+        style={{
+          width: "min(1000px, 98%)",
+          maxHeight: "90vh",
+          overflow: "auto",
+          background: darkMode ? "#071427" : "#fff",
+          padding: 18,
+          borderRadius: 12,
+          boxShadow: "0 12px 40px rgba(2,6,23,0.3)",
+          color: darkMode ? "#e6eef8" : "#0b1220",
+        }}
       >
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h3 className="text-xl font-bold">{lang === "ar" ? "ديمو فوري متقدم" : "Advanced Instant Demo"}</h3>
-          <div className="flex gap-2 items-center">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <h3 style={{ margin: 0 }}>{lang === "ar" ? "ديمو فوري متقدم" : "Advanced Instant Demo"}</h3>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <IconButton onClick={copyResult} title={lang === "ar" ? "نسخ" : "Copy"} disabled={!result}>
               <FiCopy />
               <span className="hidden sm:inline">{lang === "ar" ? "نسخ" : "Copy"}</span>
@@ -360,32 +368,35 @@ function DemoModal({
               <span className="hidden sm:inline">{lang === "ar" ? "تنزيل" : "Download"}</span>
             </IconButton>
 
-            <IconButton onClick={clearAll} title={lang === "ar" ? "مسح" : "Clear"} variant="danger">
+            <IconButton onClick={clearAll} title={lang === "ar" ? "مسح" : "Clear"}>
               <FiTrash2 />
               <span className="hidden sm:inline">{lang === "ar" ? "مسح" : "Clear"}</span>
             </IconButton>
 
-            <button 
-              onClick={onClose} 
-              className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 transition"
-            >
+            <button onClick={onClose} style={{ padding: 6 }}>
               {lang === "ar" ? "إغلاق" : "Close"}
             </button>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
           <textarea
             placeholder={lang === "ar" ? "اكتب موضوعًا للديمو..." : "Type a demo topic..."}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             rows={4}
-            className={`w-full p-3 rounded-lg resize-vertical border ${
-              darkMode ? "bg-gray-800 text-white border-gray-700" : "bg-white text-gray-900 border-gray-300"
-            }`}
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 8,
+              resize: "vertical",
+              border: "1px solid #e6e9ee",
+              background: darkMode ? "#071427" : "#fff",
+              color: darkMode ? "#e6eef8" : "#111",
+            }}
           />
 
-          <div className="flex gap-4 flex-wrap">
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Select
               label={lang === "ar" ? "النبرة" : "Tone"}
               value={settings.tone}
@@ -422,11 +433,12 @@ function DemoModal({
             />
           </div>
 
-          <div className="flex gap-3 items-center">
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md flex items-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="primary"
               onClick={run}
               disabled={isGenerating || !prompt.trim()}
+              style={{ padding: "10px 16px", display: "inline-flex", gap: 8, alignItems: "center" }}
             >
               {isGenerating ? (
                 <>
@@ -441,30 +453,23 @@ function DemoModal({
               )}
             </button>
 
-            <button 
-              onClick={() => { setPrompt(""); setResult(null); }} 
-              className="px-3 py-2 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 transition"
-            >
+            <button onClick={() => { setPrompt(""); setResult(null); }} style={{ padding: 8 }}>
               {lang === "ar" ? "مسح الحقول" : "Clear fields"}
             </button>
 
-            <div className="ml-auto flex gap-2 items-center text-sm opacity-70">
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
               <FiClock />
-              <span>{lang === "ar" ? "هذا توليد تجريبي" : "Demo generator"}</span>
+              <small style={{ opacity: 0.8 }}>{lang === "ar" ? "هذا توليد تجريبي" : "Demo generator"}</small>
             </div>
           </div>
 
           <div>
             {result ? (
-              <pre className={`whitespace-pre-wrap p-4 rounded-lg border ${
-                darkMode ? "bg-gray-800 border-gray-700 text-gray-100" : "bg-gray-50 border-gray-200 text-gray-900"
-              }`}>
+              <pre style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, background: darkMode ? "#071827" : "#f8fafc", padding: 12, borderRadius: 8, border: "1px solid #e6e9ee", color: darkMode ? "#e6eef8" : "#111" }}>
                 {result}
               </pre>
             ) : (
-              <div className={`p-4 rounded-lg text-center ${
-                darkMode ? "text-gray-400 bg-gray-800" : "text-gray-500 bg-gray-50"
-              }`}>
+              <div style={{ color: darkMode ? "#94a3b8" : "#6b7280" }}>
                 {lang === "ar" ? "أدخل موضوعًا واضغط توليد لمشاهدة مثال فوري." : "Enter a topic and press Generate to see an instant example."}
               </div>
             )}
@@ -492,51 +497,49 @@ function HistoryList({
   onDownload: (text: string, filename?: string) => void;
 }) {
   if (!items.length) {
-    return <div className="p-3 text-center opacity-75">{lang === "ar" ? "لا توجد محاولات سابقة." : "No previous attempts."}</div>;
+    return <div style={{ padding: 12, opacity: 0.75 }}>{lang === "ar" ? "لا توجد محاولات سابقة." : "No previous attempts."}</div>;
   }
 
   return (
-    <div className="space-y-3">
+    <div style={{ display: "grid", gap: 10 }}>
       {items.map((h) => (
-        <div key={h.id} className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="flex gap-3 items-center justify-between flex-wrap">
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold truncate">{h.prompt}</div>
-              <div className="text-sm opacity-70">{new Date(h.timestamp).toLocaleString()}</div>
+        <div key={h.id} style={{ padding: 12, borderRadius: 8, border: "1px solid #e6e9ee", background: "#fff" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{h.prompt}</div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>{new Date(h.timestamp).toLocaleString()}</div>
             </div>
 
-            <div className="flex gap-2">
-              <IconButton
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
                 onClick={() => onCopy(h.result)}
                 title={lang === "ar" ? "نسخ النتيجة" : "Copy result"}
+                className="inline-flex items-center gap-2 px-2 py-1 rounded"
               >
                 <FiCopy />
-              </IconButton>
+              </button>
 
-              <IconButton
+              <button
                 onClick={() => onDownload(h.result, `history_${h.id}.txt`)}
                 title={lang === "ar" ? "تنزيل" : "Download"}
+                className="inline-flex items-center gap-2 px-2 py-1 rounded"
               >
                 <FiDownload />
-              </IconButton>
+              </button>
 
-              <IconButton
+              <button
                 onClick={() => onDelete(h.id)}
                 title={lang === "ar" ? "حذف" : "Delete"}
-                variant="danger"
+                className="inline-flex items-center gap-2 px-2 py-1 rounded"
               >
                 <FiTrash2 />
-              </IconButton>
+              </button>
             </div>
           </div>
 
-          <details className="mt-3">
-            <summary className="cursor-pointer text-sm text-blue-500 dark:text-blue-400">
-              {lang === "ar" ? "عرض النتيجة" : "View result"}
-            </summary>
-            <pre className="whitespace-pre-wrap mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
-              {h.result}
-            </pre>
+          <details style={{ marginTop: 8 }}>
+            <summary style={{ cursor: "pointer", fontSize: 13, color: "#374151" }}>{lang === "ar" ? "عرض النتيجة" : "View result"}</summary>
+            <pre style={{ whiteSpace: "pre-wrap", marginTop: 8 }}>{h.result}</pre>
           </details>
         </div>
       ))}
@@ -587,13 +590,8 @@ export default function LandingPage() {
   useEffect(() => {
     try {
       safeSet(LS_UI_DARK, darkMode ? "true" : "false");
-      if (darkMode) {
-        document.documentElement.classList.add("dark");
-        document.documentElement.classList.remove("light");
-      } else {
-        document.documentElement.classList.add("light");
-        document.documentElement.classList.remove("dark");
-      }
+      if (darkMode) document.documentElement.classList.add("dark-mode");
+      else document.documentElement.classList.remove("dark-mode");
     } catch {}
   }, [darkMode]);
 
@@ -720,174 +718,118 @@ export default function LandingPage() {
   const L = t[lang];
 
   return (
-    <div dir={lang === "ar" ? "rtl" : "ltr"} className={darkMode ? "dark bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}>
+    <div dir={lang === "ar" ? "rtl" : "ltr"} className={darkMode ? "dark-mode" : ""}>
       {/* Header */}
-      <header className="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
-        <div className="flex gap-3 items-center">
-          <strong className="text-lg">{L.welcome}</strong>
-          <span className="opacity-70 hidden md:inline">{L.desc}</span>
+      <header style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <strong>{L.welcome}</strong>
+          <span style={{ opacity: 0.7, marginLeft: 8 }}>{L.desc}</span>
         </div>
 
-        <div className="flex gap-2 items-center">
-          <IconButton
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
             onClick={() => setDarkMode((d) => !d)}
             title={lang === "ar" ? "تبديل الوضع" : "Toggle theme"}
+            style={{ padding: 8 }}
           >
-            {darkMode ? <FiSun /> : <FiMoon />}
-          </IconButton>
+            {darkMode ? "☀" : "🌙"}
+          </button>
 
-          <IconButton
+          <button
             onClick={() => setLang((l) => (l === "ar" ? "en" : "ar"))}
             title="toggle-language"
+            style={{ padding: 8 }}
           >
-            <FiGlobe />
-            <span className="text-sm">{lang === "ar" ? "EN" : "AR"}</span>
-          </IconButton>
+            {lang === "ar" ? "EN" : "AR"}
+          </button>
         </div>
       </header>
 
       {/* Main */}
-      <main className="p-5 max-w-6xl mx-auto">
+      <main style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
         {/* Hero */}
-        <section className="p-6 rounded-xl bg-white dark:bg-gray-800 shadow-lg mb-6 text-center">
-          <h1 className="text-3xl font-bold mb-2">{L.welcome}</h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">{L.desc}</p>
+        <section style={{ padding: 20, borderRadius: 12, background: darkMode ? "#071427" : "#fff", boxShadow: "0 6px 20px rgba(2,6,23,0.06)" }}>
+          <h1 style={{ margin: 0, fontSize: 28, textAlign: "center" }}>{L.welcome}</h1>
+          <p style={{ textAlign: "center", color: darkMode ? "#cbd5e1" : "#374151", marginTop: 8 }}>{L.desc}</p>
 
-          <div className="flex gap-4 justify-center flex-wrap mb-4">
-            <button 
-              onClick={() => router.push("/login")} 
-              className="px-5 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
-            >
-              {L.login}
-            </button>
-            <button 
-              onClick={() => router.push("/signup")} 
-              className="px-5 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition"
-            >
-              {L.signup}
-            </button>
-            <button 
-              onClick={() => setShowDemo(true)} 
-              className="px-5 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition"
-            >
-              {L.demo}
-            </button>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
+            <button onClick={() => router.push("/login")} className="primary" style={{ padding: "10px 16px" }}>{L.login}</button>
+            <button onClick={() => router.push("/signup")} className="accent" style={{ padding: "10px 16px" }}>{L.signup}</button>
+            <button onClick={() => setShowDemo(true)} style={{ padding: "10px 16px" }}>{L.demo}</button>
           </div>
 
-          <div className="flex gap-4 justify-center flex-wrap">
-            <button 
-              onClick={() => router.push("/content")} 
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition"
-            >
-              {L.content}
-            </button>
-            <button 
-              onClick={() => router.push("/books")} 
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition"
-            >
-              {L.books}
-            </button>
-            <button 
-              onClick={() => router.push("/ads")} 
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition"
-            >
-              {L.ads}
-            </button>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 14, flexWrap: "wrap" }}>
+            <button onClick={() => router.push("/content")} className="tool-link">{L.content}</button>
+            <button onClick={() => router.push("/books")} className="tool-link">{L.books}</button>
+            <button onClick={() => router.push("/ads")} className="tool-link">{L.ads}</button>
           </div>
         </section>
 
         {/* Features & History layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 16, marginTop: 18 }}>
           {/* Left column: tools / about */}
-          <div className="lg:col-span-2">
-            <section className="mb-6">
-              <h2 className="text-2xl font-bold mb-4">{lang === "ar" ? "الأدوات" : "Tools"}</h2>
-              <div className="space-y-4">
-                <article className="p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="text-3xl">✍</div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold mb-1">{L.content}</h3>
-                      <p className="opacity-75">{lang === "ar" ? "أنشئ مقالات ونصوص بسرعة." : "Generate articles & short-form copy fast."}</p>
-                    </div>
+          <div>
+            <section style={{ marginBottom: 18 }}>
+              <h2 style={{ marginTop: 0 }}>{lang === "ar" ? "الأدوات" : "Tools"}</h2>
+              <div style={{ display: "grid", gap: 12 }}>
+                <article style={{ padding: 14, borderRadius: 8, border: "1px solid #e6e9ee" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ fontSize: 26 }}>✍</div>
                     <div>
-                      <button 
-                        onClick={() => router.push("/content")} 
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
-                      >
-                        {L.demo}
-                      </button>
+                      <h3 style={{ margin: 0 }}>{L.content}</h3>
+                      <p style={{ margin: 0, opacity: 0.75 }}>{lang === "ar" ? "أنشئ مقالات ونصوص بسرعة." : "Generate articles & short-form copy fast."}</p>
+                    </div>
+                    <div style={{ marginLeft: "auto" }}>
+                      <button onClick={() => router.push("/content")} className="primary">{L.demo}</button>
                     </div>
                   </div>
                 </article>
 
-                <article className="p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="text-3xl">📚</div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold mb-1">{L.books}</h3>
-                      <p className="opacity-75">{lang === "ar" ? "بناء الفصول وملخصات الكتب بسهولة." : "Create book drafts & chapters with structure."}</p>
-                    </div>
+                <article style={{ padding: 14, borderRadius: 8, border: "1px solid #e6e9ee" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ fontSize: 26 }}>📚</div>
                     <div>
-                      <button 
-                        onClick={() => router.push("/books")} 
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
-                      >
-                        {L.demo}
-                      </button>
+                      <h3 style={{ margin: 0 }}>{L.books}</h3>
+                      <p style={{ margin: 0, opacity: 0.75 }}>{lang === "ar" ? "بناء الفصول وملخصات الكتب بسهولة." : "Create book drafts & chapters with structure."}</p>
+                    </div>
+                    <div style={{ marginLeft: "auto" }}>
+                      <button onClick={() => router.push("/books")} className="primary">{L.demo}</button>
                     </div>
                   </div>
                 </article>
 
-                <article className="p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="text-3xl">📢</div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold mb-1">{L.ads}</h3>
-                      <p className="opacity-75">{lang === "ar" ? "انشاء نصوص إعلانات فعالة." : "Generate high-converting ad copy."}</p>
-                    </div>
+                <article style={{ padding: 14, borderRadius: 8, border: "1px solid #e6e9ee" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ fontSize: 26 }}>📢</div>
                     <div>
-                      <button 
-                        onClick={() => router.push("/ads")} 
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
-                      >
-                        {L.demo}
-                      </button>
+                      <h3 style={{ margin: 0 }}>{L.ads}</h3>
+                      <p style={{ margin: 0, opacity: 0.75 }}>{lang === "ar" ? "انشاء نصوص إعلانات فعالة." : "Generate high-converting ad copy."}</p>
+                    </div>
+                    <div style={{ marginLeft: "auto" }}>
+                      <button onClick={() => router.push("/ads")} className="primary">{L.demo}</button>
                     </div>
                   </div>
                 </article>
               </div>
             </section>
 
-            <section className="mt-6">
-              <h3 className="text-xl font-semibold mb-3">{lang === "ar" ? "عن المنصة" : "About"}</h3>
-              <p className="text-gray-600 dark:text-gray-300">{L.aboutShort}</p>
+            <section style={{ marginTop: 6 }}>
+              <h3>{lang === "ar" ? "عن المنصة" : "About"}</h3>
+              <p style={{ color: darkMode ? "#cbd5e1" : "#374151" }}>{L.aboutShort}</p>
             </section>
           </div>
 
           {/* Right column: history */}
-          <aside className="lg:col-span-1">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-lg font-semibold">{L.historyTitle}</h4>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setShowDemo(true)} 
-                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm transition"
-                  title={lang === "ar" ? "جديد" : "New"}
-                >
-                  {lang === "ar" ? "جديد" : "New"}
-                </button>
-                <button 
-                  onClick={clearAllHistory} 
-                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm transition"
-                  title={L.clearHistory}
-                >
-                  {lang === "ar" ? "مسح" : "Clear"}
-                </button>
+          <aside style={{ position: "relative" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h4 style={{ margin: 0 }}>{L.historyTitle}</h4>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setShowDemo(true)} title={lang === "ar" ? "جديد" : "New"}>{lang === "ar" ? "جديد" : "New"}</button>
+                <button onClick={clearAllHistory} title={L.clearHistory}>{lang === "ar" ? "مسح" : "Clear"}</button>
               </div>
             </div>
 
-            <div className="max-h-96 overflow-auto pr-2">
+            <div style={{ maxHeight: 420, overflow: "auto", paddingRight: 8 }}>
               <HistoryList
                 items={history}
                 lang={lang}
@@ -898,26 +840,30 @@ export default function LandingPage() {
             </div>
           </aside>
         </div>
+
+        {/* Footer */}
+        <footer style={{ marginTop: 20, textAlign: "center", color: darkMode ? "#94a3b8" : "#6b7280" }}>
+          <small>© {new Date().getFullYear()} Content AI</small>
+        </footer>
       </main>
 
-      {/* Footer */}
-      <footer className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-center text-sm text-gray-500 dark:text-gray-400">
-        {lang === "ar" ? "© 2023 Content AI. جميع الحقوق محفوظة." : "© 2023 Content AI. All rights reserved."}
-      </footer>
-
-      {/* Demo Modal */}
+      {/* Demo modal */}
       {showDemo && (
         <DemoModal
           lang={lang}
           darkMode={darkMode}
           initialPrompt={safeGet(LS_DEMO_PROMPT) ?? ""}
-          initialSettings={
-            safeGet(LS_DEMO_SETTINGS)
-              ? JSON.parse(safeGet(LS_DEMO_SETTINGS)!)
-              : undefined
-          }
+          initialSettings={((): DemoSettings | undefined => {
+            try {
+              const raw = safeGet(LS_DEMO_SETTINGS);
+              if (!raw) return undefined;
+              return JSON.parse(raw) as DemoSettings;
+            } catch {
+              return undefined;
+            }
+          })()}
           onClose={() => setShowDemo(false)}
-          onSaveToHistory={saveHistoryItem}
+          onSaveToHistory={(item) => saveHistoryItem(item)}
         />
       )}
     </div>
