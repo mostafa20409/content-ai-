@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import "./ad-generator.css";
 
 /* ---------------- Types ---------------- */
 type AdType = "facebook" | "instagram" | "google" | "twitter" | "linkedin" | "tiktok" | "youtube";
@@ -38,30 +39,6 @@ interface Analytics {
   averageRating: number;
 }
 
-/* أنواع جديدة */
-type MarketAnalysis = {
-  competitors: Competitor[];
-  trends: string[];
-  audienceInsights: string[];
-  recommendations: string[];
-  socialMediaTrends: SocialMediaTrend[];
-};
-
-type Competitor = {
-  name: string;
-  strengths: string[];
-  weaknesses: string[];
-  adExamples: string[];
-};
-
-type SocialMediaTrend = {
-  platform: AdType;
-  trendingContent: string[];
-  engagementRate: number;
-  popularHashtags: string[];
-};
-
-
 /* ---------------- Constants ---------------- */
 const AD_TYPES: AdType[] = ["facebook", "instagram", "google", "twitter", "linkedin", "tiktok", "youtube"];
 const LANGUAGES: AdLanguage[] = ["ar", "en"];
@@ -70,22 +47,24 @@ const TONES: AdTone[] = ["formal", "friendly", "humorous", "persuasive", "urgent
 const MAX_HISTORY_ITEMS = 50;
 const MAX_ANALYTICS_ITEMS = 100;
 
-/* Primary color */
-const PRIMARY_COLOR = "#2563eb";
-const SECONDARY_COLOR = "#64748b";
+/* Color scheme with gradients */
+const PRIMARY_GRADIENT = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+const SECONDARY_GRADIENT = "linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)";
+const SUCCESS_GRADIENT = "linear-gradient(135deg, #a8ff78 0%, #78ffd6 100%)";
+const DARK_GRADIENT = "linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)";
 
-/* Platform colors */
-function platformColor(type: AdType) {
+/* Platform colors with gradients */
+function platformGradient(type: AdType) {
   const map: Record<AdType, string> = {
-    facebook: "#1877f2",
-    instagram: "#e1306c",
-    google: "#4285f4",
-    twitter: "#1da1f2",
-    linkedin: "#0077b5",
-    tiktok: "#000000",
-    youtube: "#FF0000"
+    facebook: "linear-gradient(135deg, #1877f2 0%, #0e5a9d 100%)",
+    instagram: "linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%)",
+    google: "linear-gradient(135deg, #4285f4 0%, #34a853 50%, #fbbc05 100%)",
+    twitter: "linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%)",
+    linkedin: "linear-gradient(135deg, #0077b5 0%, #005582 100%)",
+    tiktok: "linear-gradient(135deg, #000000 0%, #333333 50%, #69c9d0 100%)",
+    youtube: "linear-gradient(135deg, #ff0000 0%, #cc0000 100%)"
   };
-  return map[type] ?? SECONDARY_COLOR;
+  return map[type] ?? "linear-gradient(135deg, #64748b 0%, #475569 100%)";
 }
 
 /* ---------------- Utility Functions ---------------- */
@@ -119,7 +98,7 @@ export default function AdvancedAdGenerator() {
     averageRating: 0
   });
 
-  const [activeTab, setActiveTab] = useState<"generator" | "history" | "analytics" | "market">("generator");
+  const [activeTab, setActiveTab] = useState<"generator" | "history" | "analytics">("generator");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<AdType | "all">("all");
   const [selectedRating, setSelectedRating] = useState<number | "all">("all");
@@ -131,10 +110,6 @@ export default function AdvancedAdGenerator() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [lang, setLang] = useState<AdLanguage>("ar");
 
-  /* إضافة حالة جديدة لتحليل السوق */
-  const [marketAnalysis, setMarketAnalysis] = useState<MarketAnalysis | null>(null);
-  const [analyzingMarket, setAnalyzingMarket] = useState(false);
-
   // استخدام useRef لتخزين القيم بدون إعادة تصيير
   const inputRef = useRef<HTMLInputElement>(null);
   const isInitialLoad = useRef(true);
@@ -142,7 +117,6 @@ export default function AdvancedAdGenerator() {
   /* ---------------- helpers ---------------- */
   const trackEvent = useCallback((_event: string, _data?: any) => {
     // placeholder — replace with analytics call
-    // console.log("track:", event, data);
   }, []);
 
   /* load persisted (localStorage) on client only */
@@ -186,8 +160,6 @@ export default function AdvancedAdGenerator() {
     } catch (err) {
       console.error("loadPersistedData error:", err);
     }
-    // track page visit after load
-    trackEvent("page_visit");
     isInitialLoad.current = false;
   }, [trackEvent]);
 
@@ -216,7 +188,6 @@ export default function AdvancedAdGenerator() {
     
     try {
       localStorage.setItem("adGeneratorTheme", theme);
-      // apply theme to document root for global CSS if desired
       if (typeof document !== "undefined") {
         document.documentElement.dataset.theme = theme;
       }
@@ -263,40 +234,6 @@ export default function AdvancedAdGenerator() {
     updateAdInHistory(id, { views: (history.find(a => a.id === id)?.views || 0) + 1 });
   }, [history, updateAdInHistory]);
 
-  /* ---------------- دالة لتحليل السوق والمنافسين ---------------- */
-  const analyzeMarket = useCallback(async () => {
-    setAnalyzingMarket(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('/api/analyze-market', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          product: input.product,
-          audience: input.audience,
-          type: input.type,
-          language: input.language
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(lang === "ar" ? "فشل في تحليل السوق" : "Failed to analyze market");
-      }
-
-      const data = await response.json();
-      setMarketAnalysis(data.analysis);
-      trackEvent("market_analysis_completed");
-    } catch (err) {
-      console.error(err);
-      setError(lang === "ar" ? "فشل في تحليل السوق" : "Failed to analyze market");
-    } finally {
-      setAnalyzingMarket(false);
-    }
-  }, [input, lang, trackEvent]);
-
   /* ---------------- filters ---------------- */
   const filteredHistory = useMemo(() => {
     const st = searchTerm.trim().toLowerCase();
@@ -316,7 +253,7 @@ export default function AdvancedAdGenerator() {
     });
   }, [history, searchTerm, selectedPlatform, selectedRating]);
 
-  /* ---------------- ad generation (using DeepSeek API) ---------------- */
+  /* ---------------- ad generation ---------------- */
   const generateAd = useCallback(async () => {
     setError(null);
     setResult("");
@@ -331,26 +268,27 @@ export default function AdvancedAdGenerator() {
     const start = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     try {
-      const response = await fetch('/api/generate-ad', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // محاكاة لتوليد الإعلان
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // توليد إعلان تجريبي
+      const adTemplates = {
+        ar: {
+          facebook: `🔥 ${input.product} - الحل الأمثل لـ ${input.audience}!\n\n✨ ميزات رائعة:\n• جودة عالية\n• سعر مميز\n• ضمان شامل\n\n🚀 اطلبه الآن واستمتع بعروض خاصة!`,
+          instagram: `🌟 ${input.product} يناسب ${input.audience} بشكل مذهل!\n\n💎 لماذا تختارنا؟\n• تصميم أنيق\n• أداء متميز\n• خدمة عملاء 24/7\n\n👉 اضغط على الرابط في البايو!`,
+          google: `${input.product} | الخيار الأفضل لـ ${input.audience}\n\n✅ موثوق ومجرب\n✅ أسعار تنافسية\n✅ شحن سريع\n\n🛒 تسوق الآن بخصم خاص!`,
         },
-        body: JSON.stringify({
-          product: input.product,
-          audience: input.audience,
-          type: input.type,
-          maxTokens: input.length === 'short' ? 100 : input.length === 'medium' ? 200 : 300,
-          temperature: 0.7
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(lang === "ar" ? "فشل في توليد الإعلان" : "Failed to generate ad");
-      }
-
-      const data = await response.json();
-      const text = data.adText;
+        en: {
+          facebook: `🔥 ${input.product} - The perfect solution for ${input.audience}!\n\n✨ Amazing features:\n• High quality\n• Competitive price\n• Full warranty\n\n🚀 Order now and enjoy special offers!`,
+          instagram: `🌟 ${input.product} perfectly suits ${input.audience}!\n\n💎 Why choose us?\n• Elegant design\n• Outstanding performance\n• 24/7 customer service\n\n👉 Click the link in our bio!`,
+          google: `${input.product} | The best choice for ${input.audience}\n\n✅ Trusted and tested\n✅ Competitive prices\n✅ Fast shipping\n\n🛒 Shop now with special discount!`,
+        }
+      };
+      
+      const text = adTemplates[input.language]?.[input.type] || 
+                  (input.language === "ar" 
+                    ? `إعلان عن ${input.product} للجمهور المستهدف ${input.audience} على منصة ${input.type}`
+                    : `Ad for ${input.product} targeting ${input.audience} on ${input.type} platform`);
       
       setResult(text);
       addToHistory(text);
@@ -541,7 +479,7 @@ export default function AdvancedAdGenerator() {
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <button onClick={generateAd} disabled={loading} style={loading ? styles.buttonDisabled : merge(styles.generateButton, { backgroundColor: PRIMARY_COLOR })}>
+        <button onClick={generateAd} disabled={loading} style={loading ? styles.buttonDisabled : merge(styles.generateButton, { background: PRIMARY_GRADIENT })}>
           {loading ? (lang === "ar" ? "جاري التوليد..." : "Generating...") : (lang === "ar" ? "توليد إعلان احترافي" : "Generate professional ad")}
         </button>
       </div>
@@ -555,9 +493,13 @@ export default function AdvancedAdGenerator() {
       {result ? (
         <>
           <div style={styles.resultHeader}>
-            <h3 style={merge(styles.resultTitle, { color: PRIMARY_COLOR })}>{lang === "ar" ? "الإعلان المولد" : "Generated Ad"}</h3>
+            <h3 style={merge(styles.resultTitle, { background: PRIMARY_GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" })}>
+              {lang === "ar" ? "الإعلان المولد" : "Generated Ad"}
+            </h3>
             <div style={styles.resultActions}>
-              <button onClick={() => copyToClipboard(result)} style={styles.actionButton}>{lang === "ar" ? "نسخ" : "Copy"} 📋</button>
+              <button onClick={() => copyToClipboard(result)} style={merge(styles.actionButton, { background: SECONDARY_GRADIENT })}>
+                {lang === "ar" ? "نسخ" : "Copy"} 📋
+              </button>
               <button onClick={() => {
                exportAd({
                   id: generateId(),
@@ -567,7 +509,9 @@ export default function AdvancedAdGenerator() {
                   views: 0,
                   copies: 0
                 });
-              }} style={styles.actionButton}>{lang === "ar" ? "حفظ" : "Save"} 💾</button>
+              }} style={merge(styles.actionButton, { background: SUCCESS_GRADIENT })}>
+                {lang === "ar" ? "حفظ" : "Save"} 💾
+              </button>
             </div>
           </div>
 
@@ -587,7 +531,9 @@ export default function AdvancedAdGenerator() {
           </div>
         </>
       ) : (
-        <div style={{ color: "#777" }}>{lang === "ar" ? "لا يوجد إعلان بعد — جرّب التوليد الآن" : "No ad yet — try generating one"}</div>
+        <div style={{ color: "#777", textAlign: "center", padding: "2rem" }}>
+          {lang === "ar" ? "لا يوجد إعلان بعد — جرّب التوليد الآن" : "No ad yet — try generating one"}
+        </div>
       )}
     </div>
   ), [result, error, theme, lang, history, input, copyToClipboard, exportAd, rateAd]);
@@ -625,7 +571,9 @@ export default function AdvancedAdGenerator() {
           {filteredHistory.map(ad => (
             <article key={ad.id} style={merge(styles.historyItem, theme === "dark" ? styles.historyItemDark : {})} onClick={() => incrementAdViews(ad.id)}>
               <div style={styles.historyItemHeader}>
-                <span style={merge(styles.historyPlatformTag(ad.input.type), { backgroundColor: platformColor(ad.input.type) })}>{platformName(ad.input.type)}</span>
+                <span style={merge(styles.historyPlatformTag, { background: platformGradient(ad.input.type) })}>
+                  {platformName(ad.input.type)}
+                </span>
                 <span style={styles.historyDate}>{formatDate(ad.createdAt)}{ad.modifiedAt ? ` • ${lang === "ar" ? "تم التعديل" : "edited"} ${formatDate(ad.modifiedAt)}` : ""}</span>
               </div>
 
@@ -647,15 +595,15 @@ export default function AdvancedAdGenerator() {
                 <div style={styles.historyActions}>
                   {editingAdId === ad.id ? (
                     <>
-                      <button onClick={saveEdit} style={styles.smallButton}>{lang === "ar" ? "حفظ" : "Save"}</button>
-                      <button onClick={cancelEdit} style={styles.smallButton}>{lang === "ar" ? "إلغاء" : "Cancel"}</button>
+                      <button onClick={saveEdit} style={merge(styles.smallButton, { background: SUCCESS_GRADIENT })}>{lang === "ar" ? "حفظ" : "Save"}</button>
+                      <button onClick={cancelEdit} style={merge(styles.smallButton, { background: "#f0f0f0" })}>{lang === "ar" ? "إلغاء" : "Cancel"}</button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => copyToClipboard(ad.text, ad.id)} style={styles.smallButton}>📋</button>
-                      <button onClick={() => exportAd(ad)} style={styles.smallButton}>💾</button>
-                      <button onClick={() => startEditing(ad)} style={styles.smallButton}>✏</button>
-                      <button onClick={() => deleteAdFromHistory(ad.id)} style={styles.smallButtonDanger}>🗑</button>
+                      <button onClick={() => copyToClipboard(ad.text, ad.id)} style={merge(styles.smallButton, { background: SECONDARY_GRADIENT })}>📋</button>
+                      <button onClick={() => exportAd(ad)} style={merge(styles.smallButton, { background: SUCCESS_GRADIENT })}>💾</button>
+                      <button onClick={() => startEditing(ad)} style={merge(styles.smallButton, { background: "#f0f0f0" })}>✏</button>
+                      <button onClick={() => deleteAdFromHistory(ad.id)} style={merge(styles.smallButtonDanger, { background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)" })}>🗑</button>
                     </>
                   )}
                 </div>
@@ -677,13 +625,27 @@ export default function AdvancedAdGenerator() {
 
     return (
       <div style={merge(styles.analyticsContainer, theme === "dark" ? styles.analyticsContainerDark : {})}>
-        <h3 style={merge(styles.analyticsTitle, { color: PRIMARY_COLOR })}>{lang === "ar" ? "إحصائيات" : "Analytics"}</h3>
+        <h3 style={merge(styles.analyticsTitle, { background: PRIMARY_GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" })}>
+          {lang === "ar" ? "إحصائيات" : "Analytics"}
+        </h3>
 
         <div style={styles.analyticsGrid}>
-          <div style={styles.analyticsCard}><h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "إجمالي الإعلانات" : "Total generated"}</h4><p style={styles.analyticsCardValue}>{analytics.totalGenerations}</p></div>
-          <div style={styles.analyticsCard}><h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "إجمالي النسخ" : "Total copies"}</h4><p style={styles.analyticsCardValue}>{analytics.totalCopies}</p></div>
-          <div style={styles.analyticsCard}><h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "متوسط التقييم" : "Average rating"}</h4><p style={styles.analyticsCardValue}>{analytics.averageRating.toFixed(1)}/5</p></div>
-          <div style={styles.analyticsCard}><h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "الأكثر استخداماً" : "Most used"}</h4><p style={styles.analyticsCardValue}>{platformName(analytics.mostUsedPlatform)}</p></div>
+          <div style={merge(styles.analyticsCard, { background: SECONDARY_GRADIENT })}>
+            <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "إجمالي الإعلانات" : "Total generated"}</h4>
+            <p style={styles.analyticsCardValue}>{analytics.totalGenerations}</p>
+          </div>
+          <div style={merge(styles.analyticsCard, { background: SUCCESS_GRADIENT })}>
+            <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "إجمالي النسخ" : "Total copies"}</h4>
+            <p style={styles.analyticsCardValue}>{analytics.totalCopies}</p>
+          </div>
+          <div style={merge(styles.analyticsCard, { background: "linear-gradient(135deg, #ffd89b 0%, #19547b 100%)" })}>
+            <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "متوسط التقييم" : "Average rating"}</h4>
+            <p style={styles.analyticsCardValue}>{analytics.averageRating.toFixed(1)}/5</p>
+          </div>
+          <div style={merge(styles.analyticsCard, { background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" })}>
+            <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "الأكثر استخداماً" : "Most used"}</h4>
+            <p style={styles.analyticsCardValue}>{platformName(analytics.mostUsedPlatform)}</p>
+          </div>
         </div>
 
         <div>
@@ -696,7 +658,7 @@ export default function AdvancedAdGenerator() {
                   <span>{d.count} • {d.pct}%</span>
                 </div>
                 <div style={styles.distributionBarContainer}>
-                  <div style={{ ...styles.distributionBar, width: `${d.pct}%`, backgroundColor: platformColor(d.type) }} />
+                  <div style={{ ...styles.distributionBar, width: `${d.pct}%`, background: platformGradient(d.type) }} />
                 </div>
               </div>
             ))}
@@ -706,138 +668,10 @@ export default function AdvancedAdGenerator() {
     );
   }, [analytics, history, theme, lang, platformName]);
 
-  const MarketAnalysisTab = useCallback(() => (
-    <div style={merge(styles.marketAnalysisContainer, theme === "dark" ? styles.marketAnalysisContainerDark : {})}>
-      <div style={styles.analysisHeader}>
-        <h3 style={merge(styles.analysisTitle, { color: PRIMARY_COLOR })}>
-          {lang === "ar" ? "تحليل السوق والمنافسين" : "Market & Competitor Analysis"}
-        </h3>
-        <button 
-          onClick={analyzeMarket} 
-          disabled={analyzingMarket || !input.product.trim()}
-          style={analyzingMarket ? styles.buttonDisabled : merge(styles.analyzeButton, { backgroundColor: PRIMARY_COLOR })}
-        >
-          {analyzingMarket 
-            ? (lang === "ar" ? "جاري التحليل..." : "Analyzing...") 
-            : (lang === "ar" ? "تحليل السوق" : "Analyze Market")
-          }
-        </button>
-      </div>
-
-      {!input.product.trim() && (
-        <div style={styles.analysisPlaceholder}>
-          {lang === "ar" ? "أدخل اسم المنتج أولاً لتحليل السوق" : "Enter a product name to analyze the market"}
-        </div>
-      )}
-
-      {marketAnalysis ? (
-        <div style={styles.analysisResults}>
-          {/* قسم المنافسين */}
-          <div style={styles.analysisSection}>
-            <h4 style={styles.sectionTitle}>{lang === "ar" ? "المنافسون الرئيسيون" : "Key Competitors"}</h4>
-            <div style={styles.competitorsGrid}>
-              {marketAnalysis.competitors.slice(0, 3).map((competitor, index) => (
-                <div key={index} style={merge(styles.competitorCard, theme === "dark" ? styles.competitorCardDark : {})}>
-                  <h5 style={styles.competitorName}>{competitor.name}</h5>
-                  <div style={styles.competitorDetails}>
-                    <div style={styles.strengths}>
-                      <span style={styles.detailLabel}>{lang === "ar" ? "نقاط القوة:" : "Strengths:"}</span>
-                      <ul style={styles.detailList}>
-                        {competitor.strengths.slice(0, 3).map((strength, i) => (
-                          <li key={i}>{strength}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div style={styles.weaknesses}>
-                      <span style={styles.detailLabel}>{lang === "ar" ? "نقاط الضعف:" : "Weaknesses:"}</span>
-                      <ul style={styles.detailList}>
-                        {competitor.weaknesses.slice(0, 3).map((weakness, i) => (
-                          <li key={i}>{weakness}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* قسم اتجاهات السوق */}
-          <div style={styles.analysisSection}>
-            <h4 style={styles.sectionTitle}>{lang === "ar" ? "اتجاهات السوق" : "Market Trends"}</h4>
-            <div style={styles.trendsList}>
-              {marketAnalysis.trends.slice(0, 5).map((trend, index) => (
-                <div key={index} style={merge(styles.trendItem, theme === "dark" ? styles.trendItemDark : {})}>
-                  <span style={styles.trendBullet}>•</span>
-                  <span>{trend}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* قسم اتجاهات السوشيال ميديا */}
-          <div style={styles.analysisSection}>
-            <h4 style={styles.sectionTitle}>{lang === "ar" ? "اتجاهات وسائل التواصل" : "Social Media Trends"}</h4>
-            <div style={styles.socialTrends}>
-              {marketAnalysis.socialMediaTrends.slice(0, 2).map((trend, index) => (
-                <div key={index} style={merge(styles.platformTrend, theme === "dark" ? styles.platformTrendDark : {})}>
-                  <div style={styles.trendHeader}>
-                    <span style={merge(styles.platformTag, { backgroundColor: platformColor(trend.platform) })}>
-                      {platformName(trend.platform)}
-                    </span>
-                    <span style={styles.engagementRate}>
-                      {lang === "ar" ? "معدل التفاعل: " : "Engagement: "}
-                      {trend.engagementRate}%
-                    </span>
-                  </div>
-                  <div style={styles.trendContent}>
-                    <div style={styles.trendingTopics}>
-                      <span style={styles.trendLabel}>{lang === "ar" ? "المواضيع الرائجة:" : "Trending topics:"}</span>
-                      <div style={styles.topicList}>
-                        {trend.trendingContent.slice(0, 3).map((topic, i) => (
-                          <span key={i} style={styles.topicTag}>{topic}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={styles.hashtags}>
-                      <span style={styles.trendLabel}>{lang === "ar" ? "الهاشتاقات الشائعة:" : "Popular hashtags:"}</span>
-                      <div style={styles.hashtagList}>
-                        {trend.popularHashtags.slice(0, 5).map((hashtag, i) => (
-                          <span key={i} style={styles.hashtagTag}>#{hashtag}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* قسم التوصيات */}
-          <div style={styles.analysisSection}>
-            <h4 style={styles.sectionTitle}>{lang === "ar" ? "توصيات استراتيجية" : "Strategic Recommendations"}</h4>
-            <div style={styles.recommendations}>
-              {marketAnalysis.recommendations.slice(0, 5).map((recommendation, index) => (
-                <div key={index} style={merge(styles.recommendationItem, theme === "dark" ? styles.recommendationItemDark : {})}>
-                  <div style={styles.recommendationNumber}>{index + 1}</div>
-                  <div style={styles.recommendationText}>{recommendation}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : input.product.trim() && !analyzingMarket && (
-        <div style={styles.analysisPlaceholder}>
-          {lang === "ar" ? "انقر فوق زر التحليل لمعرفة رؤى السوق والمنافسين" : "Click the analyze button to get market and competitor insights"}
-        </div>
-      )}
-    </div>
-  ), [input.product, analyzingMarket, marketAnalysis, theme, lang, analyzeMarket, platformName]);
-
   /* ---------------- main render ---------------- */
   return (
     <div style={merge(styles.appContainer, theme === "dark" ? styles.appContainerDark : {})}>
-      <header style={merge(styles.header, { background: theme === "dark" ? "#0b0710" : PRIMARY_COLOR, color: theme === "dark" ? "#e6e6f6" : "#fff" })}>
+      <header style={merge(styles.header, { background: theme === "dark" ? DARK_GRADIENT : PRIMARY_GRADIENT, color: "#fff" })}>
         <div>
           <h1 style={styles.headerTitle}>{lang === "ar" ? "مولد الإعلانات الذكي" : "Smart Ad Generator"}</h1>
           <p style={styles.headerSubtitle}>{lang === "ar" ? "أداة متقدمة لتوليد إعلانات فعالة" : "Advanced tool to generate effective ads"}</p>
@@ -857,355 +691,461 @@ export default function AdvancedAdGenerator() {
         </div>
       </header>
 
-      <nav style={merge(styles.navTabs, theme === "dark" ? styles.navTabsDark : {})}>
-        <button onClick={()=>setActiveTab("generator")} style={activeTab==="generator" ? merge(styles.activeTab, { borderBottomColor: PRIMARY_COLOR, color: PRIMARY_COLOR }) : styles.tab}>
+      <nav style={merge(styles.nav, theme === "dark" ? styles.navDark : {})}>
+        <button onClick={() => setActiveTab("generator")} style={activeTab === "generator" ? merge(styles.navButton, styles.navButtonActive) : styles.navButton}>
           {lang === "ar" ? "المولد" : "Generator"}
         </button>
-        <button onClick={()=>setActiveTab("history")} style={activeTab==="history" ? merge(styles.activeTab, { borderBottomColor: PRIMARY_COLOR, color: PRIMARY_COLOR }) : styles.tab}>
-          {lang === "ar" ? "السجل" : "History"}
+        <button onClick={() => setActiveTab("history")} style={activeTab === "history" ? merge(styles.navButton, styles.navButtonActive) : styles.navButton}>
+          {lang === "ar" ? "السجل" : "History"} ({history.length})
         </button>
-        <button onClick={()=>setActiveTab("analytics")} style={activeTab==="analytics" ? merge(styles.activeTab, { borderBottomColor: PRIMARY_COLOR, color: PRIMARY_COLOR }) : styles.tab}>
-          {lang === "ar" ? "التحليلات" : "Analytics"}
-        </button>
-        <button onClick={()=>setActiveTab("market")} style={activeTab==="market" ? merge(styles.activeTab, { borderBottomColor: PRIMARY_COLOR, color: PRIMARY_COLOR }) : styles.tab}>
-          {lang === "ar" ? "تحليل السوق" : "Market Analysis"}
+        <button onClick={() => setActiveTab("analytics")} style={activeTab === "analytics" ? merge(styles.navButton, styles.navButtonActive) : styles.navButton}>
+          {lang === "ar" ? "الإحصائيات" : "Analytics"}
         </button>
       </nav>
 
-      <main style={styles.mainContent}>
-        {activeTab === "generator" && <>
-          <InputForm />
-          <div style={{ height: 16 }} />
-          <ResultDisplay />
-        </>}
+      <main style={styles.main}>
+        {activeTab === "generator" && (
+          <div style={styles.generatorLayout}>
+            <InputForm />
+            <ResultDisplay />
+          </div>
+        )}
 
         {activeTab === "history" && <HistoryList />}
-
         {activeTab === "analytics" && <AnalyticsDashboard />}
-
-        {activeTab === "market" && <MarketAnalysisTab />}
       </main>
 
       <footer style={merge(styles.footer, theme === "dark" ? styles.footerDark : {})}>
-        <p>© {new Date().getFullYear()} • {lang === "ar" ? "مولد الإعلانات" : "Ad Generator"}</p>
+        <p>{lang === "ar" ? "أداة متقدمة لتوليد إعلانات فعالة" : "Advanced tool to generate effective ads"}</p>
       </footer>
     </div>
   );
 }
 
-/* ---------------- styles (JS object) ---------------- */
-const styles: Record<string, any> = {
+/* ---------------- Styles ---------------- */
+const styles: Record<string, React.CSSProperties> = {
   appContainer: {
     minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    backgroundColor: "#f5f7fa",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    lineHeight: 1.6,
-    color: "#111"
+    background: "#f8fafc",
+    color: "#1e293b",
+    transition: "all 0.3s ease",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
   },
   appContainerDark: {
-    backgroundColor: "#071023",
-    color: "#dbeafe"
+    background: "#0f172a",
+    color: "#e2e8f0"
   },
-
   header: {
+    padding: "1.5rem 2rem",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
-    padding: "1.5rem 1rem",
-    boxShadow: "0 1px 8px rgba(0,0,0,0.06)"
-  },
-  headerTitle: { margin: 0, fontSize: "1.6rem", fontWeight: 700 },
-  headerSubtitle: { margin: 0, opacity: 0.95, fontSize: "0.95rem" },
-  headerControls: { display: "flex", alignItems: "center", gap: 12 },
-
-  langSelect: { padding: "6px 8px", borderRadius: 8, border: "1px solid #e6e9ee", background: "white", cursor: "pointer" },
-  themeToggle: { padding: "6px 10px", borderRadius: 8, border: "none", cursor: "pointer", background: "transparent", fontSize: 18 },
-
-  navTabs: { display: "flex", borderBottom: "1px solid #e6e6e6", backgroundColor: "white" },
-  navTabsDark: { backgroundColor: "#071023", borderBottom: "1px solid rgba(255,255,255,0.03)" },
-  tab: { flex: 1, padding: "0.85rem 1rem", border: "none", background: "transparent", cursor: "pointer", fontSize: "1rem", fontWeight: 600, color: "#555", transition: "all .15s" },
-  activeTab: { flex: 1, padding: "0.85rem 1rem", border: "none", background: "transparent", cursor: "pointer", fontSize: "1rem", fontWeight: 700, color: PRIMARY_COLOR, borderBottom: `3px solid ${PRIMARY_COLOR}`, transition: "all .15s" },
-
-  mainContent: { flex: 1, padding: "2rem 1rem", maxWidth: "1100px", width: "100%", margin: "0 auto" },
-
-  formContainer: { backgroundColor: "white", borderRadius: 12, padding: "1.5rem", boxShadow: "0 6px 24px rgba(2,6,23,0.04)" },
-  formContainerDark: { backgroundColor: "#0b1420", boxShadow: "0 6px 20px rgba(0,0,0,0.6)" },
-
-  formGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: "1rem", marginBottom: "1rem" },
-  formGroup: { display: "flex", flexDirection: "column" },
-  label: { marginBottom: 6, fontWeight: 600 },
-  input: { padding: "0.65rem", border: "1px solid #e6e6e6", borderRadius: 8, fontSize: "0.98rem", outline: "none" },
-  select: { padding: "0.65rem", border: "1px solid #e6e6e6", borderRadius: 8, fontSize: "0.98rem" },
-
-  generateButton: { padding: "0.95rem 1rem", color: "#fff", border: "none", borderRadius: 8, fontSize: "1rem", fontWeight: 700, cursor: "pointer", width: "100%" },
-  buttonDisabled: { padding: "0.95rem 1rem", color: "#fff", border: "none", borderRadius: 8, fontSize: "1rem", width: "100%", backgroundColor: "#9aaefc", cursor: "not-allowed" },
-
-  resultContainer: { backgroundColor: "white", borderRadius: 12, padding: "1.25rem", boxShadow: "0 6px 20px rgba(2,6,23,0.04)" },
-  resultContainerDark: { backgroundColor: "#071827", boxShadow: "0 10px 30px rgba(0,0,0,0.6)" },
-  errorAlert: { backgroundColor: "#ffebee", color: "#b71c1c", padding: 12, borderRadius: 8, marginBottom: 12 },
-
-  resultHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  resultTitle: { margin: 0, fontSize: "1.15rem" },
-  resultActions: { display: "flex", gap: 8 },
-  actionButton: { padding: "0.45rem 0.8rem", borderRadius: 8, border: "1px solid #e6e6e6", background: "white", cursor: "pointer" },
-
-  resultContent: { backgroundColor: "#fafafa", padding: 12, borderRadius: 8, marginBottom: 12 },
-  resultText: { margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6, fontSize: "1rem" },
-
-  ratingContainer: { textAlign: "center", marginTop: 6 },
-  ratingPrompt: { margin: 0, color: "#666" },
-  ratingStars: { display: "flex", justifyContent: "center", gap: 6, marginTop: 6 },
-  starButton: { fontSize: "1.2rem", border: "none", background: "transparent", cursor: "pointer", color: "#ffc107" },
-
-  historyContainer: { backgroundColor: "white", borderRadius: 12, padding: "1.25rem", boxShadow: "0 6px 20px rgba(2,6,23,0.04)" },
-  historyContainerDark: { backgroundColor: "#071827" },
-
-  historyFilters: { display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" },
-  searchInput: { flex: 1, minWidth: 180, padding: "0.6rem", borderRadius: 8, border: "1px solid #e6e6e6" },
-  filterSelect: { minWidth: 150, padding: "0.6rem", borderRadius: 8, border: "1px solid #e6e6e6" },
-
-  emptyState: { padding: 20, textAlign: "center", color: "#777" },
-
-  historyList: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 12 },
-  historyItem: { border: "1px solid #eee", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 10, background: "white" },
-  historyItemDark: { background: "#071a2b", border: "1px solid rgba(255,255,255,0.03)" },
-
-  historyItemHeader: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  historyPlatformTag: (_type: AdType) => ({ color: "#fff", padding: "0.25rem 0.6rem", borderRadius: 999, fontWeight: 700, fontSize: "0.8rem" }),
-  historyDate: { fontSize: "0.8rem", color: "#666" },
-
-  historyItemContent: { flex: 1 },
-  editTextarea: { width: "100%", minHeight: 120, padding: 10, borderRadius: 8, border: "1px solid #e6e6e6", fontFamily: "inherit" },
-  historyText: { margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5 },
-
-  historyItemFooter: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  historyStats: { display: "flex", gap: 12, color: "#666" },
-  historyActions: { display: "flex", gap: 8 },
-
-  smallButton: { padding: "0.35rem 0.6rem", borderRadius: 8, border: "none", background: "#f0f0f0", cursor: "pointer" },
-  smallButtonDanger: { padding: "0.35rem 0.6rem", borderRadius: 8, border: "none", background: "#fff0f0", color: "#b71c1c", cursor: "pointer" },
-
-  analyticsContainer: { background: "white", borderRadius: 12, padding: 12 },
-  analyticsContainerDark: { background: "#071827" },
-  analyticsTitle: { margin: "0 0 10px", fontSize: "1.1rem" },
-  analyticsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 12, marginBottom: 12 },
-
-  analyticsCard: { background: "#f7f8fb", borderRadius: 8, padding: 12, textAlign: "center" },
-  analyticsCardTitle: { margin: 0, fontSize: "0.95rem", color: "#444" },
-  analyticsCardValue: { margin: 0, fontSize: "1.4rem", fontWeight: 800, color: PRIMARY_COLOR },
-
-  analyticsSectionTitle: { margin: "10px 0", fontWeight: 700 },
-  platformDistribution: { display: "flex", flexDirection: "column", gap: 8 },
-  distributionItem: { display: "flex", flexDirection: "column", gap: 6 },
-  distributionLabel: { display: "flex", justifyContent: "space-between", fontSize: "0.9rem" },
-  distributionBarContainer: { height: 8, background: "#eee", borderRadius: 8, overflow: "hidden" },
-  distributionBar: { height: "100%", borderRadius: 8 },
-
-  footer: { textAlign: "center", padding: 14, background: "#f3f4f6", color: "#666" },
-  footerDark: { background: "#02040a", color: "#9fb7d8" },
-
-  /* أنماط جديدة لتحليل السوق */
-  marketAnalysisContainer: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: "1.5rem",
-    boxShadow: "0 6px 24px rgba(2,6,23,0.04)"
-  },
-  marketAnalysisContainerDark: {
-    backgroundColor: "#0b1420",
-    boxShadow: "0 6px 20px rgba(0,0,0,0.6)"
-  },
-  analysisHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "1.5rem"
-  },
-  analysisTitle: {
-    margin: 0,
-    fontSize: "1.25rem",
-    fontWeight: 700
-  },
-  analyzeButton: {
-    padding: "0.75rem 1.5rem",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    fontSize: "1rem",
-    fontWeight: 600,
-    cursor: "pointer"
-  },
-  analysisPlaceholder: {
-    padding: "2rem",
-    textAlign: "center",
-    color: "#777",
-    fontStyle: "italic"
-  },
-  analysisResults: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem"
-  },
-  analysisSection: {
-    padding: "1rem 0",
-    borderBottom: "1px solid #eee"
-  },
-  sectionTitle: {
-    margin: "0 0 1rem 0",
-    fontSize: "1.1rem",
-    fontWeight: 600,
-    color: PRIMARY_COLOR
-  },
-  competitorsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+    flexWrap: "wrap",
     gap: "1rem"
   },
-  competitorCard: {
-    border: "1px solid #e6e6e6",
-    borderRadius: 8,
-    padding: "1rem",
-    backgroundColor: "#fafafa"
-  },
-  competitorCardDark: {
-    backgroundColor: "#0f1e32",
-    borderColor: "rgba(255,255,255,0.1)"
-  },
-  competitorName: {
-    margin: "0 0 0.75rem 0",
-    fontSize: "1rem",
-    fontWeight: 600
-  },
-  competitorDetails: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem"
-  },
-  detailLabel: {
-    fontWeight: 600,
-    marginBottom: "0.25rem",
-    display: "block"
-  },
-  detailList: {
+  headerTitle: {
     margin: 0,
-    paddingLeft: "1.2rem"
-  },
-  trendsList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem"
-  },
-  trendItem: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "0.5rem"
-  },
-  trendItemDark: {
-    color: "#dbeafe"
-  },
-  trendBullet: {
-    color: PRIMARY_COLOR,
+    fontSize: "1.8rem",
     fontWeight: "bold"
   },
-  socialTrends: {
+  headerSubtitle: {
+    margin: "0.25rem 0 0",
+    opacity: 0.9,
+    fontSize: "1rem"
+  },
+  headerControls: {
+    display: "flex",
+    gap: "1rem",
+    alignItems: "center"
+  },
+  langSelect: {
+    padding: "0.5rem",
+    borderRadius: "0.375rem",
+    border: "none",
+    background: "rgba(255,255,255,0.2)",
+    color: "#fff",
+    cursor: "pointer"
+  },
+  themeToggle: {
+    background: "rgba(255,255,255,0.2)",
+    border: "none",
+    borderRadius: "0.375rem",
+    padding: "0.5rem",
+    cursor: "pointer",
+    fontSize: "1.2rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  nav: {
+    display: "flex",
+    background: "#fff",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+  },
+  navDark: {
+    background: "#1e293b",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+  },
+  navButton: {
+    padding: "1rem 1.5rem",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "500",
+    fontSize: "1rem",
+    color: "#64748b",
+    transition: "all 0.2s ease"
+  },
+  navButtonActive: {
+    color: "#6366f1",
+    borderBottom: "2px solid #6366f1"
+  },
+  main: {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "2rem 1rem"
+  },
+  generatorLayout: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "2rem",
+    alignItems: "start"
+  },
+  formContainer: {
+    background: "#fff",
+    borderRadius: "0.5rem",
+    padding: "1.5rem",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+  },
+  formContainerDark: {
+    background: "#1e293b",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+  },
+  formGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "1rem"
+  },
+  formGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem"
+  },
+  label: {
+    fontWeight: "500",
+    fontSize: "0.875rem"
+  },
+  input: {
+    padding: "0.5rem 0.75rem",
+    borderRadius: "0.375rem",
+    border: "1px solid #d1d5db",
+    fontSize: "1rem"
+  },
+  select: {
+    padding: "0.5rem 0.75rem",
+    borderRadius: "0.375rem",
+    border: "1px solid #d1d5db",
+    fontSize: "1rem",
+    background: "#fff"
+  },
+  generateButton: {
+    padding: "0.75rem 1.5rem",
+    borderRadius: "0.375rem",
+    border: "none",
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: "1rem",
+    cursor: "pointer",
+    width: "100%",
+    transition: "all 0.2s ease"
+  },
+  buttonDisabled: {
+    padding: "0.75rem 1.5rem",
+    borderRadius: "0.375rem",
+    border: "none",
+    background: "#cbd5e1",
+    color: "#64748b",
+    fontWeight: "bold",
+    fontSize: "1rem",
+    cursor: "not-allowed",
+    width: "100%"
+  },
+  resultContainer: {
+    background: "#fff",
+    borderRadius: "0.5rem",
+    padding: "1.5rem",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+  },
+  resultContainerDark: {
+    background: "#1e293b",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+  },
+  errorAlert: {
+    background: "#fee2e2",
+    color: "#b91c1c",
+    padding: "0.75rem 1rem",
+    borderRadius: "0.375rem",
+    marginBottom: "1rem",
+    display: "flex",
+    alignItems: "center"
+  },
+  resultHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "1rem"
+  },
+  resultTitle: {
+    margin: 0,
+    fontSize: "1.5rem",
+    fontWeight: "bold"
+  },
+  resultActions: {
+    display: "flex",
+    gap: "0.5rem"
+  },
+  actionButton: {
+    padding: "0.5rem 1rem",
+    borderRadius: "0.375rem",
+    border: "none",
+    color: "#fff",
+    fontWeight: "500",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "0.25rem"
+  },
+  resultContent: {
+    background: "#f8fafc",
+    borderRadius: "0.375rem",
+    padding: "1rem",
+    marginBottom: "1rem"
+  },
+  resultText: {
+    margin: 0,
+    whiteSpace: "pre-wrap",
+    lineHeight: 1.5
+  },
+  ratingContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "0.5rem"
+  },
+  ratingPrompt: {
+    margin: 0,
+    fontWeight: "500"
+  },
+  ratingStars: {
+    display: "flex",
+    gap: "0.25rem"
+  },
+  starButton: {
+    background: "none",
+    border: "none",
+    fontSize: "1.5rem",
+    cursor: "pointer",
+    padding: 0
+  },
+  historyContainer: {
+    background: "#fff",
+    borderRadius: "0.5rem",
+    padding: "1.5rem",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+  },
+  historyContainerDark: {
+    background: "#1e293b",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+  },
+  historyFilters: {
+    display: "flex",
+    gap: "1rem",
+    marginBottom: "1.5rem",
+    flexWrap: "wrap"
+  },
+  searchInput: {
+    padding: "0.5rem 0.75rem",
+    borderRadius: "0.375rem",
+    border: "1px solid #d1d5db",
+    fontSize: "1rem",
+    flex: "1",
+    minWidth: "200px"
+  },
+  filterSelect: {
+    padding: "0.5rem 0.75rem",
+    borderRadius: "0.375rem",
+    border: "1px solid #d1d5db",
+    fontSize: "1rem",
+    background: "#fff"
+  },
+  emptyState: {
+    textAlign: "center",
+    padding: "3rem",
+    color: "#64748b"
+  },
+  historyList: {
     display: "flex",
     flexDirection: "column",
     gap: "1rem"
   },
-  platformTrend: {
-    border: "1px solid #e6e6e6",
-    borderRadius: 8,
+  historyItem: {
+    border: "1px solid #e2e8f0",
+    borderRadius: "0.5rem",
     padding: "1rem",
-    backgroundColor: "#fafafa"
+    transition: "all 0.2s ease",
+    cursor: "pointer"
   },
-  platformTrendDark: {
-    backgroundColor: "#0f1e32",
-    borderColor: "rgba(255,255,255,0.1)"
+  historyItemDark: {
+    borderColor: "#334155",
+    background: "#1e293b"
   },
-  trendHeader: {
+  historyItemHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "0.75rem"
   },
-  platformTag: {
+  historyPlatformTag: {
+    padding: "0.25rem 0.5rem",
+    borderRadius: "0.25rem",
     color: "#fff",
-    padding: "0.25rem 0.6rem",
-    borderRadius: 999,
-    fontWeight: 700,
-    fontSize: "0.8rem"
+    fontWeight: "500",
+    fontSize: "0.875rem"
   },
-  engagementRate: {
-    fontSize: "0.9rem",
-    fontWeight: 600
+  historyDate: {
+    fontSize: "0.875rem",
+    color: "#64748b"
   },
-  trendContent: {
+  historyItemContent: {
+    marginBottom: "0.75rem"
+  },
+  editTextarea: {
+    width: "100%",
+    padding: "0.5rem",
+    borderRadius: "0.375rem",
+    border: "1px solid #d1d5db",
+    fontSize: "1rem",
+    fontFamily: "inherit",
+    resize: "vertical"
+  },
+  historyText: {
+    margin: 0,
+    whiteSpace: "pre-wrap",
+    lineHeight: 1.5
+  },
+  historyItemFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  historyStats: {
+    display: "flex",
+    gap: "1rem",
+    fontSize: "0.875rem",
+    color: "#64748b"
+  },
+  historyActions: {
+    display: "flex",
+    gap: "0.25rem"
+  },
+  smallButton: {
+    padding: "0.25rem 0.5rem",
+    borderRadius: "0.25rem",
+    border: "none",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: "0.875rem"
+  },
+  smallButtonDanger: {
+    padding: "0.25rem 0.5rem",
+    borderRadius: "0.25rem",
+    border: "none",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: "0.875rem"
+  },
+  analyticsContainer: {
+    background: "#fff",
+    borderRadius: "0.5rem",
+    padding: "1.5rem",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+  },
+  analyticsContainerDark: {
+    background: "#1e293b",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+  },
+  analyticsTitle: {
+    margin: "0 0 1.5rem",
+    fontSize: "1.5rem",
+    fontWeight: "bold"
+  },
+  analyticsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: "1rem",
+    marginBottom: "2rem"
+  },
+  analyticsCard: {
+    padding: "1.5rem",
+    borderRadius: "0.5rem",
+    color: "#fff"
+  },
+  analyticsCardTitle: {
+    margin: "0 0 0.5rem",
+    fontSize: "0.875rem",
+    fontWeight: "500",
+    opacity: 0.9
+  },
+  analyticsCardValue: {
+    margin: 0,
+    fontSize: "2rem",
+    fontWeight: "bold"
+  },
+  analyticsSectionTitle: {
+    margin: "0 0 1rem",
+    fontSize: "1.25rem",
+    fontWeight: "bold"
+  },
+  platformDistribution: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.75rem"
-  },
-  trendLabel: {
-    fontWeight: 600,
-    marginBottom: "0.25rem",
-    display: "block"
-  },
-  topicList: {
-    display: "flex",
-    flexWrap: "wrap",
     gap: "0.5rem"
   },
-  topicTag: {
-    backgroundColor: "#e6f7ff",
-    padding: "0.25rem 0.5rem",
-    borderRadius: 4,
-    fontSize: "0.85rem"
-  },
-  hashtagList: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.5rem"
-  },
-  hashtagTag: {
-    backgroundColor: "#f0f0f0",
-    padding: "0.25rem 0.5rem",
-    borderRadius: 4,
-    fontSize: "0.85rem"
-  },
-  recommendations: {
+  distributionItem: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.75rem"
+    gap: "0.25rem"
   },
-  recommendationItem: {
+  distributionLabel: {
     display: "flex",
-    alignItems: "flex-start",
-    gap: "0.75rem",
-    padding: "0.75rem",
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8
+    justifyContent: "space-between",
+    fontSize: "0.875rem"
   },
-  recommendationItemDark: {
-    backgroundColor: "#0f1e32"
+  distributionBarContainer: {
+    height: "8px",
+    background: "#e2e8f0",
+    borderRadius: "4px",
+    overflow: "hidden"
   },
-  recommendationNumber: {
-    backgroundColor: PRIMARY_COLOR,
-    color: "#fff",
-    width: "24px",
-    height: "24px",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "bold",
-    flexShrink: 0
+  distributionBar: {
+    height: "100%",
+    borderRadius: "4px",
+    transition: "width 0.3s ease"
   },
-  recommendationText: {
-    margin: 0
+  footer: {
+    textAlign: "center",
+    padding: "1.5rem",
+    marginTop: "2rem",
+    borderTop: "1px solid #e2e8f0",
+    color: "#64748b"
+  },
+  footerDark: {
+    borderTopColor: "#334155",
+    color: "#94a3b8"
   }
 };
 
-/* ---------------- util helpers ---------------- */
-function merge(a: any, b: any) { return { ...(a||{}), ...(b||{}) }; }
+// Helper function to merge styles
+function merge(style1: React.CSSProperties, style2: React.CSSProperties): React.CSSProperties {
+  return { ...style1, ...style2 };
+}

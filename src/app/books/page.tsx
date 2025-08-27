@@ -32,9 +32,8 @@ type BookState = {
   editingChapter: Chapter | null;
   autoSaveStatus: "idle" | "saving" | "saved";
   includeExamples: boolean;
-  generateCover: boolean;
   authorName: string;
-  coverStyle: "minimal" | "modern" | "classic" | "elegant";
+  currentStep: number;
 };
 
 /* ---------- القيم الافتراضية والمساعدات ---------- */
@@ -57,13 +56,6 @@ const BOOK_TYPES = {
   CHILDREN: "أطفال"
 } as const;
 
-const COVER_STYLES = {
-  minimal: "مينيمال",
-  modern: "حديث",
-  classic: "كلاسيكي",
-  elegant: "أنيق"
-} as const;
-
 const generateId = (prefix = "c") => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 
 const countWords = (text?: string) => (text ? (text.trim().match(/\S+/g) || []).length : 0);
@@ -75,18 +67,18 @@ const TRANSLATIONS = {
   ar: {
     brand: "كتاب.آي",
     tagline: "مولد الكتب الذكي — ابدأ رحلتك في التأليف",
-    titleLabel: "عنوان الكتاب",
+    titleLabel: "عنوان الكتاب *",
     subtitleLabel: "العنوان الفرعي (اختياري)",
-    descriptionLabel: "وصف قصير (فكرة الكتاب - اكتب سطرين)",
-    bookTypeLabel: "نوع الكتاب",
+    descriptionLabel: "وصف قصير (فكرة الكتاب - اكتب سطرين) *",
+    bookTypeLabel: "نوع الكتاب *",
     languageLabel: "اللغة",
-    chaptersLabel: "عدد الفصول",
+    chaptersLabel: "عدد الفصول *",
     chapterTitleLabel: "عنوان الفصل",
     chapterDescLabel: "وصف الفصل",
     generateBtn: "توليد الكتاب",
     createEmptyBtn: "إنشاء فصول فارغة",
     downloadBtn: "تحميل TXT",
-    saveFinalBtn: "حفظ نهائي",
+    saveFinalBtn: "حفظ محلي",
     emptyState: "لا يوجد محتوى حتى الآن — ابدأ بتوليد كتابك",
     darkMode: "وضع داكن",
     lightMode: "وضع فاتح",
@@ -106,29 +98,37 @@ const TRANSLATIONS = {
     downloadPromptMsg: "سيتم تنزيل ملف TXT يحتوي على محتوى الكتاب.",
     previewTitle: "عرض سريع",
     includeExamples: "تضمين أمثلة واقعية",
-    generateCover: "توليد غلاف الكتاب",
-    authorNameLabel: "اسم الكاتب",
-    coverStyleLabel: "نمط الغلاف",
+    authorNameLabel: "اسم الكاتب *",
     addChapter: "إضافة فصل",
     researchExamples: "أمثلة بحثية",
-    coverPreview: "معاينة الغلاف",
-    advancedOptions: "خيارات متقدمة"
+    advancedOptions: "خيارات متقدمة",
+    saveToLibrary: "حفظ في المكتبة",
+    step1: "معلومات الكتاب الأساسية",
+    step2: "إعداد الفصول",
+    step3: "توليد المحتوى",
+    requiredField: "هذا الحقل مطلوب",
+    minWords: "يجب أن يحتوي على 20 كلمة على الأقل",
+    nextStep: "التالي",
+    prevStep: "السابق",
+    startGenerating: "ابدأ التوليد",
+    welcomeTitle: "مرحباً بك في منصة كتاب.آي",
+    welcomeDesc: "منصة متكاملة لإنشاء الكتب الذكية باستخدام الذكاء الاصطناعي"
   },
   en: {
     brand: "Book.AI",
     tagline: "Smart book generator — start your authoring journey",
-    titleLabel: "Book Title",
+    titleLabel: "Book Title *",
     subtitleLabel: "Subtitle (optional)",
-    descriptionLabel: "Short description (two lines describing the idea)",
-    bookTypeLabel: "Book Type",
+    descriptionLabel: "Short description (two lines describing the idea) *",
+    bookTypeLabel: "Book Type *",
     languageLabel: "Language",
-    chaptersLabel: "Number of Chapters",
+    chaptersLabel: "Number of Chapters *",
     chapterTitleLabel: "Chapter Title",
     chapterDescLabel: "Chapter Description",
     generateBtn: "Generate Book",
     createEmptyBtn: "Create Empty Chapters",
     downloadBtn: "Download TXT",
-    saveFinalBtn: "Save Final",
+    saveFinalBtn: "Save Locally",
     emptyState: "No content yet — start generating your book",
     darkMode: "Dark mode",
     lightMode: "Light mode",
@@ -148,13 +148,21 @@ const TRANSLATIONS = {
     downloadPromptMsg: "A TXT file containing the book content will be downloaded.",
     previewTitle: "Quick preview",
     includeExamples: "Include real examples",
-    generateCover: "Generate book cover",
-    authorNameLabel: "Author Name",
-    coverStyleLabel: "Cover Style",
+    authorNameLabel: "Author Name *",
     addChapter: "Add Chapter",
     researchExamples: "Research Examples",
-    coverPreview: "Cover Preview",
-    advancedOptions: "Advanced Options"
+    advancedOptions: "Advanced Options",
+    saveToLibrary: "Save to Library",
+    step1: "Basic Book Information",
+    step2: "Chapter Setup",
+    step3: "Content Generation",
+    requiredField: "This field is required",
+    minWords: "Must contain at least 20 words",
+    nextStep: "Next",
+    prevStep: "Previous",
+    startGenerating: "Start Generation",
+    welcomeTitle: "Welcome to Book.AI Platform",
+    welcomeDesc: "A comprehensive platform for creating smart books using AI"
   },
 } as const;
 
@@ -179,9 +187,8 @@ export default function BooksPage() {
     editingChapter: null,
     autoSaveStatus: "idle",
     includeExamples: true,
-    generateCover: false,
     authorName: "",
-    coverStyle: "modern"
+    currentStep: 1
   });
 
   const limits = DEFAULT_LIMITS[state.plan];
@@ -199,6 +206,39 @@ export default function BooksPage() {
 
   // الترجمة الحالية
   const t = useMemo(() => TRANSLATIONS[state.lang], [state.lang]);
+
+  // التحقق من صحة الفصول
+  const validateChapters = useCallback(() => {
+    if (state.chapters.length === 0) {
+      return state.lang === "ar" ? "يجب إنشاء الفصول أولاً" : "Chapters must be created first";
+    }
+
+    const incompleteChapters = state.chapters.filter(ch => 
+      !ch.title.trim() || !ch.description.trim() || countWords(ch.description) < 20
+    );
+
+    if (incompleteChapters.length > 0) {
+      return state.lang === "ar" 
+        ? "كل فصل يحتاج إلى عنوان ووصف مفصل (20 كلمة على الأقل)"
+        : "Each chapter needs a title and detailed description (at least 20 words)";
+    }
+
+    return null;
+  }, [state.chapters, state.lang]);
+
+  // التحقق من صحة الخطوة 1
+  const validateStep1 = useCallback(() => {
+    if (!state.title.trim()) {
+      return t.titleLabel + " " + t.requiredField;
+    }
+    if (!state.description.trim() || countWords(state.description) < 10) {
+      return t.descriptionLabel + " " + t.minWords;
+    }
+    if (!state.authorName.trim()) {
+      return t.authorNameLabel + " " + t.requiredField;
+    }
+    return null;
+  }, [state.title, state.description, state.authorName, t]);
 
   // تحميل البيانات المحفوظة عند التهيئة
   useEffect(() => {
@@ -243,7 +283,7 @@ export default function BooksPage() {
     document.documentElement.setAttribute("data-theme", state.darkMode ? "dark" : "light");
   }, [state.lang, state.darkMode]);
 
-  // الحفظ التلقائي - تم التصحيح هنا
+  // الحفظ التلقائي
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -270,10 +310,9 @@ export default function BooksPage() {
         clearTimeout(autosaveTimer.current);
       }
     };
-  // تم إصلاح مصفوفة التبعيات لتجنب الحلقة اللانهائية
   }, [state.title, state.subtitle, state.description, state.bookType, state.chapters, 
       state.chaptersCount, state.lang, state.plan, state.includeExamples, 
-      state.generateCover, state.authorName, state.coverStyle]);
+      state.authorName]);
 
   // استخدام useCallback لمنع إنشاء دوال جديدة في كل render
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,16 +353,23 @@ export default function BooksPage() {
     setState(prev => ({ ...prev, includeExamples: e.target.checked }));
   }, []);
 
-  const handleGenerateCoverChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setState(prev => ({ ...prev, generateCover: e.target.checked }));
-  }, []);
-
-  const handleCoverStyleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setState(prev => ({ 
-      ...prev, 
-      coverStyle: e.target.value as "minimal" | "modern" | "classic" | "elegant" 
-    }));
-  }, []);
+  const handleStepChange = useCallback((step: number) => {
+    if (step === 2) {
+      const step1Error = validateStep1();
+      if (step1Error) {
+        setState(prev => ({ ...prev, error: step1Error }));
+        return;
+      }
+    } else if (step === 3) {
+      const chaptersError = validateChapters();
+      if (chaptersError) {
+        setState(prev => ({ ...prev, error: chaptersError }));
+        return;
+      }
+    }
+    
+    setState(prev => ({ ...prev, currentStep: step, error: null }));
+  }, [validateStep1, validateChapters]);
 
   /* ---------- دوال إدارة الفصول ---------- */
   const createEmptyChapters = (count: number) => {
@@ -367,28 +413,16 @@ export default function BooksPage() {
 
   /* ---------- توليد المحتوى الحقيقي باستخدام API ---------- */
   const handleGenerateBook = async () => {
+    // التحقق من الحقول الأساسية
     if (!state.title.trim()) {
       setState(prev => ({ ...prev, error: t.titleLabel + (state.lang === "ar" ? " مطلوب" : " is required") }));
       return;
     }
-    if (!state.description.trim()) {
-      setState(prev => ({ ...prev, error: t.descriptionLabel + (state.lang === "ar" ? " مطلوب" : " is required") }));
-      return;
-    }
-    if (state.chaptersCount < 1 || state.chaptersCount > 20) {
-      setState(prev => ({ ...prev, error: state.lang === "ar" ? "عدد الفصول يجب أن يكون بين 1 و 20" : "Chapters must be between 1 and 20" }));
-      return;
-    }
 
-    // التحقق من أن كل فصل له عنوان ووصف
-    const incompleteChapters = state.chapters.filter(ch => !ch.title.trim() || !ch.description.trim());
-    if (incompleteChapters.length > 0) {
-      setState(prev => ({ 
-        ...prev, 
-        error: state.lang === "ar" 
-          ? "جميع الفصول تحتاج إلى عنوان ووصف" 
-          : "All chapters need title and description" 
-      }));
+    // التحقق من وصف الفصول
+    const validationError = validateChapters();
+    if (validationError) {
+      setState(prev => ({ ...prev, error: validationError }));
       return;
     }
 
@@ -402,8 +436,6 @@ export default function BooksPage() {
     genCancelRef.current.cancelled = false;
 
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      
       // إضافة مؤقت للتحقق من اتصال API
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 ثانية timeout
@@ -412,42 +444,21 @@ export default function BooksPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           title: state.title,
           description: state.description,
-          language: state.lang,
           bookType: state.bookType,
+          bookLanguage: state.lang,
           chapters: state.chapters.map((ch, index) => ({
             chapterNumber: index + 1,
             title: ch.title,
             description: ch.description
           })),
           includeExamples: state.includeExamples,
-          generateCover: state.generateCover,
           authorName: state.authorName,
           researchDepth: "advanced",
-          authorStyle: "professional",
-          designOptions: {
-            authorName: state.authorName,
-            coverLayout: state.coverStyle,
-            colorScheme: { 
-              primary: "#2C3E50", 
-              secondary: "#34495E", 
-              accent: "#E74C3C",
-              background: "#FFFFFF",
-              text: "#2C3E50"
-            },
-            typography: { 
-              fontFamily: "Traditional", 
-              titleSize: "2.5rem",
-              authorSize: "1.5rem"
-            },
-            includeAuthorOnCover: true,
-            customGraphics: [],
-            coverImageStyle: "abstract"
-          }
+          authorStyle: "professional"
         }),
         signal: controller.signal
       });
@@ -478,24 +489,14 @@ export default function BooksPage() {
         notice: state.lang === "ar" ? "تم توليد الكتاب بنجاح" : "Book generated successfully"
       }));
 
-      // إذا كان توليد الغلاف مفعلاً، نضيف معاينة الغلاف
-      if (state.generateCover && data.cover) {
-        setTimeout(() => {
-          setState(prev => ({
-            ...prev,
-            notice: state.lang === "ar" ? "تم توليد الغلاف أيضاً" : "Cover also generated"
-          }));
-        }, 1000);
-      }
-
     } catch (err: any) {
       console.error("Generation error:", err);
       
       let errorMessage = t.genError;
       if (err.name === 'AbortError') {
-        errorMessage += state.lang === "ar" ? " (انتهت مهلة الانتظار)" : " (Request timeout)";
+        errorMessage = t.genError;
       } else if (err.message) {
-        errorMessage += ": " + err.message;
+        errorMessage = err.message;
       }
       
       setState(prev => ({
@@ -551,31 +552,20 @@ export default function BooksPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSaveFinal = async () => {
+  const handleSaveFinal = () => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch("/api/books", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          title: state.title,
-          subtitle: state.subtitle,
-          description: state.description,
-          bookType: state.bookType,
-          language: state.lang,
-          chapters: state.chapters,
-          includeExamples: state.includeExamples,
-          generateCover: state.generateCover,
-          authorName: state.authorName,
-          coverStyle: state.coverStyle
-        }),
-      });
-
-      const data = await res.json().catch(() => ({ error: t.saveError }));
-      if (!res.ok) throw new Error(data.error || t.saveError);
+      // حفظ محلي فقط بدون إرسال إلى الخادم
+      localStorage.setItem("book:final:v1", JSON.stringify({
+        title: state.title,
+        subtitle: state.subtitle,
+        description: state.description,
+        bookType: state.bookType,
+        language: state.lang,
+        chapters: state.chapters,
+        includeExamples: state.includeExamples,
+        authorName: state.authorName,
+        savedAt: new Date().toISOString()
+      }));
 
       setState(prev => ({
         ...prev,
@@ -585,7 +575,7 @@ export default function BooksPage() {
       console.error(err);
       setState(prev => ({
         ...prev,
-        error: (err as Error).message || t.saveError
+        error: t.saveError
       }));
     }
   };
@@ -673,423 +663,453 @@ export default function BooksPage() {
 
       {/* المحتوى الرئيسي */}
       <main className="main-grid">
+        {/* شريط التقدم */}
+        <div className="progress-steps">
+          <div className={`step ${state.currentStep >= 1 ? 'active' : ''}`}>
+            <span className="step-number">1</span>
+            <span className="step-label">{t.step1}</span>
+          </div>
+          <div className={`step ${state.currentStep >= 2 ? 'active' : ''}`}>
+            <span className="step-number">2</span>
+            <span className="step-label">{t.step2}</span>
+          </div>
+          <div className={`step ${state.currentStep >= 3 ? 'active' : ''}`}>
+            <span className="step-number">3</span>
+            <span className="step-label">{t.step3}</span>
+          </div>
+        </div>
+
         {/* اللوحة اليسرى */}
         <aside className="panel-left">
-          <div className="field">
-            <label>{t.titleLabel}</label>
-            <input
-              value={state.title}
-              onChange={handleTitleChange}
-              placeholder={state.lang === "ar" ? "مثال: دليل الكتابة الحديثة" : "e.g. Modern Writing Guide"}
-            />
-          </div>
-
-          <div className="field">
-            <label>{t.subtitleLabel}</label>
-            <input
-              value={state.subtitle}
-              onChange={handleSubtitleChange}
-              placeholder={state.lang === "ar" ? "مثال: طريقة مبتكرة" : "e.g. An innovative approach"}
-            />
-          </div>
-
-          <div className="field">
-            <label>{t.descriptionLabel}</label>
-            <textarea
-              rows={3}
-              value={state.description}
-              onChange={handleDescriptionChange}
-              placeholder={state.lang === "ar" ? "اكتب سطرين يوجزان فكرة الكتاب" : "Write two lines describing the core idea"}
-            />
-          </div>
-
-          <div className="field">
-            <label>{t.bookTypeLabel}</label>
-            <select 
-              value={state.bookType}
-              onChange={handleBookTypeChange}
-            >
-              {Object.entries(BOOK_TYPES).map(([key, value]) => (
-                <option key={key} value={key}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <label>{t.authorNameLabel}</label>
-            <input
-              value={state.authorName}
-              onChange={handleAuthorNameChange}
-              placeholder={state.lang === "ar" ? "اسم الكاتب" : "Author name"}
-            />
-          </div>
-
-          <div className="row">
-            <div className="field small">
-              <label>{t.languageLabel}</label>
-              <div className="inline-switch">
-                <button
-                  className={state.lang === "ar" ? "active" : ""}
-                  onClick={() => setState(prev => ({ ...prev, lang: "ar" }))}
-                >
-                  العربية
-                </button>
-                <button
-                  className={state.lang === "en" ? "active" : ""}
-                  onClick={() => setState(prev => ({ ...prev, lang: "en" }))}
-                >
-                  English
-                </button>
-              </div>
-            </div>
-
-            <div className="field small">
-              <label>{t.chaptersLabel}</label>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={state.chaptersCount}
-                onChange={handleChaptersCountChange}
-              />
-            </div>
-          </div>
-
-          {/* خيارات متقدمة */}
-          <div className="advanced-options">
-            <h3>{t.advancedOptions}</h3>
-            
-            <div className="checkbox-field">
-              <input
-                type="checkbox"
-                id="includeExamples"
-                checked={state.includeExamples}
-                onChange={handleIncludeExamplesChange}
-              />
-              <label htmlFor="includeExamples">{t.includeExamples}</label>
-            </div>
-
-            <div className="checkbox-field">
-              <input
-                type="checkbox"
-                id="generateCover"
-                checked={state.generateCover}
-                onChange={handleGenerateCoverChange}
-              />
-              <label htmlFor="generateCover">{t.generateCover}</label>
-            </div>
-
-            {state.generateCover && (
+          {state.currentStep === 1 && (
+            <>
+              <h3>{t.step1}</h3>
+              
               <div className="field">
-                <label>{t.coverStyleLabel}</label>
+                <label>{t.titleLabel}</label>
+                <input
+                  value={state.title}
+                  onChange={handleTitleChange}
+                  placeholder={state.lang === "ar" ? "مثال: دليل الكتابة الحديثة" : "e.g. Modern Writing Guide"}
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>{t.subtitleLabel}</label>
+                <input
+                  value={state.subtitle}
+                  onChange={handleSubtitleChange}
+                  placeholder={state.lang === "ar" ? "مثال: طريقة مبتكرة" : "e.g. An innovative approach"}
+                />
+              </div>
+
+              <div className="field">
+                <label>{t.descriptionLabel}</label>
+                <textarea
+                  rows={3}
+                  value={state.description}
+                  onChange={handleDescriptionChange}
+                  placeholder={state.lang === "ar" ? "اكتب سطرين يوجزان فكرة الكتاب" : "Write two lines describing the core idea"}
+                  required
+                />
+                <div className="word-count-hint">
+                  {countWords(state.description)} {state.lang === "ar" ? "كلمة" : "words"}
+                  {countWords(state.description) < 10 && (
+                    <span className="error-text"> - {t.minWords}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="field">
+                <label>{t.bookTypeLabel}</label>
                 <select 
-                  value={state.coverStyle}
-                  onChange={handleCoverStyleChange}
+                  value={state.bookType}
+                  onChange={handleBookTypeChange}
+                  required
                 >
-                  {Object.entries(COVER_STYLES).map(([key, value]) => (
+                  {Object.entries(BOOK_TYPES).map(([key, value]) => (
                     <option key={key} value={key}>
                       {value}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
-          </div>
 
-          {state.error && <div className="error-box">{state.error}</div>}
-          {state.notice && <div className="notice-box">{state.notice}</div>}
+              <div className="field">
+                <label>{t.authorNameLabel}</label>
+                <input
+                  value={state.authorName}
+                  onChange={handleAuthorNameChange}
+                  placeholder={state.lang === "ar" ? "اسم الكاتب" : "Author name"}
+                  required
+                />
+              </div>
 
-          <div className="controls-area">
-            <button
-              className="btn primary"
-              onClick={handleGenerateBook}
-              disabled={state.generating || state.chapters.length === 0}
-            >
-              {state.generating ? t.generating : t.generateBtn}
-            </button>
+              <div className="field">
+                <label>{t.languageLabel}</label>
+                <div className="inline-switch">
+                  <button
+                    className={state.lang === "ar" ? "active" : ""}
+                    onClick={() => setState(prev => ({ ...prev, lang: "ar" }))}
+                  >
+                    العربية
+                  </button>
+                  <button
+                    className={state.lang === "en" ? "active" : ""}
+                    onClick={() => setState(prev => ({ ...prev, lang: "en" }))}
+                  >
+                    English
+                  </button>
+                </div>
+              </div>
 
-            <button
-              className="btn outline"
-              onClick={() => {
-                setState(prev => ({
-                  ...prev,
-                  chapters: createEmptyChapters(prev.chaptersCount),
-                  progressPercent: 0,
-                  notice: state.lang === "ar" ? "تم إنشاء الفصول الفارغة" : "Empty chapters created"
-                }));
-                setTimeout(() => setState(prev => ({ ...prev, notice: null })), 2200);
-              }}
-            >
-              {t.createEmptyBtn}
-            </button>
+              <button 
+                className="btn primary full-width" 
+                onClick={() => handleStepChange(2)}
+                disabled={!!validateStep1()}
+              >
+                {t.nextStep}
+              </button>
+            </>
+          )}
 
-            <button
-              className="btn"
-              onClick={handleDownloadTXT}
-              disabled={state.chapters.length === 0 || state.chapters.some(ch => !ch.content)}
-            >
-              {t.downloadBtn}
-            </button>
+          {state.currentStep === 2 && (
+            <>
+              <div className="step-header">
+                <h3>{t.step2}</h3>
+                <button 
+                  className="btn-ghost" 
+                  onClick={() => handleStepChange(1)}
+                >
+                  ← {t.prevStep}
+                </button>
+              </div>
 
-            <button
-              className="btn save"
-              onClick={handleSaveFinal}
-              disabled={state.chapters.length === 0 || state.chapters.some(ch => !ch.content)}
-            >
-              {t.saveFinalBtn}
-            </button>
-          </div>
+              <div className="field">
+                <label>{t.chaptersLabel}</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={state.chaptersCount}
+                  onChange={handleChaptersCountChange}
+                  required
+                />
+              </div>
 
-          <div className="meta small muted">
-            <div><strong>{t.planLabel}:</strong> {state.plan.toUpperCase()}</div>
-            <div><strong>{t.draftStatus}:</strong> <em>{state.autoSaveStatus}</em></div>
-            <div><strong>{t.wordsLabel}:</strong> <strong>{wordCount}</strong></div>
-            <div style={{ marginTop: 6 }}>
-              <small className="muted">Limits: {limits.wordsPerMonth.toLocaleString()} words / month</small>
-            </div>
-          </div>
+              {/* خيارات متقدمة */}
+              <div className="advanced-options">
+                <h4>{t.advancedOptions}</h4>
+                
+                <div className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    id="includeExamples"
+                    checked={state.includeExamples}
+                    onChange={handleIncludeExamplesChange}
+                  />
+                  <label htmlFor="includeExamples">{t.includeExamples}</label>
+                </div>
+              </div>
+
+              <button
+                className="btn outline full-width"
+                onClick={() => {
+                  setState(prev => ({
+                    ...prev,
+                    chapters: createEmptyChapters(prev.chaptersCount),
+                    progressPercent: 0,
+                    notice: state.lang === "ar" ? "تم إنشاء الفصول الفارغة" : "Empty chapters created"
+                  }));
+                  setTimeout(() => setState(prev => ({ ...prev, notice: null })), 2200);
+                }}
+              >
+                {t.createEmptyBtn}
+              </button>
+
+              <button 
+                className="btn primary full-width" 
+                onClick={() => handleStepChange(3)}
+                disabled={state.chapters.length === 0 || !!validateChapters()}
+              >
+                {t.nextStep}
+              </button>
+            </>
+          )}
+
+          {state.currentStep === 3 && (
+            <>
+              <div className="step-header">
+                <h3>{t.step3}</h3>
+                <button 
+                  className="btn-ghost" 
+                  onClick={() => handleStepChange(2)}
+                >
+                  ← {t.prevStep}
+                </button>
+              </div>
+
+              {state.error && <div className="error-box">{state.error}</div>}
+              {state.notice && <div className="notice-box">{state.notice}</div>}
+
+              <div className="controls-area">
+                <button
+                  className="btn primary full-width"
+                  onClick={handleGenerateBook}
+                  disabled={state.generating || state.chapters.length === 0}
+                >
+                  {state.generating ? t.generating : t.startGenerating}
+                </button>
+
+                <button
+                  className="btn full-width"
+                  onClick={handleDownloadTXT}
+                  disabled={state.chapters.length === 0 || state.chapters.some(ch => !ch.content)}
+                >
+                  {t.downloadBtn}
+                </button>
+
+                <button
+                  className="btn save full-width"
+                  onClick={handleSaveFinal}
+                  disabled={state.chapters.length === 0 || state.chapters.some(ch => !ch.content)}
+                >
+                  {t.saveFinalBtn}
+                </button>
+              </div>
+
+              <div className="meta small muted">
+                <div><strong>{t.planLabel}:</strong> {state.plan.toUpperCase()}</div>
+                <div><strong>{t.draftStatus}:</strong> <em>{state.autoSaveStatus}</em></div>
+                <div><strong>{t.wordsLabel}:</strong> <strong>{wordCount}</strong></div>
+                <div style={{ marginTop: 8 }}>
+                  {limits.booksPerMonth === 1 ? "1 كتاب شهريًا" : `${limits.booksPerMonth} كتب شهريًا`}
+                  {state.plan === "free" && ` (${limits.wordsPerMonth} كلمة)`}
+                </div>
+              </div>
+            </>
+          )}
         </aside>
 
         {/* اللوحة اليمنى */}
         <section className="panel-right">
-          <div className="panel-header">
-            <h3>{state.lang === "ar" ? "فصول الكتاب" : "Book Chapters"} ({state.chapters.length})</h3>
-            <button 
-              className="btn tiny"
-              onClick={addNewChapter}
-              disabled={state.chapters.length >= 20}
-            >
-              + {t.addChapter}
-            </button>
-          </div>
-
-          <div className="progress-row">
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${state.progressPercent}%` }} />
+          {state.currentStep >= 2 && (
+            <div className="chapters-header">
+              <h3>
+                {state.lang === "ar" ? "الفصول" : "Chapters"} 
+                <span className="count-badge">{state.chapters.length}</span>
+              </h3>
+              <button className="btn-ghost" onClick={addNewChapter}>
+                + {t.addChapter}
+              </button>
             </div>
-            <div className="progress-text">{state.progressPercent}%</div>
+          )}
 
-            {state.generating && (
-              <div style={{ marginLeft: 12 }}>
-                <button className="btn small outline" onClick={cancelGeneration}>
-                  ⏹ {state.lang === "ar" ? "إلغاء" : "Cancel"}
+          <div className="chapters-list">
+            {state.chapters.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📝</div>
+                <p>{t.emptyState}</p>
+                <button 
+                  className="btn outline" 
+                  onClick={() => {
+                    setState(prev => ({
+                      ...prev,
+                      chapters: createEmptyChapters(prev.chaptersCount)
+                    }));
+                  }}
+                >
+                  {t.createEmptyBtn}
                 </button>
               </div>
-            )}
-          </div>
-
-          {state.chapters.length === 0 ? (
-            <div className="empty-card">
-              <div className="empty-illustration">📖</div>
-              <h3>{t.emptyState}</h3>
-              <p className="muted">
-                {state.lang === "ar" 
-                  ? "ابدأ بإضافة فصول أو اضغط على إنشاء فصول فارغة" 
-                  : "Start by adding chapters or click create empty chapters"}
-              </p>
-            </div>
-          ) : (
-            <div className="chapters-grid">
-              {state.chapters.map((ch, idx) => (
-                <article className="chapter-card" key={ch.id}>
-                  <div className="chapter-head">
-                    <h4>{idx + 1}. {ch.title || t.chapterTitleLabel}</h4>
+            ) : (
+              state.chapters.map((chapter, index) => (
+                <div key={chapter.id} className="chapter-card">
+                  <div className="chapter-header">
+                    <span className="chapter-number">{index + 1}</span>
+                    <h4 className="chapter-title">
+                      {chapter.title || `${state.lang === "ar" ? "الفصل" : "Chapter"} ${index + 1}`}
+                    </h4>
                     <div className="chapter-actions">
-                      <button 
-                        className="btn-ghost" 
-                        onClick={() => openEditor(ch)} 
+                      <button
+                        className="btn-ghost"
+                        onClick={() => openEditor(chapter)}
                         title={t.edit}
                       >
-                        {t.edit}
+                        ✏️
                       </button>
-                      <button 
-                        className="btn-ghost danger" 
-                        onClick={() => deleteChapter(ch.id)} 
+                      <button
+                        className="btn-ghost"
+                        onClick={() => deleteChapter(chapter.id)}
                         title={t.delete}
                       >
-                        {t.delete}
+                        🗑️
                       </button>
                     </div>
                   </div>
-                  
-                  <div className="chapter-body">
-                    {ch.description && (
-                      <p className="chapter-desc">
-                        <strong>{t.chapterDescLabel}:</strong> {ch.description}
-                      </p>
-                    )}
-                    <p className="preview">
-                      {ch.content ? (
-                        ch.content.length > 200 
-                          ? ch.content.slice(0, 200) + "..." 
-                          : ch.content
-                      ) : (
+
+                  <div className="chapter-content">
+                    <p className="chapter-desc">
+                      {chapter.description || (
                         <span className="muted">
-                          {state.lang === "ar" ? "لم يتم توليد المحتوى بعد" : "Content not generated yet"}
+                          {state.lang === "ar" ? "لا يوجد وصف" : "No description"}
                         </span>
                       )}
                     </p>
-                  </div>
-                  
-                  <div className="chapter-footer">
-                    <div className="wc">
-                      {countWords(ch.content)} {state.lang === "ar" ? "كلمة" : "words"}
-                      {ch.content && state.includeExamples && (
-                        <span className="research-badge" title={t.researchExamples}>
-                          🔍
-                        </span>
-                      )}
-                    </div>
-                    <div className="cta">
-                      <button 
-                        className="btn tiny" 
-                        onClick={() => openEditor(ch)}
-                      >
-                        {t.edit}
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
 
-          {/* معاينة الغلاف */}
-          {state.generateCover && state.chapters.some(ch => ch.content) && (
-            <div className="cover-preview">
-              <h4>{t.coverPreview}</h4>
-              <div className="cover-placeholder">
-                <div className="cover-image">
-                  <div className="cover-title">{state.title}</div>
-                  {state.authorName && <div className="cover-author">{state.authorName}</div>}
-                  <div className="cover-style">{COVER_STYLES[state.coverStyle]}</div>
+                    {chapter.content && (
+                      <div className="content-preview">
+                        <details>
+                          <summary>{t.previewTitle}</summary>
+                          <div className="preview-content">
+                            {chapter.content.slice(0, 200)}...
+                          </div>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="chapter-footer">
+                    <span className="word-count">
+                      {countWords(chapter.content)} {state.lang === "ar" ? "كلمة" : "words"}
+                    </span>
+                    {chapter.estimatedWords && (
+                      <span className="estimated">
+                        ~{chapter.estimatedWords} {state.lang === "ar" ? "متوقع" : "est."}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </section>
       </main>
 
-      {/* التذييل */}
-      <footer className="footer">
-        <div>© {t.brand} — {new Date().getFullYear()}</div>
-        <div className="muted small">Built with ❤ — clean, calm UI</div>
-      </footer>
-
-      {/* نافذة تحرير الفصل */}
-      {state.editingChapter && (
-        <ChapterEditor
-          chapter={state.editingChapter}
-          onClose={closeEditor}
-          onSave={saveEditor}
-          lang={state.lang}
-          t={t}
-        />
+      {/* شريط التقدم أثناء التوليد */}
+      {state.generating && (
+        <div className="generation-overlay">
+          <div className="generation-modal">
+            <h3>{t.generating}</h3>
+            <div className="progress-bar">
+              <div
+                className="progress-fill"
+                style={{ width: `${state.progressPercent}%` }}
+              ></div>
+            </div>
+            <div className="progress-text">{Math.round(state.progressPercent)}%</div>
+            <button className="btn outline" onClick={cancelGeneration}>
+              {state.lang === "ar" ? "إلغاء" : "Cancel"}
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* الإشعارات */}
-      <div className="toast-area" aria-live="polite">
-        {state.notice && <div className="toast">{state.notice}</div>}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- مكون محرر الفصول ---------- */
-function ChapterEditor({
-  chapter,
-  onClose,
-  onSave,
-  lang,
-  t
-}: {
-  chapter: Chapter;
-  onClose: () => void;
-  onSave: (updates: Partial<Chapter>) => void;
-  lang: LangKey;
-  t: typeof TRANSLATIONS[keyof typeof TRANSLATIONS];
-}) {
-  const [title, setTitle] = useState(chapter.title);
-  const [description, setDescription] = useState(chapter.description);
-  const [content, setContent] = useState(chapter.content);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setTitle(chapter.title);
-    setDescription(chapter.description);
-    setContent(chapter.content);
-  }, [chapter]);
-
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
-      onSave({ title, description, content });
-      setSaving(false);
-    }, 300);
-  };
-
-  return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className="modal-card" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{t.previewTitle}</h3>
-          <button className="btn-ghost" onClick={onClose}>
-            {t.close}
-          </button>
-        </div>
-
-        <div className="modal-body">
-          <div className="field">
-            <label>{t.chapterTitleLabel}</label>
-            <input 
-              value={title} 
-              onChange={(e) => setTitle(e.target.value)} 
-              placeholder={lang === "ar" ? "عنوان الفصل" : "Chapter title"}
-            />
-          </div>
-
-          <div className="field">
-            <label>{t.chapterDescLabel}</label>
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={lang === "ar" ? "وصف مختصر لمحتوى الفصل" : "Brief description of chapter content"}
-            />
-          </div>
-
-          <div className="field">
-            <label>{lang === "ar" ? "محتوى الفصل" : "Chapter Content"}</label>
-            <textarea
-              rows={8}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder={lang === "ar" ? "محتوى الفصل سيتم توليده تلقائياً" : "Chapter content will be auto-generated"}
-            />
-          </div>
-
-          <div className="modal-footer">
-            <div className="muted small">
-              {countWords(content)} {lang === "ar" ? "كلمة" : "words"}
-            </div>
-
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-              <button className="btn outline" onClick={onClose}>
+      {/* محرر الفصل */}
+      {state.editingChapter && (
+        <div className="editor-overlay">
+          <div className="editor-modal">
+            <div className="editor-header">
+              <h3>{t.edit} {state.editingChapter.title}</h3>
+              <button className="btn-ghost" onClick={closeEditor}>
                 {t.close}
               </button>
-              <button 
-                className="btn primary" 
-                onClick={handleSave} 
-                disabled={saving}
+            </div>
+
+            <div className="editor-body">
+              <div className="field">
+                <label>{t.chapterTitleLabel}</label>
+                <input
+                  value={state.editingChapter.title}
+                  onChange={(e) => {
+                    setState(prev => ({
+                      ...prev,
+                      editingChapter: { ...prev.editingChapter!, title: e.target.value }
+                    }));
+                  }}
+                />
+              </div>
+
+              <div className="field">
+                <label>{t.chapterDescLabel}</label>
+                <textarea
+                  rows={4}
+                  value={state.editingChapter.description}
+                  onChange={(e) => {
+                    setState(prev => ({
+                      ...prev,
+                      editingChapter: { ...prev.editingChapter!, description: e.target.value }
+                    }));
+                  }}
+                  placeholder={state.lang === "ar" ? "صف محتوى هذا الفصل بالتفصيل..." : "Describe this chapter's content in detail..."}
+                />
+                <div className="word-count-hint">
+                  {countWords(state.editingChapter.description)} {state.lang === "ar" ? "كلمة" : "words"}
+                  {countWords(state.editingChapter.description) < 20 && (
+                    <span className="error-text"> - {t.minWords}</span>
+                  )}
+                </div>
+              </div>
+
+              {state.editingChapter.content && (
+                <div className="field">
+                  <label>{state.lang === "ar" ? "المحتوى" : "Content"}</label>
+                  <textarea
+                    rows={8}
+                    value={state.editingChapter.content}
+                    onChange={(e) => {
+                      setState(prev => ({
+                        ...prev,
+                        editingChapter: { ...prev.editingChapter!, content: e.target.value }
+                      }));
+                    }}
+                    readOnly={state.generating}
+                  />
+                  <div className="word-count-hint">
+                    {countWords(state.editingChapter.content)} {state.lang === "ar" ? "كلمة" : "words"}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="editor-footer">
+              <button className="btn" onClick={closeEditor}>
+                {t.close}
+              </button>
+              <button
+                className="btn primary"
+                onClick={() => saveEditor({
+                  title: state.editingChapter!.title,
+                  description: state.editingChapter!.description,
+                  content: state.editingChapter!.content
+                })}
               >
-                {saving ? "..." : t.saveChapter}
+                {t.saveChapter}
               </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* رسائل النظام */}
+      {state.error && (
+        <div className="toast error">
+          <span>{state.error}</span>
+          <button onClick={() => setState(prev => ({ ...prev, error: null }))}>
+            ✕
+          </button>
+        </div>
+      )}
+
+      {state.notice && (
+        <div className="toast notice">
+          <span>{state.notice}</span>
+          <button onClick={() => setState(prev => ({ ...prev, notice: null }))}>
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }

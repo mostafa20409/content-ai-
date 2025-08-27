@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { connectToDB } from '../../../../lib/connectToDB';
 import User from '../../../../models/User';
+import Book from '../../../../models/Book';
 
 // تخزين مؤقت بسيط لإدارة المعدل
 const requestCache = new Map();
@@ -54,27 +55,6 @@ const BOOK_TYPES = {
 
 type BookType = keyof typeof BOOK_TYPES;
 
-// واجهة خيارات التصميم
-interface DesignCustomization {
-  authorName: string;
-  coverLayout: 'minimal' | 'modern' | 'classic' | 'elegant' | 'custom';
-  colorScheme: {
-    primary: string;
-    secondary: string; 
-    accent: string;
-    background: string;
-    text: string;
-  };
-  typography: {
-    fontFamily: string;
-    titleSize: string;
-    authorSize: string;
-  };
-  includeAuthorOnCover: boolean;
-  customGraphics: string[];
-  coverImageStyle: 'abstract' | 'realistic' | 'minimalist' | 'vintage';
-}
-
 // واجهة فصل الكتاب مع العنوان والوصف
 interface BookChapter {
   chapterNumber: number;
@@ -97,6 +77,33 @@ interface ResearchData {
   examples: string[];
   sources: string[];
   references: string[];
+}
+
+// تعريف واجهة للـ JWT payload
+interface JWTPayload {
+  id: string;
+  iat?: number;
+  exp?: number;
+}
+
+// دالة مساعدة للتحقق من JWT
+function verifyToken(token: string, secret: string): JWTPayload {
+  try {
+    const decoded = jwt.verify(token, secret);
+    
+    if (typeof decoded === 'string' || !decoded || typeof decoded !== 'object') {
+      throw new Error('Invalid token payload');
+    }
+    
+    if (!('id' in decoded)) {
+      throw new Error('Token missing id field');
+    }
+    
+    return decoded as JWTPayload;
+  } catch (error) {
+    console.error('Token verification error:', error);
+    throw new Error('Invalid or expired token');
+  }
 }
 
 // دالة البحث المتكاملة
@@ -222,50 +229,6 @@ async function fetchResearchExamples(
   }
 }
 
-// دالة توليد غلاف متقدمة
-async function generateAdvancedBookCover(
-  bookTitle: string,
-  bookType: string,
-  language: string,
-  designOptions: DesignCustomization,
-  authorName: string = ''
-): Promise<{coverUrl: string; design: DesignCustomization; coverId: string}> {
-  
-  try {
-    // محاكاة إنشاء الغلاف مع التخصيص
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const coverId = `cover_${Math.random().toString(36).substring(2, 15)}_${Date.now()}`;
-    
-    // إنشاء رابط غلاف فريد مع جميع خيارات التصميم
-    const coverParams = new URLSearchParams({
-      title: encodeURIComponent(bookTitle),
-      type: bookType,
-      author: designOptions.includeAuthorOnCover ? encodeURIComponent(authorName || designOptions.authorName) : '',
-      layout: designOptions.coverLayout,
-      style: designOptions.coverImageStyle,
-      primary: designOptions.colorScheme.primary.replace('#', ''),
-      secondary: designOptions.colorScheme.secondary.replace('#', ''),
-      accent: designOptions.colorScheme.accent.replace('#', ''),
-      font: designOptions.typography.fontFamily,
-      titleSize: designOptions.typography.titleSize,
-      custom: designOptions.customGraphics.join(',')
-    });
-
-    const coverUrl = `https://api.bookcover.design/generate?${coverParams.toString()}`;
-    
-    return {
-      coverUrl,
-      design: designOptions,
-      coverId
-    };
-    
-  } catch (error) {
-    console.error('Cover generation error:', error);
-    throw new Error(language === 'ar' ? 'فشل في توليد الغلاف المتقدم' : 'Advanced cover generation failed');
-  }
-}
-
 // دالة إنشاء الـ prompt مع كل التفاصيل
 function createAdvancedPrompt(
   bookTitle: string,
@@ -318,13 +281,7 @@ function createAdvancedPrompt(
     3. حافظ على التسلسل المنطقي للأفكار
     4. استخدم لغة عربية فصحى سليمة
     5. أنهِ الفصل بخلاصة تضع أساساً للفصل التالي
-    6. راعي الخصائص الفنية لنوع ${bookTypeName}
-
-    ## ملاحظات مهمة:
-    - تجنب الحشو غير الضروري
-    - اهتم بالأسلوب الأدبي المناسب
-    - استخدم مصطلحات متخصصة تناسب النوع
-    - حافظ على العمق الفكري المناسب للقارئ المتخصص
+    ${researchData && researchData.examples.length > 0 ? '6. استخدم المراجع والمصادر المقدمة في البحث' : '6. راعي الخصائص الفنية لنوع الكتاب'}
   ` : `
     # Advanced Content Generation Task
     ## Basic Information:
@@ -359,21 +316,122 @@ function createAdvancedPrompt(
     ${researchData && researchData.examples.length > 0 ? '3. Reference specific research findings where applicable' : '3. Focus on comprehensive analysis'}
     4. Use professional ${language} language
     5. End the chapter with a summary that sets the stage for the next chapter
-    6. Consider the technical characteristics of the ${bookTypeName} genre
-
-    ## Important Notes:
-    - Avoid unnecessary filler content
-    - Focus on appropriate literary style
-    - Use specialized terminology suitable for the genre
-    - Maintain intellectual depth appropriate for specialized readers
+    ${researchData && researchData.examples.length > 0 ? '6. Utilize the provided references and research sources' : '6. Consider the technical characteristics of the book genre'}
   `;
+}
+
+// دالة للتحقق من صحة بيانات الفصول
+function validateChapters(chapters: BookChapter[], language: string): { isValid: boolean; error?: string } {
+  if (!chapters || chapters.length === 0) {
+    return {
+      isValid: false,
+      error: language === 'ar' ? 'يجب توفير الفصول' : 'Chapters are required'
+    };
+  }
+
+  for (const chapter of chapters) {
+    if (!chapter.title || !chapter.title.trim()) {
+      return {
+        isValid: false,
+        error: language === 'ar' 
+          ? 'كل فصل يجب أن يحتوي على عنوان' 
+          : 'Each chapter must have a title'
+      };
+    }
+
+    if (!chapter.description || !chapter.description.trim()) {
+      return {
+        isValid: false,
+        error: language === 'ar' 
+          ? 'كل فصل يجب أن يحتوي على وصف مفصل' 
+          : 'Each chapter must have a detailed description'
+      };
+    }
+
+    // التحقق من أن الوصف يحتوي على 10 جمل على الأقل (تقريباً 50 كلمة)
+    const wordCount = chapter.description.trim().split(/\s+/).length;
+    if (wordCount < 20) {
+      return {
+        isValid: false,
+        error: language === 'ar' 
+          ? `وصف الفصل "${chapter.title}" قصير جداً. يجب أن يحتوي على 20 كلمة على الأقل` 
+          : `Chapter "${chapter.title}" description is too short. Must contain at least 20 words`
+      };
+    }
+  }
+
+  return { isValid: true };
+}
+
+// دالة لحفظ الكتاب في قاعدة البيانات
+async function saveBookToDatabase(
+  userId: string,
+  title: string,
+  description: string,
+  bookType: string,
+  language: string,
+  chapters: GeneratedChapter[],
+  researchData?: ResearchData,
+  totalTokens?: number
+) {
+  try {
+    const book = new Book({
+      userId,
+      title,
+      description,
+      type: bookType,
+      language,
+      chapters: chapters.map(chapter => ({
+        chapterNumber: chapter.chapterNumber,
+        title: chapter.title,
+        description: chapter.description,
+        content: chapter.content,
+        tokens: chapter.tokens
+      })),
+      research: researchData ? {
+        examples: researchData.examples,
+        sources: researchData.sources,
+        references: researchData.references
+      } : undefined,
+      totalTokens,
+      status: 'completed',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await book.save();
+    return (book._id as string).toString();
+  } catch (error) {
+    console.error('Error saving book to database:', error);
+    throw new Error('Failed to save book');
+  }
 }
 
 export async function POST(req: Request) {
   try {
+    // التحقق من المصادقة أولاً
+    const token = (await cookies()).get("token")?.value;
+    if (!token || !process.env.JWT_SECRET) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
+    // التحقق من صحة التوكن
+    let userId: string;
+    try {
+      const decoded = verifyToken(token, process.env.JWT_SECRET);
+      userId = decoded.id;
+    } catch (error) {
+      return NextResponse.json({ error: "جلسة غير صالحة" }, { status: 401 });
+    }
+
+    await connectToDB();
+    const user = await User.findById(userId);
+    if (!user) {
+      return NextResponse.json({ error: "المستخدم غير موجود" }, { status: 404 });
+    }
+
+    // التحقق من معدل الطلبات
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
-    
-    // التحقق من المعدل
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
         { error: "لقد تجاوزت عدد المحاولات المسموح بها" },
@@ -381,43 +439,31 @@ export async function POST(req: Request) {
       );
     }
 
-    // التحقق من تسجيل الدخول
-    const token = (await cookies()).get("token")?.value;
-    if (!token || !process.env.JWT_SECRET) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    }
-
-    let decoded: any;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch {
-      return NextResponse.json({ error: "جلسة غير صالحة" }, { status: 401 });
-    }
-
-    await connectToDB();
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      return NextResponse.json({ error: "المستخدم غير موجود" }, { status: 404 });
-    }
-
     // استقبال البيانات
     const { 
       title, 
       description, 
-      language: bookLanguage, 
+      bookLanguage, 
       chapters,
       bookType,
       includeExamples = true,
-      generateCover = false,
       researchDepth = 'advanced',
-      designOptions,
       authorStyle = 'professional',
-      authorName = ''
+      saveToLibrary = true
     } = await req.json();
 
-    if (!title || !description || !bookLanguage || !bookType || !chapters || !chapters.length) {
+    // التحقق من الحقول المطلوبة
+    if (!title || !description || !bookLanguage || !bookType || !chapters) {
       return NextResponse.json({ 
-        error: bookLanguage === 'ar' ? "جميع الحقول مطلوبة بما في ذلك تفاصيل الفصول" : "All fields including chapter details are required" 
+        error: bookLanguage === 'ar' ? "جميع الحقول مطلوبة" : "All fields are required" 
+      }, { status: 400 });
+    }
+
+    // التحقق من صحة الفصول
+    const validationResult = validateChapters(chapters, bookLanguage);
+    if (!validationResult.isValid) {
+      return NextResponse.json({ 
+        error: validationResult.error 
       }, { status: 400 });
     }
 
@@ -436,18 +482,6 @@ export async function POST(req: Request) {
     
     if (includeExamples) {
       researchData = await fetchResearchExamples(bookType, title, bookLanguage, researchDepth);
-    }
-
-    // توليد الأغلفة
-    let coverResult: {coverUrl: string; design: DesignCustomization; coverId: string} | null = null;
-    if (generateCover && designOptions) {
-      coverResult = await generateAdvancedBookCover(
-        title, 
-        bookType, 
-        bookLanguage, 
-        designOptions,
-        authorName
-      );
     }
 
     const results: GeneratedChapter[] = [];
@@ -520,8 +554,6 @@ export async function POST(req: Request) {
 
         // تحديث التقدم
         const progress = Math.round((results.length / chapters.length) * 100);
-        
-        // إرسال تحديث التقدم (يمكن استخدام Server-Sent Events أو WebSockets في الإصدارات المستقبلية)
         console.log(`Progress: ${progress}% - Chapter ${results.length} of ${chapters.length}`);
 
         // تأخير بين الفصول
@@ -530,6 +562,21 @@ export async function POST(req: Request) {
 
       clearTimeout(timeoutId);
 
+      // حفظ الكتاب في قاعدة البيانات إذا طلب المستخدم ذلك
+      let bookId: string | null = null;
+      if (saveToLibrary) {
+        bookId = await saveBookToDatabase(
+          userId,
+          title,
+          description,
+          bookType,
+          bookLanguage,
+          results,
+          includeExamples ? researchData : undefined,
+          results.reduce((sum, chapter) => sum + (chapter.tokens || 0), 0)
+        );
+      }
+
       return NextResponse.json({
         success: true,
         book: {
@@ -537,7 +584,8 @@ export async function POST(req: Request) {
           description,
           type: bookType,
           language: bookLanguage,
-          totalChapters: chapters.length
+          totalChapters: chapters.length,
+          bookId: bookId || undefined
         },
         chapters: results,
         research: includeExamples ? {
@@ -545,7 +593,6 @@ export async function POST(req: Request) {
           sources: researchData.sources,
           references: researchData.references
         } : undefined,
-        cover: coverResult,
         totalTokens: results.reduce((sum, chapter) => sum + (chapter.tokens || 0), 0)
       });
 
@@ -560,7 +607,10 @@ export async function POST(req: Request) {
       }
       
       console.error("AI API error:", error);
-      throw new Error(bookLanguage === 'ar' ? "فشل في الاتصال بخدمة الذكاء الاصطناعي" : "Failed to connect to AI service");
+      return NextResponse.json(
+        { error: bookLanguage === 'ar' ? "فشل في الاتصال بخدمة الذكاء الاصطناعي" : "Failed to connect to AI service" },
+        { status: 500 }
+      );
     }
 
   } catch (error: any) {
@@ -583,61 +633,33 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
   
-  if (type === 'design-options') {
-    return NextResponse.json({
-      layoutOptions: ['minimal', 'modern', 'classic', 'elegant', 'custom'],
-      colorPresets: {
-        professional: { 
-          primary: '#2C3E50', 
-          secondary: '#34495E', 
-          accent: '#E74C3C',
-          background: '#FFFFFF',
-          text: '#2C3E50'
-        },
-        creative: { 
-          primary: '#8E44AD', 
-          secondary: '#9B59B6', 
-          accent: '#F1C40F',
-          background: '#F8F9FA',
-          text: '#2C3E50'
-        },
-        academic: { 
-          primary: '#16A085', 
-          secondary: '#1ABC9C', 
-          accent: '#D35400',
-          background: '#FFFFFF',
-          text: '#2C3E50'
-        }
-      },
-      fontOptions: ['Traditional', 'Modern', 'Classic', 'Elegant', 'Minimal', 'Arabic'],
-      styleOptions: ['abstract', 'realistic', 'minimalist', 'vintage'],
-      writingStyles: ['professional', 'academic', 'creative', 'conversational', 'formal'],
-      defaultDesign: {
-        authorName: '',
-        coverLayout: 'modern',
-        colorScheme: { 
-          primary: '#2C3E50', 
-          secondary: '#34495E', 
-          accent: '#E74C3C',
-          background: '#FFFFFF',
-          text: '#2C3E50'
-        },
-        typography: { 
-          fontFamily: 'Traditional', 
-          titleSize: '2.5rem',
-          authorSize: '1.5rem'
-        },
-        includeAuthorOnCover: true,
-        customGraphics: [],
-        coverImageStyle: 'abstract'
-      }
-    });
+  if (type === 'user-books') {
+    // التحقق من المصادقة
+    const token = (await cookies()).get("token")?.value;
+    if (!token || !process.env.JWT_SECRET) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
+    try {
+      const decoded = verifyToken(token, process.env.JWT_SECRET);
+      
+      await connectToDB();
+      
+      const books = await Book.find({ userId: decoded.id })
+        .sort({ createdAt: -1 })
+        .select('title description type language createdAt totalChapters');
+      
+      return NextResponse.json({ books });
+    } catch (error) {
+      return NextResponse.json({ error: "جلسة غير صالحة" }, { status: 401 });
+    }
   }
   
   // إرجاع أنواع الكتب المتاحة
   return NextResponse.json({ 
     bookTypes: BOOK_TYPES,
     researchLevels: ['basic', 'advanced', 'academic'],
+    writingStyles: ['professional', 'academic', 'creative', 'conversational', 'formal'],
     status: 'success'
   });
 }
