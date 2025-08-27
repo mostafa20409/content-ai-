@@ -356,7 +356,11 @@ export default function AdvancedAdGenerator() {
   /* ---------------- UI helpers ---------------- */
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setInput(prev => ({ ...prev, [name]: value }));
+    setInput(prev => {
+      // تجنب إعادة التصيير إذا كانت القيمة لم تتغير
+      if (prev[name as keyof AdInput] === value) return prev;
+      return { ...prev, [name]: value };
+    });
   }, []);
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -414,6 +418,7 @@ export default function AdvancedAdGenerator() {
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "اسم المنتج/الخدمة" : "Product / Service"}</label>
           <input 
+            key="product-input"
             name="product" 
             value={input.product} 
             onChange={handleInputChange} 
@@ -427,6 +432,7 @@ export default function AdvancedAdGenerator() {
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "الجمهور المستهدف" : "Target audience"}</label>
           <input 
+            key="audience-input"
             name="audience" 
             value={input.audience} 
             onChange={handleInputChange} 
@@ -438,14 +444,14 @@ export default function AdvancedAdGenerator() {
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "منصة" : "Platform"}</label>
-          <select name="type" value={input.type} onChange={handleInputChange} style={styles.select} disabled={loading}>
+          <select key="type-select" name="type" value={input.type} onChange={handleInputChange} style={styles.select} disabled={loading}>
             {AD_TYPES.map(t => <option key={t} value={t}>{platformName(t)}</option>)}
           </select>
         </div>
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "اللغة" : "Language"}</label>
-          <select name="language" value={input.language} onChange={handleInputChange} style={styles.select} disabled={loading}>
+          <select key="language-select" name="language" value={input.language} onChange={handleInputChange} style={styles.select} disabled={loading}>
             <option value="ar">{lang === "ar" ? "العربية" : "Arabic"}</option>
             <option value="en">{lang === "ar" ? "الإنجليزية" : "English"}</option>
           </select>
@@ -453,14 +459,14 @@ export default function AdvancedAdGenerator() {
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "نغمة" : "Tone"}</label>
-          <select name="tone" value={input.tone} onChange={handleInputChange} style={styles.select} disabled={loading}>
+          <select key="tone-select" name="tone" value={input.tone} onChange={handleInputChange} style={styles.select} disabled={loading}>
             {TONES.map(t => <option key={t} value={t}>{lang === "ar" ? t : t}</option>)}
           </select>
         </div>
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "الطول" : "Length"}</label>
-          <select name="length" value={input.length} onChange={handleInputChange} style={styles.select} disabled={loading}>
+          <select key="length-select" name="length" value={input.length} onChange={handleInputChange} style={styles.select} disabled={loading}>
             <option value="short">{lang === "ar" ? "قصير" : "Short"}</option>
             <option value="medium">{lang === "ar" ? "متوسط" : "Medium"}</option>
             <option value="long">{lang === "ar" ? "طويل" : "Long"}</option>
@@ -469,12 +475,12 @@ export default function AdvancedAdGenerator() {
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "كلمات مفتاحية (اختياري)" : "Keywords (optional)"}</label>
-          <input name="keywords" value={input.keywords} onChange={handleInputChange} style={styles.input} disabled={loading} />
+          <input key="keywords-input" name="keywords" value={input.keywords} onChange={handleInputChange} style={styles.input} disabled={loading} />
         </div>
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "عروض خاصة (اختياري)" : "Special offers (optional)"}</label>
-          <input name="specialOffers" value={input.specialOffers} onChange={handleInputChange} style={styles.input} disabled={loading} />
+          <input key="specialOffers-input" name="specialOffers" value={input.specialOffers} onChange={handleInputChange} style={styles.input} disabled={loading} />
         </div>
       </div>
 
@@ -1146,6 +1152,6 @@ const styles: Record<string, React.CSSProperties> = {
 };
 
 // Helper function to merge styles
-function merge(style1: React.CSSProperties, style2: React.CSSProperties): React.CSSProperties {
-  return { ...style1, ...style2 };
+function merge(...styles: React.CSSProperties[]): React.CSSProperties {
+  return Object.assign({}, ...styles);
 }
