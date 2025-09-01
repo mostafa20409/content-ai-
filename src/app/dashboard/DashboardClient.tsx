@@ -2,20 +2,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  CartesianGrid,
-  Legend,
-} from "recharts";
-import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiUser, FiLock, FiRefreshCw, FiActivity, FiPieChart, FiBarChart2 } from "react-icons/fi";
+import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiRefreshCw } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
 /* ==========================================================================
@@ -89,65 +76,10 @@ export interface DashboardClientProps {
   notifications?: Notification[];
   initialLang?: "ar" | "en";
   initialDark?: boolean;
+  contentItems?: ContentItem[];
+  bookItems?: BookItem[];
+  adItems?: AdItem[];
 }
-
-/* -------------------- بيانات تجريبية -------------------- */
-const SAMPLE_SALES = [
-  { name: "يناير", sales: 4000 },
-  { name: "فبراير", sales: 3000 },
-  { name: "مارس", sales: 5000 },
-  { name: "أبريل", sales: 2780 },
-  { name: "مايو", sales: 1890 },
-  { name: "يونيو", sales: 2390 },
-  { name: "يوليو", sales: 3490 },
-  { name: "أغسطس", sales: 2000 },
-  { name: "سبتمبر", sales: 2780 },
-  { name: "أكتوبر", sales: 3000 },
-  { name: "نوفمبر", sales: 4200 },
-  { name: "ديسمبر", sales: 5300 },
-];
-
-const SAMPLE_TRAFFIC = [
-  { name: "مقالات", value: 400 },
-  { name: "كتب", value: 700 },
-  { name: "إعلانات", value: 300 },
-  { name: "أخرى", value: 100 },
-];
-
-const SAMPLE_NOTES = Array.from({ length: 8 }).map((_, i) => ({
-  id: String(i + 1),
-  message: `إشعار جديد ${i + 1}`,
-  date: new Date(Date.now() - i * 1000 * 60 * 60).toISOString(),
-  read: i % 3 === 0,
-}));
-
-const SAMPLE_CONTENT: ContentItem[] = [
-  { id: "1", title: "كيفية إنشاء محتوى جذاب", type: "مقال", status: "منشور", views: 1240, date: "2023-10-15", category: "التسويق" },
-  { id: "2", title: "أفضل أدوات الذكاء الاصطناعي", type: "مدونة", status: "مسودة", views: 0, date: "2023-10-18", category: "التكنولوجيا" },
-  { id: "3", title: "دليل التسويق بالبريد الإلكتروني", type: "دليل", status: "منشور", views: 3560, date: "2023-09-22", category: "التسويق" },
-  { id: "4", title: "أساسيات تحسين محركات البحث", type: "مقال", status: "مراجعة", views: 890, date: "2023-10-05", category: "التسويق" },
-];
-
-const SAMPLE_BOOKS: BookItem[] = [
-  { id: "1", title: "فن إنشاء المحتوى", author: "أحمد محمد", pages: 120, status: "مكتمل", downloads: 540, date: "2023-09-10" },
-  { id: "2", title: "استراتيجيات التسويق الرقمي", author: "سارة عبدالله", pages: 95, status: "قيد التحرير", downloads: 0, date: "2023-10-12" },
-  { id: "3", title: "الذكاء الاصطناعي في الأعمال", author: "محمد الخالد", pages: 210, status: "مكتمل", downloads: 1200, date: "2023-08-05" },
-];
-
-const SAMPLE_ADS: AdItem[] = [
-  { id: "1", title: "عرض خاص - أكتوبر", platform: "فيسبوك", status: "نشط", clicks: 240, impressions: 12000, date: "2023-10-01" },
-  { id: "2", title: "إطلاق المنتج الجديد", platform: "إنستغرام", status: "معلق", clicks: 0, impressions: 0, date: "2023-10-20" },
-  { id: "3", title: "خصم الخريف", platform: "جوجل", status: "مكتمل", clicks: 1250, impressions: 45000, date: "2023-09-15" },
-];
-
-const PALETTE = [
-  "#7C3AED", // purple
-  "#6EE7B7", // mint
-  "#60A5FA", // blue
-  "#F472B6", // pink
-  "#F59E0B", // amber
-  "#10B981", // green
-];
 
 /* -------------------- مساعدة صغيرة -------------------- */
 const formatDateShort = (iso?: string) => {
@@ -298,8 +230,6 @@ const Sidebar: React.FC<{
           { key: "content", label: lang === "ar" ? "المحتوى" : "Content", icon: "📝" },
           { key: "books", label: lang === "ar" ? "الكتب" : "Books", icon: "📚" },
           { key: "ads", label: lang === "ar" ? "الإعلانات" : "Ads", icon: "📢" },
-          { key: "analytics", label: lang === "ar" ? "التحليلات" : "Analytics", icon: "📊" },
-          { key: "account", label: lang === "ar" ? "الحساب" : "Account", icon: "👤" },
         ].map((it) => (
           <button
             key={it.key}
@@ -547,38 +477,34 @@ const Header: React.FC<{
 const StatsSection: React.FC<{ 
   lang: "ar" | "en"; 
   user: User;
+  contentCount: number;
+  booksCount: number;
+  adsCount: number;
   loading?: boolean;
-}> = ({ lang, user, loading }) => {
+}> = ({ lang, contentCount, booksCount, adsCount, loading }) => {
   const stats = useMemo(() => [
     {
       icon: <FiFileText size={24} />,
       title: lang === "ar" ? "المحتوى المنشور" : "Published Content",
-      value: user.usage?.content?.toString() || "0",
+      value: contentCount.toString(),
       change: "+12%",
       color: "#7C3AED",
     },
     {
       icon: <FiBook size={24} />,
       title: lang === "ar" ? "الكتب المنشورة" : "Published Books",
-      value: user.usage?.books?.toString() || "0",
+      value: booksCount.toString(),
       change: "+8%",
       color: "#60A5FA",
     },
     {
       icon: <FiTrendingUp size={24} />,
       title: lang === "ar" ? "الإعلانات النشطة" : "Active Ads",
-      value: user.usage?.ads?.toString() || "0",
+      value: adsCount.toString(),
       change: "+23%",
       color: "#10B981",
     },
-    {
-      icon: <FiActivity size={24} />,
-      title: lang === "ar" ? "الكلمات المفتاحية" : "Keywords",
-      value: user.usage?.keywords?.toString() || "0",
-      change: "+15%",
-      color: "#F59E0B",
-    },
-  ], [lang, user.usage]);
+  ], [lang, contentCount, booksCount, adsCount]);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16, marginBottom: 24 }}>
@@ -688,61 +614,10 @@ const ToolsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
   );
 };
 
-/* -------------------- قسم التحليلات -------------------- */
-const AnalyticsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
-  return (
-    <section>
-      <h2 style={{ marginBottom: 24 }}>{lang === "ar" ? "التحليلات والإحصائيات" : "Analytics & Statistics"}</h2>
-      
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <Card>
-          <h3 style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
-            <FiBarChart2 /> {lang === "ar" ? "أداء المحتوى" : "Content Performance"}
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={SAMPLE_SALES}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="sales" stroke="#7C3AED" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card>
-          <h3 style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
-            <FiPieChart /> {lang === "ar" ? "توزيع الزيارات" : "Traffic Distribution"}
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={SAMPLE_TRAFFIC}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-                label
-              >
-                {SAMPLE_TRAFFIC.map((_entry, index) => (
-                  <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
-    </section>
-  );
-};
- 
- /* -------------------- قسم إدارة المحتوى -------------------- */
-const ContentSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+/* -------------------- قسم إدارة المحتوى -------------------- */
+const ContentSection: React.FC<{ lang: "ar" | "en"; contentItems: ContentItem[] }> = ({ lang, contentItems }) => {
   const router = useRouter();
-  const [content, setContent] = useState<ContentItem[]>(SAMPLE_CONTENT);
+  const [content, setContent] = useState<ContentItem[]>(contentItems);
   const [filter, setFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date");
 
@@ -804,28 +679,55 @@ return (
       </div>
 
       <div style={{ display: "grid", gap: 16 }}>
-        {filteredContent.map((item) => (
-          <Card key={item.id}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: "0 0 8px 0" }}>{item.title}</h3>
-                <div style={{ display: "flex", gap: 16, fontSize: 14, color: "var(--muted,#6b7280)" }}>
-                  <span>{item.type}</span>
-                  <span>{item.category}</span>
-                  <span style={{ 
-                    padding: "2px 8px", 
-                    borderRadius: 4, 
-                    background: 
-                      item.status === "منشور" ? "rgba(16,185,129,0.1)" : 
-                      item.status === "مسودة" ? "rgba(245,158,11,0.1)" : 
-                      "rgba(59,130,246,0.1)",
-                    color: 
-                      item.status === "منشور" ? "#10B981" : 
-                      item.status === "مسودة" ? "#F59E0B" : 
-                      "#3B82F6"
-                  }}>
-                    {item.status}
-                  </span>
+        {filteredContent.length === 0 ? (
+          <Card>
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted,#6b7280)" }}>
+              <FiFileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+              <h3>{lang === "ar" ? "لا يوجد محتوى حتى الآن" : "No content yet"}</h3>
+              <p>{lang === "ar" ? "ابدأ بإنشاء أول محتوى لك" : "Start by creating your first content"}</p>
+              <button
+                onClick={() => router.push("/content")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 16px",
+                  background: "#7C3AED",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 500,
+                  marginTop: 16
+                }}
+              >
+                <FiPlus /> {lang === "ar" ? "إنشاء محتوى" : "Create Content"}
+              </button>
+            </div>
+          </Card>
+        ) : (
+          filteredContent.map((item) => (
+            <Card key={item.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: "0 0 8px 0" }}>{item.title}</h3>
+                  <div style={{ display: "flex", gap: 16, fontSize: 14, color: "var(--muted,#6b7280)" }}>
+                    <span>{item.type}</span>
+                    <span>{item.category}</span>
+                    <span style={{ 
+                      padding: "2px 8px", 
+                      borderRadius: 4, 
+                      background: 
+                        item.status === "منشور" ? "rgba(16,185,129,0.1)" : 
+                        item.status === "مسودة" ? "rgba(245,158,11,0.1)" : 
+                        "rgba(59,130,246,0.1)",
+                      color: 
+                        item.status === "منشور" ? "#10B981" : 
+                        item.status === "مسودة" ? "#F59E0B" : 
+                        "#3B82F6"
+                    }}>
+                      {item.status}
+                    </span>
                 </div>
                 <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 12 }}>
                   <span>{lang === "ar" ? "المشاهدات:" : "Views:"} {item.views}</span>
@@ -845,23 +747,24 @@ return (
               </div>
             </div>
           </Card>
-        ))}
-      </div>
-    </section>
-  );
+        ))
+      )}
+    </div>
+  </section>
+);
 };
 
 /* -------------------- قسم إدارة الكتب -------------------- */
-const BooksSection = ({ lang }) => {
+const BooksSection: React.FC<{ lang: "ar" | "en"; bookItems: BookItem[] }> = ({ lang, bookItems }) => {
   const router = useRouter();
-  const [books, setBooks] = useState(SAMPLE_BOOKS);
+  const [books, setBooks] = useState(bookItems);
   const [filter, setFilter] = useState("all");
 
   const filteredBooks = books.filter(book => 
     filter === "all" || book.status === filter
   );
 
-  const handleDelete = (id) => {
+  const handleDelete = (id: string) => {
     setBooks(books.filter(book => book.id !== id));
   };
 
@@ -900,57 +803,85 @@ const BooksSection = ({ lang }) => {
         </select>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
-        {filteredBooks.map((book) => (
-          <Card key={book.id} style={{ position: "relative" }}>
-            <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8 }}>
-              <IconButton title={lang === "ar" ? "تحميل" : "Download"}>
-                <FiDownload />
-              </IconButton>
-              <IconButton title={lang === "ar" ? "تعديل" : "Edit"}>
-                <FiEdit />
-              </IconButton>
-              <IconButton title={lang === "ar" ? "حذف" : "Delete"} onClick={() => handleDelete(book.id)}>
-                <FiTrash />
-              </IconButton>
-            </div>
-            
-            <div style={{ marginBottom: 16 }}>
-              <h3 style={{ margin: "0 0 8px 0" }}>{book.title}</h3>
-              <div style={{ fontSize: 14, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "بواسطة" : "By"} {book.author}</div>
-            </div>
-            
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 14 }}>
-                <div>{book.pages} {lang === "ar" ? "صفحة" : "pages"}</div>
-                <div>{book.downloads} {lang === "ar" ? "تحميل" : "downloads"}</div>
+      {filteredBooks.length === 0 ? (
+        <Card>
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted,#6b7280)" }}>
+            <FiBook size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+            <h3>{lang === "ar" ? "لا يوجد كتب حتى الآن" : "No books yet"}</h3>
+            <p>{lang === "ar" ? "ابدأ بإنشاء أول كتاب لك" : "Start by creating your first book"}</p>
+            <button
+              onClick={() => router.push("/books")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 16px",
+                background: "#60A5FA",
+                color: "white",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontWeight: 500,
+                marginTop: 16
+              }}
+            >
+              <FiPlus /> {lang === "ar" ? "إنشاء كتاب" : "Create Book"}
+            </button>
+          </div>
+        </Card>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+          {filteredBooks.map((book) => (
+            <Card key={book.id} style={{ position: "relative" }}>
+              <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8 }}>
+                <IconButton title={lang === "ar" ? "تحميل" : "Download"}>
+                  <FiDownload />
+                </IconButton>
+                <IconButton title={lang === "ar" ? "تعديل" : "Edit"}>
+                  <FiEdit />
+                </IconButton>
+                <IconButton title={lang === "ar" ? "حذف" : "Delete"} onClick={() => handleDelete(book.id)}>
+                  <FiTrash />
+                </IconButton>
               </div>
               
-              <span style={{ 
-                padding: "4px 8px", 
-                borderRadius: 4,
-                background: book.status === "مكتمل" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
-                color: book.status === "مكتمل" ? "#10B981" : "#F59E0B",
-                fontSize: 12
-              }}>
-                {book.status}
-              </span>
-            </div>
-            
-            <div style={{ marginTop: 12, fontSize: 12, color: "var(--muted,#6b7280)" }}>
-              {formatDateShort(book.date)}
-            </div>
-          </Card>
-        ))}
-      </div>
+              <div style={{ marginBottom: 16 }}>
+                <h3 style={{ margin: "0 0 8px 0" }}>{book.title}</h3>
+                <div style={{ fontSize: 14, color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "بواسطة" : "By"} {book.author}</div>
+              </div>
+              
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 14 }}>
+                  <div>{book.pages} {lang === "ar" ? "صفحة" : "pages"}</div>
+                  <div>{book.downloads} {lang === "ar" ? "تحميل" : "downloads"}</div>
+                </div>
+                
+                <span style={{ 
+                  padding: "4px 8px", 
+                  borderRadius: 4,
+                  background: book.status === "مكتمل" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
+                  color: book.status === "مكتمل" ? "#10B981" : "#F59E0B",
+                  fontSize: 12
+                }}>
+                  {book.status}
+                </span>
+              </div>
+              
+              <div style={{ marginTop: 12, fontSize: 12, color: "var(--muted,#6b7280)" }}>
+                {formatDateShort(book.date)}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </section>
   );
 }; 
 
 /* -------------------- قسم منشئ الإعلانات -------------------- */
-const AdsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
+const AdsSection: React.FC<{ lang: "ar" | "en"; adItems: AdItem[] }> = ({ lang, adItems }) => {
   const router = useRouter();
-  const [ads, setAds] = useState<AdItem[]>(SAMPLE_ADS);
+  const [ads, setAds] = useState<AdItem[]>(adItems);
   const [filter, setFilter] = useState("all");
   const [previewAd, setPreviewAd] = useState<AdItem | null>(null);
 
@@ -993,390 +924,133 @@ const AdsSection: React.FC<{ lang: "ar" | "en" }> = ({ lang }) => {
         >
           <option value="all">{lang === "ar" ? "الكل" : "All"}</option>
           <option value="نشط">{lang === "ar" ? "نشط" : "Active"}</option>
-          <option value="معلق">{lang === "ar" ? "معلق" : "Pending"}</option>
-          <option value="مكتمل">{lang === "ar" ? "مكتمل" : "Completed"}</option>
+          <option value="متوقف">{lang === "ar" ? "متوقف" : "Paused"}</option>
         </select>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <div style={{ display: "grid", gap: 16 }}>
-          {filteredAds.map((ad) => (
-            <Card key={ad.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: "0 0 8px 0" }}>{ad.title}</h3>
-                  <div style={{ display: "flex", gap: 16, fontSize: 14, color: "var(--muted,#6b7280)" }}>
-                    <span>{ad.platform}</span>
-                    <span style={{ 
-                      padding: "2px 8px", 
-                      borderRadius: 4, 
-                      background: 
-                        ad.status === "نشط" ? "rgba(16,185,129,0.1)" : 
-                        ad.status === "معلق" ? "rgba(245,158,11,0.1)" : 
-                        "rgba(59,130,246,0.1)",
-                      color: 
-                        ad.status === "نشط" ? "#10B981" : 
-                        ad.status === "معلق" ? "#F59E0B" : 
-                        "#3B82F6"
-                    }}>
-                      {ad.status}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 12 }}>
-                    <span>{lang === "ar" ? "نقرات:" : "Clicks:"} {ad.clicks}</span>
-                    <span>{lang === "ar" ? "عرض:" : "Impressions:"} {ad.impressions}</span>
-                  </div>
-                  <div style={{ marginTop: 8, fontSize: 12, color: "var(--muted,#6b7280)" }}>
-                    {formatDateShort(ad.date)}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <IconButton title={lang === "ar" ? "معاينة" : "Preview"} onClick={() => setPreviewAd(ad)}>
-                    <FiEye />
-                  </IconButton>
-                  <IconButton title={lang === "ar" ? "تعديل" : "Edit"}>
-                    <FiEdit />
-                  </IconButton>
-                  <IconButton title={lang === "ar" ? "حذف" : "Delete"} onClick={() => handleDelete(ad.id)}>
-                    <FiTrash />
-                  </IconButton>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        <div>
-          <Card style={{ position: "sticky", top: 24 }}>
-            <h3 style={{ margin: "0 0 16px 0" }}>{lang === "ar" ? "معاينة الإعلان" : "Ad Preview"}</h3>
-            
-            {previewAd ? (
-              <div style={{ 
-                border: "1px solid rgba(2,6,23,0.1)", 
-                borderRadius: 8, 
-                padding: 16,
-                background: "rgba(2,6,23,0.02)"
-              }}>
-                <h4 style={{ margin: "0 0 8px 0" }}>{previewAd.title}</h4>
-                <p style={{ margin: "0 0 12px 0", color: "var(--muted,#6b7280)" }}>
-                  {lang === "ar" ? "هذا نموذج معاينة للإعلان. يمكنك رؤية كيف سيبدو الإعلان على منصة " : "This is an ad preview. You can see how the ad will look on "} 
-                  {previewAd.platform}.
-                </p>
-                <div style={{ 
-                  padding: "12px 16px", 
-                  background: "#7C3AED", 
-                  color: "white", 
-                  borderRadius: 6, 
-                  display: "inline-block",
-                  fontWeight: 500
-                }}>
-                  {lang === "ar" ? "نقر للعمل" : "Call to Action"}
-                </div>
-              </div>
-            ) : (
-              <div style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                justifyContent: "center", 
-                minHeight: 200,
-                color: "var(--muted,#6b7280)"
-              }}>
-                {lang === "ar" ? "اختر إعلاناً للمعاينة" : "Select an ad to preview"}
-              </div>
-            )}
-          </Card>
-        </div>
-      </div>
-    </section>
-  );
-};
-
-/* -------------------- قسم إعدادات الحساب -------------------- */
-const AccountSection: React.FC<{ lang: "ar" | "en"; user: User }> = ({ lang, user }) => {
-  const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email || "");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  const handleSaveProfile = () => {
-    // محاكاة حفظ البيانات
-    alert(lang === "ar" ? "تم حفظ المعلومات الشخصية" : "Profile information saved");
-  };
-
-  const handleChangePassword = () => {
-    // محاكاة تغيير كلمة المرور
-    if (newPassword !== confirmPassword) {
-      alert(lang === "ar" ? "كلمات المرور غير متطابقة" : "Passwords do not match");
-      return;
-    }
-    alert(lang === "ar" ? "تم تغيير كلمة المرور" : "Password changed successfully");
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-  };
-
-  return (
-    <section>
-      <h2 style={{ marginBottom: 24 }}>{lang === "ar" ? "إعدادات الحساب" : "Account Settings"}</h2>
-      
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+      {filteredAds.length === 0 ? (
         <Card>
-          <h3 style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
-            <FiUser /> {lang === "ar" ? "المعلومات الشخصية" : "Personal Information"}
-          </h3>
-          
-          <div style={{ display: "grid", gap: 16 }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
-                {lang === "ar" ? "الاسم" : "Name"}
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: "1px solid rgba(2,6,23,0.1)",
-                  fontSize: 14
-                }}
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
-                {lang === "ar" ? "البريد الإلكتروني" : "Email"}
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: "1px solid rgba(2,6,23,0.1)",
-                  fontSize: 14
-                }}
-              />
-            </div>
-            
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted,#6b7280)" }}>
+            <FiTrendingUp size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+            <h3>{lang === "ar" ? "لا يوجد إعلانات حتى الآن" : "No ads yet"}</h3>
+            <p>{lang === "ar" ? "ابدأ بإنشاء أول إعلان لك" : "Start by creating your first ad"}</p>
             <button
-              onClick={handleSaveProfile}
+              onClick={() => router.push("/ad-generator")}
               style={{
-                padding: "10px 16px",
-                background: "#7C3AED",
-                color: "white",
-                border: "none",
-                borderRadius: 6,
-                cursor: "pointer",
-                fontWeight: 500,
-                marginTop: 8
-              }}
-            >
-              {lang === "ar" ? "حفظ التغييرات" : "Save Changes"}
-            </button>
-          </div>
-        </Card>
-        
-        <Card>
-          <h3 style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: 8 }}>
-            <FiLock /> {lang === "ar" ? "تغيير كلمة المرور" : "Change Password"}
-          </h3>
-          
-          <div style={{ display: "grid", gap: 16 }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
-                {lang === "ar" ? "كلمة المرور الحالية" : "Current Password"}
-              </label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: "1px solid rgba(2,6,23,0.1)",
-                  fontSize: 14
-                }}
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
-                {lang === "ar" ? "كلمة المرور الجديدة" : "New Password"}
-              </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: "1px solid rgba(2,6,23,0.1)",
-                  fontSize: 14
-                }}
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: "block", marginBottom: 4, fontSize: 14, fontWeight: 500 }}>
-                {lang === "ar" ? "تأكيد كلمة المرور" : "Confirm Password"}
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: "1px solid rgba(2,6,23,0.1)",
-                  fontSize: 14
-                }}
-              />
-            </div>
-            
-            <button
-              onClick={handleChangePassword}
-              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
                 padding: "10px 16px",
                 background: "#10B981",
                 color: "white",
                 border: "none",
-                borderRadius: 6,
-                cursor: "pointer",
-                fontWeight: 500,
-                marginTop: 8
-              }}
-            >
-              {lang === "ar" ? "تغيير كلمة المرور" : "Change Password"}
-            </button>
-          </div>
-        </Card>
-      </div>
-    </section>
-  );
-};
-/* -------------------- قسم Overview -------------------- */
-const OverviewSection: React.FC<{
-  lang: "ar" | "en";
-  notifications: Notification[];
-  user: User;
-  loading?: boolean;
-}> = ({ lang, notifications, user, loading }) => {
-  const router = useRouter();
-
-  return (
-    <section style={{ display: "grid", gap: 24 }}>
-      <StatsSection lang={lang} user={user} loading={loading} />
-      <ToolsSection lang={lang} />
-      
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>{lang === "ar" ? "الإشعارات الحديثة" : "Recent Notifications"}</h3>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() => {
-                  // noop for demo
-                }}
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgba(2,6,23,0.06)",
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                }}
-              >
-                {lang === "ar" ? "عرض الكل" : "View all"}
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gap: 8 }}>
-            {notifications.length === 0 ? (
-              <div style={{ color: "var(--muted,#6b7280)" }}>{lang === "ar" ? "لا توجد إشعارات" : "No notifications"}</div>
-            ) : (
-              notifications.slice(0, 5).map((n) => (
-                <div
-                  key={n.id}
-                  style={{
-                    padding: 12,
-                    borderRadius: 8,
-                    background: n.read ? "rgba(2,6,23,0.02)" : "rgba(124,58,237,0.05)",
-                    border: "1px solid rgba(2,6,23,0.04)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{formatDateShort(n.date)}</div>
-                  </div>
-                  {!n.read && (
-                    <div
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: "#7C3AED",
-                      }}
-                    />
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <h3 style={{ margin: "0 0 16px 0" }}>{lang === "ar" ? "حالة الاشتراك" : "Subscription Status"}</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                background: "linear-gradient(135deg, #7C3AED, #60A5FA)",
-                display: "grid",
-                placeItems: "center",
-                color: "white",
-                fontWeight: 700,
-              }}
-            >
-              {user.subscription?.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, textTransform: "capitalize" }}>
-                {user.subscription || "free"}
-              </div>
-              <div style={{ fontSize: 14, color: "var(--muted,#6b7280)" }}>
-                {lang === "ar" ? "خطة الحالي" : "Current Plan"}
-              </div>
-            </div>
-            </div>
-            <button
-              onClick={() => router.push("/upgrade")}
-              style={{
-                width: "100%",
-                padding: "12px 16px",
-                background: "linear-gradient(135deg, #F59E0B, #F97316)",
-                color: "white",
-                border: "none",
                 borderRadius: 8,
                 cursor: "pointer",
-                fontWeight: 600,
+                fontWeight: 500,
+                marginTop: 16
               }}
             >
-              {lang === "ar" ? "ترقية الخطة" : "Upgrade Plan"}
+              <FiPlus /> {lang === "ar" ? "إنشاء إعلان" : "Create Ad"}
             </button>
+          </div>
         </Card>
-      </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+          {filteredAds.map((ad) => (
+            <Card key={ad.id}>
+              <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8 }}>
+                <IconButton title={lang === "ar" ? "معاينة" : "Preview"} onClick={() => setPreviewAd(ad)}>
+                  <FiEye />
+                </IconButton>
+                <IconButton title={lang === "ar" ? "تعديل" : "Edit"}>
+                  <FiEdit />
+                </IconButton>
+                <IconButton title={lang === "ar" ? "حذف" : "Delete"} onClick={() => handleDelete(ad.id)}>
+                  <FiTrash />
+                </IconButton>
+              </div>
+              
+              <div style={{ marginBottom: 16 }}>
+                <h3 style={{ margin: "0 0 8px 0" }}>{ad.title}</h3>
+                <div style={{ fontSize: 14, color: "var(--muted,#6b7280)" }}>{ad.platform}</div>
+              </div>
+              
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ fontSize: 14 }}>
+                  <div>{ad.clicks} {lang === "ar" ? "نقرة" : "clicks"}</div>
+                  <div>{ad.impressions} {lang === "ar" ? "عرض" : "impressions"}</div>
+                </div>
+                
+                <span style={{ 
+                  padding: "4px 8px", 
+                  borderRadius: 4,
+                  background: ad.status === "نشط" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
+                  color: ad.status === "نشط" ? "#10B981" : "#F59E0B",
+                  fontSize: 12
+                }}>
+                  {ad.status}
+                </span>
+              </div>
+              
+              <div style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>
+                {formatDateShort(ad.date)}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* نافذة معاينة الإعلان */}
+      {previewAd && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }} onClick={() => setPreviewAd(null)}>
+          <div style={{
+            background: "white",
+            borderRadius: 12,
+            padding: 24,
+            maxWidth: 500,
+            width: "90%",
+            maxHeight: "90vh",
+            overflow: "auto",
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3>{previewAd.title}</h3>
+              <button onClick={() => setPreviewAd(null)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer" }}>×</button>
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>{lang === "ar" ? "المنصة" : "Platform"}:</div>
+              <div>{previewAd.platform}</div>
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>{lang === "ar" ? "الحالة" : "Status"}:</div>
+              <div>{previewAd.status}</div>
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>{lang === "ar" ? "الإحصائيات" : "Statistics"}:</div>
+              <div>{lang === "ar" ? "النقرات" : "Clicks"}: {previewAd.clicks}</div>
+              <div>{lang === "ar" ? "الظهور" : "Impressions"}: {previewAd.impressions}</div>
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>{lang === "ar" ? "تاريخ الإنشاء" : "Created at"}:</div>
+              <div>{formatDateShort(previewAd.date)}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
@@ -1384,119 +1058,81 @@ const OverviewSection: React.FC<{
 /* -------------------- المكوّن الرئيسي -------------------- */
 const DashboardClient: React.FC<DashboardClientProps> = ({
   user,
-  notifications = SAMPLE_NOTES,
+  notifications = [],
   initialLang = "ar",
   initialDark = false,
+  contentItems = [],
+  bookItems = [],
+  adItems = [],
 }) => {
-  const [dark, setDark] = useState(initialDark);
   const [lang, setLang] = useState<"ar" | "en">(initialLang);
+  const [dark, setDark] = useState(initialDark);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState("overview");
-  const [unreadCount, setUnreadCount] = useState(
-    notifications.filter((n) => !n.read).length
-  );
+  const [activeTab, setActiveTab] = useState("overview");
+  const [notificationsState, setNotificationsState] = useState(notifications);
   const [loading, setLoading] = useState(false);
-  const [userData, setUserData] = useState<User>(user);
   const router = useRouter();
 
-  // جلب بيانات المستخدم الحقيقية من API
-  const fetchUserData = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/me');
-      if (response.ok) {
-        const data = await response.json();
-        setUserData(prev => ({ ...prev, ...data.data }));
-      }
-    } catch (error) {
-      console.error('Failed to fetch user data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // تأثير لتعيين سمة الألوان
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  }, [dark, lang]);
 
-  // تطبيق وضع الظلام
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      if (dark) {
-        document.documentElement.style.setProperty("--text", "#f8fafc");
-        document.documentElement.style.setProperty("--muted", "#cbd5e1");
-        document.documentElement.style.setProperty("--card-bg", "#1e293b");
-        document.documentElement.style.background = "#0f172a";
-        document.documentElement.style.color = "#f8fafc";
-      } else {
-        document.documentElement.style.setProperty("--text", "#0f172a");
-        document.documentElement.style.setProperty("--muted", "#6b7280");
-        document.documentElement.style.setProperty("--card-bg", "#fff");
-        document.documentElement.style.background = "#f8fafc";
-        document.documentElement.style.color = "#0f172a";
-      }
-    }
-  }, [dark]);
-
-  const handleLogout = async () => {
-    try {
-      // إرسال طلب تسجيل الخروج إلى API
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      
-      // إعادة التوجيه إلى صفحة تسجيل الدخول
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout failed:', error);
-      router.push('/login');
+  // معالجة تسجيل الخروج
+  const handleLogout = () => {
+    if (confirm(lang === "ar" ? "هل أنت متأكد من تسجيل الخروج؟" : "Are you sure you want to logout?")) {
+      router.push("/login");
     }
   };
 
-  const handleMarkAllRead = () => {
-    setUnreadCount(0);
-    // في التطبيق الحقيقي، سنقوم بتحديث حالة القراءة في قاعدة البيانات
-  };
-
+  // معالجة تحديث البيانات
   const handleRefresh = () => {
-    fetchUserData();
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+    }, 1500);
   };
 
-  const toggleDark = () => setDark(!dark);
-  const toggleLang = () => setLang(lang === "ar" ? "en" : "ar");
+  // معالجة تحديد جميع الإشعارات كمقروءة
+  const handleMarkAllRead = () => {
+    setNotificationsState(notificationsState.map(n => ({ ...n, read: true })));
+  };
+
+  // حساب عدد الإشعارات غير المقروءة
+  const unreadNotificationsCount = notificationsState.filter(n => !n.read).length;
+
+  // إحصائيات المحتوى
+  const contentCount = contentItems.filter(item => item.status === "منشور").length;
+  const booksCount = bookItems.filter(book => book.status === "مكتمل").length;
+  const adsCount = adItems.filter(ad => ad.status === "نشط").length;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        direction: lang === "ar" ? "rtl" : "ltr",
-      }}
-    >
+    <div style={{
+      display: "flex",
+      minHeight: "100vh",
+      background: "var(--bg, #f8fafc)",
+      color: "var(--text, #0f172a)",
+      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    }}>
+      {/* الشريط الجانبي */}
       <Sidebar
         open={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         lang={lang}
-        onChangeLang={toggleLang}
+        onChangeLang={() => setLang(lang === "ar" ? "en" : "ar")}
         dark={dark}
-        onToggleDark={toggleDark}
-        active={activeSection}
-        setActive={setActiveSection}
+        onToggleDark={() => setDark(!dark)}
+        active={activeTab}
+        setActive={setActiveTab}
       />
 
-      <main
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          background: "var(--background, #f8fafc)",
-        }}
-      >
+      {/* المحتوى الرئيسي */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {/* الهيدر */}
         <Header
-          user={userData}
-          notificationsCount={unreadCount}
+          user={user}
+          notificationsCount={unreadNotificationsCount}
           onLogout={handleLogout}
           onMarkAllRead={handleMarkAllRead}
           lang={lang}
@@ -1504,45 +1140,86 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
           loading={loading}
         />
 
-        <div style={{ padding: 24, flex: 1 }}>
-          {activeSection === "overview" && (
-            <OverviewSection
-              lang={lang}
-              notifications={notifications}
-              user={userData}
-              loading={loading}
-            />
+        {/* المحتوى */}
+        <main style={{ padding: 24, flex: 1, overflow: "auto" }}>
+          {activeTab === "overview" && (
+            <>
+              <StatsSection 
+                lang={lang} 
+                user={user} 
+                contentCount={contentCount} 
+                booksCount={booksCount} 
+                adsCount={adsCount} 
+                loading={loading}
+              />
+              <ToolsSection lang={lang} />
+              <ContentSection lang={lang} contentItems={contentItems} />
+            </>
           )}
 
-          {activeSection === "content" && (
-            <ContentSection lang={lang} />
+          {activeTab === "content" && (
+            <ContentSection lang={lang} contentItems={contentItems} />
           )}
 
-          {activeSection === "books" && (
-            <BooksSection lang={lang} />
+          {activeTab === "books" && (
+            <BooksSection lang={lang} bookItems={bookItems} />
           )}
 
-          {activeSection === "ads" && (
-            <AdsSection lang={lang} />
+          {activeTab === "ads" && (
+            <AdsSection lang={lang} adItems={adItems} />
           )}
+        </main>
+      </div>
 
-          {activeSection === "analytics" && (
-            <AnalyticsSection lang={lang} />
-          )}
-
-          {activeSection === "account" && (
-            <AccountSection lang={lang} user={userData} />
-          )}
-        </div>
-      </main>
-
+      {/* تنسيقات CSS مدمجة */}
       <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+        :root {
+          --bg: #f8fafc;
+          --text: #0f172a;
+          --muted: #6b7280;
+          --card-bg: #fff;
+          --accent: #7C3AED;
         }
+
+        [data-theme="dark"] {
+          --bg: #0f172a;
+          --text: #f1f5f9;
+          --muted: #94a3b8;
+          --card-bg: #1e293b;
+        }
+
+        [dir="rtl"] {
+          text-align: right;
+        }
+
+        [dir="ltr"] {
+          text-align: left;
+        }
+
         .spinning {
           animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        button, select {
+          font-family: inherit;
+        }
+
+        h2, h3 {
+          color: var(--text);
         }
       `}</style>
     </div>
