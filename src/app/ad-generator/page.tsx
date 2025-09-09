@@ -413,12 +413,11 @@ export default function AdvancedAdGenerator() {
 
   /* ---------------- Render subcomponents ---------------- */
   const InputForm = useCallback(() => (
-    <div style={merge(styles.formContainer, theme === "dark" ? styles.formContainerDark : {})}>
+    <div style={{...styles.formContainer, ...(theme === "dark" ? styles.formContainerDark : {})}}>
       <div style={styles.formGrid}>
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "اسم المنتج/الخدمة" : "Product / Service"}</label>
           <input 
-            key="product-input"
             name="product" 
             value={input.product} 
             onChange={handleInputChange} 
@@ -432,7 +431,6 @@ export default function AdvancedAdGenerator() {
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "الجمهور المستهدف" : "Target audience"}</label>
           <input 
-            key="audience-input"
             name="audience" 
             value={input.audience} 
             onChange={handleInputChange} 
@@ -444,14 +442,14 @@ export default function AdvancedAdGenerator() {
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "منصة" : "Platform"}</label>
-          <select key="type-select" name="type" value={input.type} onChange={handleInputChange} style={styles.select} disabled={loading}>
+          <select name="type" value={input.type} onChange={handleInputChange} style={styles.select} disabled={loading}>
             {AD_TYPES.map(t => <option key={t} value={t}>{platformName(t)}</option>)}
           </select>
         </div>
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "اللغة" : "Language"}</label>
-          <select key="language-select" name="language" value={input.language} onChange={handleInputChange} style={styles.select} disabled={loading}>
+          <select name="language" value={input.language} onChange={handleInputChange} style={styles.select} disabled={loading}>
             <option value="ar">{lang === "ar" ? "العربية" : "Arabic"}</option>
             <option value="en">{lang === "ar" ? "الإنجليزية" : "English"}</option>
           </select>
@@ -459,14 +457,14 @@ export default function AdvancedAdGenerator() {
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "نغمة" : "Tone"}</label>
-          <select key="tone-select" name="tone" value={input.tone} onChange={handleInputChange} style={styles.select} disabled={loading}>
+          <select name="tone" value={input.tone} onChange={handleInputChange} style={styles.select} disabled={loading}>
             {TONES.map(t => <option key={t} value={t}>{lang === "ar" ? t : t}</option>)}
           </select>
         </div>
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "الطول" : "Length"}</label>
-          <select key="length-select" name="length" value={input.length} onChange={handleInputChange} style={styles.select} disabled={loading}>
+          <select name="length" value={input.length} onChange={handleInputChange} style={styles.select} disabled={loading}>
             <option value="short">{lang === "ar" ? "قصير" : "Short"}</option>
             <option value="medium">{lang === "ar" ? "متوسط" : "Medium"}</option>
             <option value="long">{lang === "ar" ? "طويل" : "Long"}</option>
@@ -475,17 +473,20 @@ export default function AdvancedAdGenerator() {
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "كلمات مفتاحية (اختياري)" : "Keywords (optional)"}</label>
-          <input key="keywords-input" name="keywords" value={input.keywords} onChange={handleInputChange} style={styles.input} disabled={loading} />
+          <input name="keywords" value={input.keywords} onChange={handleInputChange} style={styles.input} disabled={loading} />
         </div>
 
         <div style={styles.formGroup}>
           <label style={styles.label}>{lang === "ar" ? "عروض خاصة (اختياري)" : "Special offers (optional)"}</label>
-          <input key="specialOffers-input" name="specialOffers" value={input.specialOffers} onChange={handleInputChange} style={styles.input} disabled={loading} />
+          <input name="specialOffers" value={input.specialOffers} onChange={handleInputChange} style={styles.input} disabled={loading} />
         </div>
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <button onClick={generateAd} disabled={loading} style={loading ? styles.buttonDisabled : merge(styles.generateButton, { background: PRIMARY_GRADIENT })}>
+        <button onClick={generateAd} disabled={loading} style={loading ? styles.buttonDisabled : {
+          ...styles.generateButton,
+          background: PRIMARY_GRADIENT
+        }}>
           {loading ? (lang === "ar" ? "جاري التوليد..." : "Generating...") : (lang === "ar" ? "توليد إعلان احترافي" : "Generate professional ad")}
         </button>
       </div>
@@ -493,17 +494,20 @@ export default function AdvancedAdGenerator() {
   ), [input, loading, lang, theme, handleInputChange, platformName, generateAd]);
 
   const ResultDisplay = useCallback(() => (
-    <div style={merge(styles.resultContainer, theme === "dark" ? styles.resultContainerDark : {})}>
+    <div style={{...styles.resultContainer, ...(theme === "dark" ? styles.resultContainerDark : {})}}>
       {error && <div style={styles.errorAlert}><strong>!</strong>&nbsp;{error}</div>}
 
       {result ? (
         <>
           <div style={styles.resultHeader}>
-            <h3 style={merge(styles.resultTitle, { background: PRIMARY_GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" })}>
+            <h3 style={{...styles.resultTitle, background: PRIMARY_GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"}}>
               {lang === "ar" ? "الإعلان المولد" : "Generated Ad"}
             </h3>
             <div style={styles.resultActions}>
-              <button onClick={() => copyToClipboard(result)} style={merge(styles.actionButton, { background: SECONDARY_GRADIENT })}>
+              <button onClick={() => copyToClipboard(result)} style={{
+                ...styles.actionButton,
+                background: SECONDARY_GRADIENT
+              }}>
                 {lang === "ar" ? "نسخ" : "Copy"} 📋
               </button>
               <button onClick={() => {
@@ -515,7 +519,10 @@ export default function AdvancedAdGenerator() {
                   views: 0,
                   copies: 0
                 });
-              }} style={merge(styles.actionButton, { background: SUCCESS_GRADIENT })}>
+              }} style={{
+                ...styles.actionButton,
+                background: SUCCESS_GRADIENT
+              }}>
                 {lang === "ar" ? "حفظ" : "Save"} 💾
               </button>
             </div>
@@ -545,7 +552,7 @@ export default function AdvancedAdGenerator() {
   ), [result, error, theme, lang, history, input, copyToClipboard, exportAd, rateAd]);
 
   const HistoryList = useCallback(() => (
-    <div style={merge(styles.historyContainer, theme === "dark" ? styles.historyContainerDark : {})}>
+    <div style={{...styles.historyContainer, ...(theme === "dark" ? styles.historyContainerDark : {})}}>
       <div style={styles.historyFilters}>
         <input 
           placeholder={lang === "ar" ? "ابحث..." : "Search..."} 
@@ -575,9 +582,12 @@ export default function AdvancedAdGenerator() {
       {filteredHistory.length === 0 ? <div style={styles.emptyState}>{lang === "ar" ? "لا توجد إعلانات" : "No ads found"}</div> : (
         <div style={styles.historyList}>
           {filteredHistory.map(ad => (
-            <article key={ad.id} style={merge(styles.historyItem, theme === "dark" ? styles.historyItemDark : {})} onClick={() => incrementAdViews(ad.id)}>
+            <article key={ad.id} style={{
+              ...styles.historyItem,
+              ...(theme === "dark" ? {borderColor: "#334155", background: "#1e293b"} : {})
+            }} onClick={() => incrementAdViews(ad.id)}>
               <div style={styles.historyItemHeader}>
-                <span style={merge(styles.historyPlatformTag, { background: platformGradient(ad.input.type) })}>
+                <span style={{...styles.historyPlatformTag, background: platformGradient(ad.input.type)}}>
                   {platformName(ad.input.type)}
                 </span>
                 <span style={styles.historyDate}>{formatDate(ad.createdAt)}{ad.modifiedAt ? ` • ${lang === "ar" ? "تم التعديل" : "edited"} ${formatDate(ad.modifiedAt)}` : ""}</span>
@@ -601,15 +611,33 @@ export default function AdvancedAdGenerator() {
                 <div style={styles.historyActions}>
                   {editingAdId === ad.id ? (
                     <>
-                      <button onClick={saveEdit} style={merge(styles.smallButton, { background: SUCCESS_GRADIENT })}>{lang === "ar" ? "حفظ" : "Save"}</button>
-                      <button onClick={cancelEdit} style={merge(styles.smallButton, { background: "#f0f0f0" })}>{lang === "ar" ? "إلغاء" : "Cancel"}</button>
+                      <button onClick={saveEdit} style={{
+                        ...styles.smallButton,
+                        background: SUCCESS_GRADIENT
+                      }}>{lang === "ar" ? "حفظ" : "Save"}</button>
+                      <button onClick={cancelEdit} style={{
+                        ...styles.smallButton,
+                        background: "#f0f0f0"
+                      }}>{lang === "ar" ? "إلغاء" : "Cancel"}</button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => copyToClipboard(ad.text, ad.id)} style={merge(styles.smallButton, { background: SECONDARY_GRADIENT })}>📋</button>
-                      <button onClick={() => exportAd(ad)} style={merge(styles.smallButton, { background: SUCCESS_GRADIENT })}>💾</button>
-                      <button onClick={() => startEditing(ad)} style={merge(styles.smallButton, { background: "#f0f0f0" })}>✏</button>
-                      <button onClick={() => deleteAdFromHistory(ad.id)} style={merge(styles.smallButtonDanger, { background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)" })}>🗑</button>
+                      <button onClick={() => copyToClipboard(ad.text, ad.id)} style={{
+                        ...styles.smallButton,
+                        background: SECONDARY_GRADIENT
+                      }}>📋</button>
+                      <button onClick={() => exportAd(ad)} style={{
+                        ...styles.smallButton,
+                        background: SUCCESS_GRADIENT
+                      }}>💾</button>
+                      <button onClick={() => startEditing(ad)} style={{
+                        ...styles.smallButton,
+                        background: "#f0f0f0"
+                      }}>✏</button>
+                      <button onClick={() => deleteAdFromHistory(ad.id)} style={{
+                        ...styles.smallButtonDanger,
+                        background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)"
+                      }}>🗑</button>
                     </>
                   )}
                 </div>
@@ -630,25 +658,25 @@ export default function AdvancedAdGenerator() {
     });
 
     return (
-      <div style={merge(styles.analyticsContainer, theme === "dark" ? styles.analyticsContainerDark : {})}>
-        <h3 style={merge(styles.analyticsTitle, { background: PRIMARY_GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" })}>
+      <div style={{...styles.analyticsContainer, ...(theme === "dark" ? styles.analyticsContainerDark : {})}}>
+        <h3 style={{...styles.analyticsTitle, background: PRIMARY_GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"}}>
           {lang === "ar" ? "إحصائيات" : "Analytics"}
         </h3>
 
         <div style={styles.analyticsGrid}>
-          <div style={merge(styles.analyticsCard, { background: SECONDARY_GRADIENT })}>
+          <div style={{...styles.analyticsCard, background: SECONDARY_GRADIENT}}>
             <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "إجمالي الإعلانات" : "Total generated"}</h4>
             <p style={styles.analyticsCardValue}>{analytics.totalGenerations}</p>
           </div>
-          <div style={merge(styles.analyticsCard, { background: SUCCESS_GRADIENT })}>
+          <div style={{...styles.analyticsCard, background: SUCCESS_GRADIENT}}>
             <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "إجمالي النسخ" : "Total copies"}</h4>
             <p style={styles.analyticsCardValue}>{analytics.totalCopies}</p>
           </div>
-          <div style={merge(styles.analyticsCard, { background: "linear-gradient(135deg, #ffd89b 0%, #19547b 100%)" })}>
+          <div style={{...styles.analyticsCard, background: "linear-gradient(135deg, #ffd89b 0%, #19547b 100%)"}}>
             <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "متوسط التقييم" : "Average rating"}</h4>
             <p style={styles.analyticsCardValue}>{analytics.averageRating.toFixed(1)}/5</p>
           </div>
-          <div style={merge(styles.analyticsCard, { background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" })}>
+          <div style={{...styles.analyticsCard, background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"}}>
             <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "الأكثر استخداماً" : "Most used"}</h4>
             <p style={styles.analyticsCardValue}>{platformName(analytics.mostUsedPlatform)}</p>
           </div>
@@ -676,8 +704,8 @@ export default function AdvancedAdGenerator() {
 
   /* ---------------- main render ---------------- */
   return (
-    <div style={merge(styles.appContainer, theme === "dark" ? styles.appContainerDark : {})}>
-      <header style={merge(styles.header, { background: theme === "dark" ? DARK_GRADIENT : PRIMARY_GRADIENT, color: "#fff" })}>
+    <div style={{...styles.appContainer, ...(theme === "dark" ? styles.appContainerDark : {})}}>
+      <header style={{...styles.header, background: theme === "dark" ? DARK_GRADIENT : PRIMARY_GRADIENT, color: "#fff"}}>
         <div>
           <h1 style={styles.headerTitle}>{lang === "ar" ? "مولد الإعلانات الذكي" : "Smart Ad Generator"}</h1>
           <p style={styles.headerSubtitle}>{lang === "ar" ? "أداة متقدمة لتوليد إعلانات فعالة" : "Advanced tool to generate effective ads"}</p>
@@ -685,28 +713,34 @@ export default function AdvancedAdGenerator() {
 
         <div style={styles.headerControls}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <select value={lang} onChange={(e)=> switchLang(e.target.value as AdLanguage)} style={styles.langSelect}>
-              <option value="ar">العربية</option>
-              <option value="en">English</option>
-            </select>
-
-            <button onClick={toggleTheme} title={lang === "ar" ? "تبديل المظهر" : "Toggle theme"} style={styles.themeToggle}>
-              {theme === "light" ? "🌙" : "☀️"}
-            </button>
+            <button onClick={() => switchLang("ar")} style={{
+              ...styles.langButton,
+              ...(lang === "ar" ? { background: "rgba(255,255,255,0.2)" } : {})
+            }}>العربية</button>
+            <button onClick={() => switchLang("en")} style={{
+              ...styles.langButton,
+              ...(lang === "en" ? { background: "rgba(255,255,255,0.2)" } : {})
+            }}>English</button>
           </div>
+          <button onClick={toggleTheme} style={styles.themeToggle}>
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
         </div>
       </header>
 
-      <nav style={merge(styles.nav, theme === "dark" ? styles.navDark : {})}>
-        <button onClick={() => setActiveTab("generator")} style={activeTab === "generator" ? merge(styles.navButton, styles.navButtonActive) : styles.navButton}>
-          {lang === "ar" ? "المولد" : "Generator"}
-        </button>
-        <button onClick={() => setActiveTab("history")} style={activeTab === "history" ? merge(styles.navButton, styles.navButtonActive) : styles.navButton}>
-          {lang === "ar" ? "السجل" : "History"} ({history.length})
-        </button>
-        <button onClick={() => setActiveTab("analytics")} style={activeTab === "analytics" ? merge(styles.navButton, styles.navButtonActive) : styles.navButton}>
-          {lang === "ar" ? "الإحصائيات" : "Analytics"}
-        </button>
+      <nav style={styles.nav}>
+        <button onClick={() => setActiveTab("generator")} style={{
+          ...styles.navButton,
+          ...(activeTab === "generator" ? { background: PRIMARY_GRADIENT, color: "#fff" } : {})
+        }}>{lang === "ar" ? "المولد" : "Generator"}</button>
+        <button onClick={() => setActiveTab("history")} style={{
+          ...styles.navButton,
+          ...(activeTab === "history" ? { background: PRIMARY_GRADIENT, color: "#fff" } : {})
+        }}>{lang === "ar" ? "السجل" : "History"}</button>
+        <button onClick={() => setActiveTab("analytics")} style={{
+          ...styles.navButton,
+          ...(activeTab === "analytics" ? { background: PRIMARY_GRADIENT, color: "#fff" } : {})
+        }}>{lang === "ar" ? "الإحصائيات" : "Analytics"}</button>
       </nav>
 
       <main style={styles.main}>
@@ -721,7 +755,7 @@ export default function AdvancedAdGenerator() {
         {activeTab === "analytics" && <AnalyticsDashboard />}
       </main>
 
-      <footer style={merge(styles.footer, theme === "dark" ? styles.footerDark : {})}>
+      <footer style={{...styles.footer, ...(theme === "dark" ? styles.footerDark : {})}}>
         <p>{lang === "ar" ? "أداة متقدمة لتوليد إعلانات فعالة" : "Advanced tool to generate effective ads"}</p>
       </footer>
     </div>
@@ -733,9 +767,7 @@ const styles: Record<string, React.CSSProperties> = {
   appContainer: {
     minHeight: "100vh",
     background: "#f8fafc",
-    color: "#1e293b",
-    transition: "all 0.3s ease",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+    color: "#1e293b"
   },
   appContainerDark: {
     background: "#0f172a",
@@ -752,10 +784,10 @@ const styles: Record<string, React.CSSProperties> = {
   headerTitle: {
     margin: 0,
     fontSize: "1.8rem",
-    fontWeight: "bold"
+    fontWeight: 700
   },
   headerSubtitle: {
-    margin: "0.25rem 0 0",
+    margin: "0.5rem 0 0",
     opacity: 0.9,
     fontSize: "1rem"
   },
@@ -764,21 +796,24 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "1rem",
     alignItems: "center"
   },
-  langSelect: {
-    padding: "0.5rem",
-    borderRadius: "0.375rem",
+  langButton: {
+    padding: "0.5rem 1rem",
     border: "none",
-    background: "rgba(255,255,255,0.2)",
+    borderRadius: "0.5rem",
     color: "#fff",
-    cursor: "pointer"
+    cursor: "pointer",
+    transition: "background 0.2s"
   },
   themeToggle: {
-    background: "rgba(255,255,255,0.2)",
-    border: "none",
-    borderRadius: "0.375rem",
     padding: "0.5rem",
+    border: "none",
+    borderRadius: "50%",
+    background: "rgba(255,255,255,0.1)",
+    color: "#fff",
     cursor: "pointer",
     fontSize: "1.2rem",
+    width: "2.5rem",
+    height: "2.5rem",
     display: "flex",
     alignItems: "center",
     justifyContent: "center"
@@ -786,30 +821,26 @@ const styles: Record<string, React.CSSProperties> = {
   nav: {
     display: "flex",
     background: "#fff",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+    borderBottom: "1px solid #e2e8f0"
   },
   navDark: {
     background: "#1e293b",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+    borderColor: "#334155"
   },
   navButton: {
     padding: "1rem 1.5rem",
-    background: "transparent",
     border: "none",
+    background: "transparent",
     cursor: "pointer",
-    fontWeight: "500",
-    fontSize: "1rem",
-    color: "#64748b",
-    transition: "all 0.2s ease"
-  },
-  navButtonActive: {
-    color: "#6366f1",
-    borderBottom: "2px solid #6366f1"
+    fontWeight: 500,
+    transition: "all 0.2s"
   },
   main: {
+    padding: "2rem",
     maxWidth: "1200px",
     margin: "0 auto",
-    padding: "2rem 1rem"
+    width: "100%",
+    boxSizing: "border-box"
   },
   generatorLayout: {
     display: "grid",
@@ -819,13 +850,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   formContainer: {
     background: "#fff",
-    borderRadius: "0.5rem",
     padding: "1.5rem",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+    borderRadius: "1rem",
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
   },
   formContainerDark: {
     background: "#1e293b",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1)"
   },
   formGrid: {
     display: "grid",
@@ -838,62 +869,67 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "0.5rem"
   },
   label: {
-    fontWeight: "500",
+    fontWeight: 500,
     fontSize: "0.875rem"
   },
   input: {
-    padding: "0.5rem 0.75rem",
-    borderRadius: "0.375rem",
+    padding: "0.75rem",
     border: "1px solid #d1d5db",
-    fontSize: "1rem"
+    borderRadius: "0.5rem",
+    fontSize: "1rem",
+    transition: "border-color 0.2s"
+  },
+  inputDark: {
+    background: "#334155",
+    borderColor: "#475569",
+    color: "#e2e8f0"
   },
   select: {
-    padding: "0.5rem 0.75rem",
-    borderRadius: "0.375rem",
+    padding: "0.75rem",
     border: "1px solid #d1d5db",
+    borderRadius: "0.5rem",
     fontSize: "1rem",
     background: "#fff"
   },
+  selectDark: {
+    background: "#334155",
+    borderColor: "#475569",
+    color: "#e2e8f0"
+  },
   generateButton: {
-    padding: "0.75rem 1.5rem",
-    borderRadius: "0.375rem",
+    padding: "1rem 1.5rem",
     border: "none",
+    borderRadius: "0.5rem",
     color: "#fff",
-    fontWeight: "bold",
     fontSize: "1rem",
+    fontWeight: 600,
     cursor: "pointer",
     width: "100%",
-    transition: "all 0.2s ease"
+    transition: "opacity 0.2s"
   },
   buttonDisabled: {
-    padding: "0.75rem 1.5rem",
-    borderRadius: "0.375rem",
-    border: "none",
-    background: "#cbd5e1",
-    color: "#64748b",
-    fontWeight: "bold",
-    fontSize: "1rem",
-    cursor: "not-allowed",
-    width: "100%"
+    opacity: 0.7,
+    cursor: "not-allowed"
   },
   resultContainer: {
     background: "#fff",
-    borderRadius: "0.5rem",
     padding: "1.5rem",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+    borderRadius: "1rem",
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
   },
   resultContainerDark: {
     background: "#1e293b",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1)"
   },
   errorAlert: {
     background: "#fee2e2",
     color: "#b91c1c",
-    padding: "0.75rem 1rem",
-    borderRadius: "0.375rem",
+    padding: "1rem",
+    borderRadius: "0.5rem",
     marginBottom: "1rem",
     display: "flex",
-    alignItems: "center"
+    alignItems: "center",
+    gap: "0.5rem"
   },
   resultHeader: {
     display: "flex",
@@ -904,7 +940,7 @@ const styles: Record<string, React.CSSProperties> = {
   resultTitle: {
     margin: 0,
     fontSize: "1.5rem",
-    fontWeight: "bold"
+    fontWeight: 700
   },
   resultActions: {
     display: "flex",
@@ -912,20 +948,20 @@ const styles: Record<string, React.CSSProperties> = {
   },
   actionButton: {
     padding: "0.5rem 1rem",
-    borderRadius: "0.375rem",
     border: "none",
+    borderRadius: "0.5rem",
     color: "#fff",
-    fontWeight: "500",
     cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.25rem"
+    fontWeight: 500
   },
   resultContent: {
-    background: "#f8fafc",
-    borderRadius: "0.375rem",
+    background: "#f1f5f9",
     padding: "1rem",
+    borderRadius: "0.5rem",
     marginBottom: "1rem"
+  },
+  resultContentDark: {
+    background: "#334155"
   },
   resultText: {
     margin: 0,
@@ -933,17 +969,15 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.5
   },
   ratingContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "0.5rem"
+    textAlign: "center"
   },
   ratingPrompt: {
-    margin: 0,
-    fontWeight: "500"
+    margin: "0 0 0.5rem",
+    fontWeight: 500
   },
   ratingStars: {
     display: "flex",
+    justifyContent: "center",
     gap: "0.25rem"
   },
   starButton: {
@@ -951,17 +985,18 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     fontSize: "1.5rem",
     cursor: "pointer",
-    padding: 0
+    padding: 0,
+    color: "#fbbf24"
   },
   historyContainer: {
     background: "#fff",
-    borderRadius: "0.5rem",
     padding: "1.5rem",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+    borderRadius: "1rem",
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
   },
   historyContainerDark: {
     background: "#1e293b",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1)"
   },
   historyFilters: {
     display: "flex",
@@ -970,19 +1005,29 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap"
   },
   searchInput: {
-    padding: "0.5rem 0.75rem",
-    borderRadius: "0.375rem",
+    padding: "0.75rem",
     border: "1px solid #d1d5db",
+    borderRadius: "0.5rem",
     fontSize: "1rem",
     flex: "1",
     minWidth: "200px"
   },
+  searchInputDark: {
+    background: "#334155",
+    borderColor: "#475569",
+    color: "#e2e8f0"
+  },
   filterSelect: {
-    padding: "0.5rem 0.75rem",
-    borderRadius: "0.375rem",
+    padding: "0.75rem",
     border: "1px solid #d1d5db",
+    borderRadius: "0.5rem",
     fontSize: "1rem",
-    background: "#fff"
+    minWidth: "150px"
+  },
+  filterSelectDark: {
+    background: "#334155",
+    borderColor: "#475569",
+    color: "#e2e8f0"
   },
   emptyState: {
     textAlign: "center",
@@ -996,14 +1041,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   historyItem: {
     border: "1px solid #e2e8f0",
-    borderRadius: "0.5rem",
+    borderRadius: "0.75rem",
     padding: "1rem",
-    transition: "all 0.2s ease",
+    transition: "box-shadow 0.2s",
     cursor: "pointer"
-  },
-  historyItemDark: {
-    borderColor: "#334155",
-    background: "#1e293b"
   },
   historyItemHeader: {
     display: "flex",
@@ -1012,11 +1053,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: "0.75rem"
   },
   historyPlatformTag: {
-    padding: "0.25rem 0.5rem",
-    borderRadius: "0.25rem",
+    padding: "0.25rem 0.75rem",
+    borderRadius: "1rem",
     color: "#fff",
-    fontWeight: "500",
-    fontSize: "0.875rem"
+    fontSize: "0.75rem",
+    fontWeight: 600
   },
   historyDate: {
     fontSize: "0.875rem",
@@ -1027,12 +1068,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
   editTextarea: {
     width: "100%",
-    padding: "0.5rem",
-    borderRadius: "0.375rem",
+    padding: "0.75rem",
     border: "1px solid #d1d5db",
+    borderRadius: "0.5rem",
     fontSize: "1rem",
-    fontFamily: "inherit",
-    resize: "vertical"
+    resize: "vertical",
+    minHeight: "120px"
+  },
+  editTextareaDark: {
+    background: "#334155",
+    borderColor: "#475569",
+    color: "#e2e8f0"
   },
   historyText: {
     margin: 0,
@@ -1052,38 +1098,38 @@ const styles: Record<string, React.CSSProperties> = {
   },
   historyActions: {
     display: "flex",
-    gap: "0.25rem"
+    gap: "0.5rem"
   },
   smallButton: {
     padding: "0.25rem 0.5rem",
-    borderRadius: "0.25rem",
     border: "none",
+    borderRadius: "0.375rem",
     color: "#fff",
     cursor: "pointer",
     fontSize: "0.875rem"
   },
   smallButtonDanger: {
     padding: "0.25rem 0.5rem",
-    borderRadius: "0.25rem",
     border: "none",
+    borderRadius: "0.375rem",
     color: "#fff",
     cursor: "pointer",
     fontSize: "0.875rem"
   },
   analyticsContainer: {
     background: "#fff",
-    borderRadius: "0.5rem",
     padding: "1.5rem",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+    borderRadius: "1rem",
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
   },
   analyticsContainerDark: {
     background: "#1e293b",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1)"
   },
   analyticsTitle: {
     margin: "0 0 1.5rem",
     fontSize: "1.5rem",
-    fontWeight: "bold"
+    fontWeight: 700
   },
   analyticsGrid: {
     display: "grid",
@@ -1093,29 +1139,29 @@ const styles: Record<string, React.CSSProperties> = {
   },
   analyticsCard: {
     padding: "1.5rem",
-    borderRadius: "0.5rem",
-    color: "#fff"
+    borderRadius: "1rem",
+    color: "#fff",
+    textAlign: "center"
   },
   analyticsCardTitle: {
     margin: "0 0 0.5rem",
     fontSize: "0.875rem",
-    fontWeight: "500",
     opacity: 0.9
   },
   analyticsCardValue: {
     margin: 0,
     fontSize: "2rem",
-    fontWeight: "bold"
+    fontWeight: 700
   },
   analyticsSectionTitle: {
     margin: "0 0 1rem",
     fontSize: "1.25rem",
-    fontWeight: "bold"
+    fontWeight: 600
   },
   platformDistribution: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.5rem"
+    gap: "0.75rem"
   },
   distributionItem: {
     display: "flex",
@@ -1128,30 +1174,27 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.875rem"
   },
   distributionBarContainer: {
-    height: "8px",
+    height: "0.5rem",
     background: "#e2e8f0",
-    borderRadius: "4px",
+    borderRadius: "1rem",
     overflow: "hidden"
+  },
+  distributionBarContainerDark: {
+    background: "#334155"
   },
   distributionBar: {
     height: "100%",
-    borderRadius: "4px",
-    transition: "width 0.3s ease"
+    borderRadius: "1rem",
+    transition: "width 0.5s ease"
   },
   footer: {
+    padding: "1.5rem 2rem",
     textAlign: "center",
-    padding: "1.5rem",
-    marginTop: "2rem",
     borderTop: "1px solid #e2e8f0",
     color: "#64748b"
   },
   footerDark: {
-    borderTopColor: "#334155",
+    borderColor: "#334155",
     color: "#94a3b8"
   }
 };
-
-// Helper function to merge styles
-function merge(...styles: React.CSSProperties[]): React.CSSProperties {
-  return Object.assign({}, ...styles);
-}

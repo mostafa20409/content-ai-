@@ -24,6 +24,13 @@ const GENERATION_CONFIG = {
   timeout: 30000 // 30 ثانية
 };
 
+// نماذج API المفضلة (محدثة)
+const API_MODELS = {
+  groq: 'llama-3.1-8b-instant', // نموذج نصي مناسب
+  deepseek: 'deepseek-chat',
+  openai: 'gpt-4'
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -50,7 +57,7 @@ export async function POST(req: Request) {
       tone,
       contentType,
       length,
-      targetAudience // تم التصحيح هنا
+      targetAudience
     });
 
     return NextResponse.json({
@@ -82,7 +89,7 @@ export async function POST(req: Request) {
   }
 }
 
-// واجهة معاملات التوليد - تم التصحيح هنا
+// واجهة معاملات التوليد
 interface GenerationParams {
   researchData: any;
   topic: string;
@@ -90,7 +97,7 @@ interface GenerationParams {
   tone: string;
   contentType: string;
   length: string;
-  targetAudience: string; // تم تغيير من audience إلى targetAudience
+  targetAudience: string;
 }
 
 // دالة مساعدة لتوليد المحتوى
@@ -126,7 +133,7 @@ async function generateContent(params: GenerationParams): Promise<string> {
 
 // إنشاء prompt ذكي بناء على معطيات البحث
 function createIntelligentPrompt(params: GenerationParams): string {
-  const { researchData, topic, language, tone, contentType, targetAudience } = params; // تم التصحيح هنا
+  const { researchData, topic, language, tone, contentType, targetAudience } = params;
   
   const researchSummary = summarizeResearchData(researchData, language);
   
@@ -150,7 +157,7 @@ function createIntelligentPrompt(params: GenerationParams): string {
   
   const audiences = {
     general: language === 'ar' ? 'عام' : 'general',
-    experts: language === 'ar' ? 'خبراء' : 'experts',
+    experts: language === 'ar' ? 'خبراء' : 'expert',
     students: language === 'ar' ? 'طلاب' : 'students',
     business: language === 'ar' ? 'أعمال' : 'business',
     technical: language === 'ar' ? 'تقني' : 'technical'
@@ -163,13 +170,13 @@ function createIntelligentPrompt(params: GenerationParams): string {
 الموضوع: ${topic}
 نوع المحتوى: ${contentTypes[contentType]}
 النبرة: ${tones[tone]}
-الجمهور المستهدف: ${audiences[targetAudience]} // تم التصحيح هنا
+الجمهور المستهدف: ${audiences[targetAudience]}
 
 معلومات البحث المتاحة:
 ${researchSummary}
 
 الرجاء تقديم محتوى أصلي وجذاب وذو قيمة، مع الاستفادة من المعلومات أعلاه.
-أكتب بطريقة ${tones[tone]} تناسب جمهور ${audiences[targetAudience]}. // تم التصحيح هنا
+أكتب بطريقة ${tones[tone]} تناسب جمهور ${audiences[targetAudience]}.
 
 تأكد من:
 1. تقديم معلومات دقيقة وموثوقة
@@ -186,13 +193,13 @@ You are a professional content writer. Please create a ${contentType} about the 
 Topic: ${topic}
 Content Type: ${contentType}
 Tone: ${tone}
-Target Audience: ${targetAudience} // تم التصحيح هنا
+Target Audience: ${targetAudience}
 
 Research information available:
 ${researchSummary}
 
 Please provide original, engaging, and valuable content using the above information.
-Write in a ${tone} tone suitable for ${targetAudience} audience. // تم التصحيح هنا
+Write in a ${tone} tone suitable for ${targetAudience} audience.
 
 Ensure to:
 1. Provide accurate and reliable information
@@ -252,7 +259,7 @@ async function generateWithGroq(prompt: string, length: string): Promise<string>
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192', // يمكن تغيير النموذج حسب الحاجة
+        model: API_MODELS.groq, // استخدام النموذج المحدث
         messages: [{ role: 'user', content: prompt }],
         temperature: GENERATION_CONFIG.temperature,
         max_tokens: GENERATION_CONFIG.maxTokens[length],
@@ -292,7 +299,7 @@ async function generateWithDeepSeek(prompt: string, length: string): Promise<str
         'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: API_MODELS.deepseek,
         messages: [{ role: 'user', content: prompt }],
         temperature: GENERATION_CONFIG.temperature,
         max_tokens: GENERATION_CONFIG.maxTokens[length],
@@ -331,7 +338,7 @@ async function generateWithOpenAI(prompt: string, length: string): Promise<strin
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: API_MODELS.openai,
         messages: [{ role: 'user', content: prompt }],
         temperature: GENERATION_CONFIG.temperature,
         max_tokens: GENERATION_CONFIG.maxTokens[length],
@@ -357,9 +364,9 @@ async function generateWithOpenAI(prompt: string, length: string): Promise<strin
   }
 }
 
-// محتوى بديل إذا فشل التوليد - تم التصحيح هنا
+// محتوى بديل إذا فشل التوليد
 function generateFallbackContent(params: GenerationParams): string {
-  const { topic, language, contentType, tone, targetAudience } = params; // تم التصحيح هنا
+  const { topic, language, contentType, tone, targetAudience } = params;
   
   if (language === 'ar') {
     return `
@@ -367,7 +374,7 @@ function generateFallbackContent(params: GenerationParams): string {
 
 ## نوع المحتوى: ${contentType}
 ## النبرة: ${tone}
-## الجمهور المستهدف: ${targetAudience} // تم التصحيح هنا
+## الجمهور المستهدف: ${targetAudience}
 
 هذا محتوى بديل حول "${topic}". 
 
@@ -388,7 +395,7 @@ function generateFallbackContent(params: GenerationParams): string {
 
 ## Content Type: ${contentType}
 ## Tone: ${tone}
-## Target Audience: ${targetAudience} // تم التصحيح هنا
+## Target Audience: ${targetAudience}
 
 This is fallback content about "${topic}".
 
@@ -418,7 +425,8 @@ export async function GET() {
     status: 'active',
     availableAPIs,
     config: GENERATION_CONFIG,
+    models: API_MODELS,
     message: 'Use POST with research data to generate content',
-    primaryAPI: 'Groq (Llama 3)'
+    primaryAPI: 'Groq (Llama 3.1)'
   });
 }

@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiArrowRight, FiLoader, FiCopy, FiDownload, FiTrash2, FiClock } from "react-icons/fi";
+import { FiArrowRight, FiLoader, FiCopy, FiDownload, FiTrash2, FiClock, FiBook, FiEdit, FiTrendingUp, FiSun, FiMoon, FiGlobe } from "react-icons/fi";
 
 /**
  * Landing / Home page (client)
@@ -720,26 +720,27 @@ export default function LandingPage() {
   return (
     <div dir={lang === "ar" ? "rtl" : "ltr"} className={darkMode ? "dark-mode" : ""}>
       {/* Header */}
-      <header style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <header style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", background: darkMode ? "#0f172a" : "#f8fafc", borderBottom: `1px solid ${darkMode ? "#1e293b" : "#e2e8f0"}` }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <strong>{L.welcome}</strong>
-          <span style={{ opacity: 0.7, marginLeft: 8 }}>{L.desc}</span>
+          <strong style={{ fontSize: "1.2rem", color: darkMode ? "#e2e8f0" : "#0f172a" }}>{L.welcome}</strong>
+          <span style={{ opacity: 0.7, marginLeft: 8, color: darkMode ? "#cbd5e1" : "#64748b", display: "none" }}>{L.desc}</span>
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={() => setDarkMode((d) => !d)}
             title={lang === "ar" ? "تبديل الوضع" : "Toggle theme"}
-            style={{ padding: 8 }}
+            style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${darkMode ? "#334155" : "#cbd5e1"}`, background: darkMode ? "#1e293b" : "#fff", color: darkMode ? "#e2e8f0" : "#0f172a", display: "flex", alignItems: "center", gap: 6 }}
           >
-            {darkMode ? "☀" : "🌙"}
+            {darkMode ? <FiSun size={16} /> : <FiMoon size={16} />}
           </button>
 
           <button
             onClick={() => setLang((l) => (l === "ar" ? "en" : "ar"))}
             title="toggle-language"
-            style={{ padding: 8 }}
+            style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${darkMode ? "#334155" : "#cbd5e1"}`, background: darkMode ? "#1e293b" : "#fff", color: darkMode ? "#e2e8f0" : "#0f172a", display: "flex", alignItems: "center", gap: 6 }}
           >
+            <FiGlobe size={16} />
             {lang === "ar" ? "EN" : "AR"}
           </button>
         </div>
@@ -748,65 +749,218 @@ export default function LandingPage() {
       {/* Main */}
       <main style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
         {/* Hero */}
-        <section style={{ padding: 20, borderRadius: 12, background: darkMode ? "#071427" : "#fff", boxShadow: "0 6px 20px rgba(2,6,23,0.06)" }}>
-          <h1 style={{ margin: 0, fontSize: 28, textAlign: "center" }}>{L.welcome}</h1>
-          <p style={{ textAlign: "center", color: darkMode ? "#cbd5e1" : "#374151", marginTop: 8 }}>{L.desc}</p>
+        <section style={{ padding: "40px 20px", borderRadius: 16, background: darkMode ? "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)" : "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)", boxShadow: "0 10px 25px rgba(2,6,23,0.1)", textAlign: "center", marginBottom: 24 }}>
+          <h1 style={{ margin: "0 0 16px 0", fontSize: "2.5rem", fontWeight: "bold", color: darkMode ? "#e2e8f0" : "#0f172a" }}>{L.welcome}</h1>
+          <p style={{ fontSize: "1.1rem", color: darkMode ? "#cbd5e1" : "#64748b", margin: "0 auto 32px", maxWidth: 600 }}>{L.desc}</p>
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
-            <button onClick={() => router.push("/login")} className="primary" style={{ padding: "10px 16px" }}>{L.login}</button>
-            <button onClick={() => router.push("/signup")} className="accent" style={{ padding: "10px 16px" }}>{L.signup}</button>
-            <button onClick={() => setShowDemo(true)} style={{ padding: "10px 16px" }}>{L.demo}</button>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 24, flexWrap: "wrap" }}>
+            <button 
+              onClick={() => router.push("/login")} 
+              style={{ 
+                padding: "12px 24px", 
+                borderRadius: 8, 
+                border: "none", 
+                background: "#3b82f6", 
+                color: "white", 
+                fontWeight: "bold",
+                cursor: "pointer",
+                transition: "background 0.2s"
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = "#2563eb"}
+              onMouseOut={(e) => e.currentTarget.style.background = "#3b82f6"}
+            >
+              {L.login}
+            </button>
+            <button 
+              onClick={() => router.push("/signup")} 
+              style={{ 
+                padding: "12px 24px", 
+                borderRadius: 8, 
+                border: `1px solid ${darkMode ? "#475569" : "#cbd5e1"}`, 
+                background: darkMode ? "#1e293b" : "#fff", 
+                color: darkMode ? "#e2e8f0" : "#0f172a",
+                fontWeight: "bold",
+                cursor: "pointer",
+                transition: "background 0.2s"
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = darkMode ? "#334155" : "#f1f5f9"}
+              onMouseOut={(e) => e.currentTarget.style.background = darkMode ? "#1e293b" : "#fff"}
+            >
+              {L.signup}
+            </button>
+            <button 
+              onClick={() => setShowDemo(true)} 
+              style={{ 
+                padding: "12px 24px", 
+                borderRadius: 8, 
+                border: `1px solid ${darkMode ? "#475569" : "#cbd5e1"}`, 
+                background: darkMode ? "#1e293b" : "#fff", 
+                color: darkMode ? "#e2e8f0" : "#0f172a",
+                fontWeight: "bold",
+                cursor: "pointer",
+                transition: "background 0.2s"
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = darkMode ? "#334155" : "#f1f5f9"}
+              onMouseOut={(e) => e.currentTarget.style.background = darkMode ? "#1e293b" : "#fff"}
+            >
+              {L.demo}
+            </button>
           </div>
 
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 14, flexWrap: "wrap" }}>
-            <button onClick={() => router.push("/content")} className="tool-link">{L.content}</button>
-            <button onClick={() => router.push("/books")} className="tool-link">{L.books}</button>
-            <button onClick={() => router.push("/ads")} className="tool-link">{L.ads}</button>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <button 
+              onClick={() => router.push("/login")} 
+              style={{ 
+                padding: "10px 20px", 
+                borderRadius: 6, 
+                border: `1px solid ${darkMode ? "#475569" : "#cbd5e1"}`, 
+                background: darkMode ? "#1e293b" : "#f8fafc", 
+                color: darkMode ? "#e2e8f0" : "#0f172a",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                transition: "background 0.2s"
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = darkMode ? "#334155" : "#e2e8f0"}
+              onMouseOut={(e) => e.currentTarget.style.background = darkMode ? "#1e293b" : "#f8fafc"}
+            >
+              <FiEdit size={16} />
+              {L.content}
+            </button>
+            <button 
+              onClick={() => router.push("/login")} 
+              style={{ 
+                padding: "10px 20px", 
+                borderRadius: 6, 
+                border: `1px solid ${darkMode ? "#475569" : "#cbd5e1"}`, 
+                background: darkMode ? "#1e293b" : "#f8fafc", 
+                color: darkMode ? "#e2e8f0" : "#0f172a",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                transition: "background 0.2s"
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = darkMode ? "#334155" : "#e2e8f0"}
+              onMouseOut={(e) => e.currentTarget.style.background = darkMode ? "#1e293b" : "#f8fafc"}
+            >
+              <FiBook size={16} />
+              {L.books}
+            </button>
+            <button 
+              onClick={() => router.push("/login")} 
+              style={{ 
+                padding: "10px 20px", 
+                borderRadius: 6, 
+                border: `1px solid ${darkMode ? "#475569" : "#cbd5e1"}`, 
+                background: darkMode ? "#1e293b" : "#f8fafc", 
+                color: darkMode ? "#e2e8f0" : "#0f172a",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                transition: "background 0.2s"
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = darkMode ? "#334155" : "#e2e8f0"}
+              onMouseOut={(e) => e.currentTarget.style.background = darkMode ? "#1e293b" : "#f8fafc"}
+            >
+              <FiTrendingUp size={16} />
+              {L.ads}
+            </button>
           </div>
         </section>
 
         {/* Features & History layout */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 16, marginTop: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 24, marginTop: 18 }}>
           {/* Left column: tools / about */}
           <div>
-            <section style={{ marginBottom: 18 }}>
-              <h2 style={{ marginTop: 0 }}>{lang === "ar" ? "الأدوات" : "Tools"}</h2>
-              <div style={{ display: "grid", gap: 12 }}>
-                <article style={{ padding: 14, borderRadius: 8, border: "1px solid #e6e9ee" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 26 }}>✍</div>
-                    <div>
-                      <h3 style={{ margin: 0 }}>{L.content}</h3>
-                      <p style={{ margin: 0, opacity: 0.75 }}>{lang === "ar" ? "أنشئ مقالات ونصوص بسرعة." : "Generate articles & short-form copy fast."}</p>
+            <section style={{ marginBottom: 24 }}>
+              <h2 style={{ marginTop: 0, marginBottom: 16, color: darkMode ? "#e2e8f0" : "#0f172a" }}>{lang === "ar" ? "الأدوات" : "Tools"}</h2>
+              <div style={{ display: "grid", gap: 16 }}>
+                <article style={{ padding: 20, borderRadius: 12, border: `1px solid ${darkMode ? "#334155" : "#e2e8f0"}`, background: darkMode ? "#1e293b" : "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ fontSize: 32, color: "#3b82f6" }}>✍</div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: "0 0 8px 0", color: darkMode ? "#e2e8f0" : "#0f172a" }}>{L.content}</h3>
+                      <p style={{ margin: 0, opacity: 0.75, color: darkMode ? "#cbd5e1" : "#64748b" }}>{lang === "ar" ? "أنشئ مقالات ونصوص بسرعة." : "Generate articles & short-form copy fast."}</p>
                     </div>
-                    <div style={{ marginLeft: "auto" }}>
-                      <button onClick={() => router.push("/content")} className="primary">{L.demo}</button>
+                    <div>
+                      <button 
+                        onClick={() => router.push("/login")} 
+                        style={{ 
+                          padding: "10px 20px", 
+                          borderRadius: 6, 
+                          border: "none", 
+                          background: "#3b82f6", 
+                          color: "white", 
+                          fontWeight: "bold",
+                          cursor: "pointer",
+                          transition: "background 0.2s"
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = "#2563eb"}
+                        onMouseOut={(e) => e.currentTarget.style.background = "#3b82f6"}
+                      >
+                        {L.login}
+                      </button>
                     </div>
                   </div>
                 </article>
 
-                <article style={{ padding: 14, borderRadius: 8, border: "1px solid #e6e9ee" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 26 }}>📚</div>
-                    <div>
-                      <h3 style={{ margin: 0 }}>{L.books}</h3>
-                      <p style={{ margin: 0, opacity: 0.75 }}>{lang === "ar" ? "بناء الفصول وملخصات الكتب بسهولة." : "Create book drafts & chapters with structure."}</p>
+                <article style={{ padding: 20, borderRadius: 12, border: `1px solid ${darkMode ? "#334155" : "#e2e8f0"}`, background: darkMode ? "#1e293b" : "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ fontSize: 32, color: "#8b5cf6" }}>📚</div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: "0 0 8px 0", color: darkMode ? "#e2e8f0" : "#0f172a" }}>{L.books}</h3>
+                      <p style={{ margin: 0, opacity: 0.75, color: darkMode ? "#cbd5e1" : "#64748b" }}>{lang === "ar" ? "بناء الفصول وملخصات الكتب بسهولة." : "Create book drafts & chapters with structure."}</p>
                     </div>
-                    <div style={{ marginLeft: "auto" }}>
-                      <button onClick={() => router.push("/books")} className="primary">{L.demo}</button>
+                    <div>
+                      <button 
+                        onClick={() => router.push("/login")} 
+                        style={{ 
+                          padding: "10px 20px", 
+                          borderRadius: 6, 
+                          border: "none", 
+                          background: "#8b5cf6", 
+                          color: "white", 
+                          fontWeight: "bold",
+                          cursor: "pointer",
+                          transition: "background 0.2s"
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = "#7c3aed"}
+                        onMouseOut={(e) => e.currentTarget.style.background = "#8b5cf6"}
+                      >
+                        {L.login}
+                      </button>
                     </div>
                   </div>
                 </article>
 
-                <article style={{ padding: 14, borderRadius: 8, border: "1px solid #e6e9ee" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 26 }}>📢</div>
-                    <div>
-                      <h3 style={{ margin: 0 }}>{L.ads}</h3>
-                      <p style={{ margin: 0, opacity: 0.75 }}>{lang === "ar" ? "انشاء نصوص إعلانات فعالة." : "Generate high-converting ad copy."}</p>
+                <article style={{ padding: 20, borderRadius: 12, border: `1px solid ${darkMode ? "#334155" : "#e2e8f0"}`, background: darkMode ? "#1e293b" : "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ fontSize: 32, color: "#ec4899" }}>📢</div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: "0 0 8px 0", color: darkMode ? "#e2e8f0" : "#0f172a" }}>{L.ads}</h3>
+                      <p style={{ margin: 0, opacity: 0.75, color: darkMode ? "#cbd5e1" : "#64748b" }}>{lang === "ar" ? "انشاء نصوص إعلانات فعالة." : "Generate high-converting ad copy."}</p>
                     </div>
-                    <div style={{ marginLeft: "auto" }}>
-                      <button onClick={() => router.push("/ads")} className="primary">{L.demo}</button>
+                    <div>
+                      <button 
+                        onClick={() => router.push("/login")} 
+                        style={{ 
+                          padding: "10px 20px", 
+                          borderRadius: 6, 
+                          border: "none", 
+                          background: "#ec4899", 
+                          color: "white", 
+                          fontWeight: "bold",
+                          cursor: "pointer",
+                          transition: "background 0.2s"
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = "#db2777"}
+                        onMouseOut={(e) => e.currentTarget.style.background = "#ec4899"}
+                      >
+                        {L.login}
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -814,18 +968,44 @@ export default function LandingPage() {
             </section>
 
             <section style={{ marginTop: 6 }}>
-              <h3>{lang === "ar" ? "عن المنصة" : "About"}</h3>
-              <p style={{ color: darkMode ? "#cbd5e1" : "#374151" }}>{L.aboutShort}</p>
+              <h3 style={{ color: darkMode ? "#e2e8f0" : "#0f172a" }}>{lang === "ar" ? "عن المنصة" : "About"}</h3>
+              <p style={{ color: darkMode ? "#cbd5e1" : "#64748b", lineHeight: 1.6 }}>{L.aboutShort}</p>
             </section>
           </div>
 
           {/* Right column: history */}
           <aside style={{ position: "relative" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <h4 style={{ margin: 0 }}>{L.historyTitle}</h4>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, padding: "12px 16px", background: darkMode ? "#1e293b" : "#f8fafc", borderRadius: 12, border: `1px solid ${darkMode ? "#334155" : "#e2e8f0"}` }}>
+              <h4 style={{ margin: 0, color: darkMode ? "#e2e8f0" : "#0f172a" }}>{L.historyTitle}</h4>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setShowDemo(true)} title={lang === "ar" ? "جديد" : "New"}>{lang === "ar" ? "جديد" : "New"}</button>
-                <button onClick={clearAllHistory} title={L.clearHistory}>{lang === "ar" ? "مسح" : "Clear"}</button>
+                <button 
+                  onClick={() => setShowDemo(true)} 
+                  title={lang === "ar" ? "جديد" : "New"}
+                  style={{ 
+                    padding: "6px 12px", 
+                    borderRadius: 6, 
+                    border: `1px solid ${darkMode ? "#475569" : "#cbd5e1"}`, 
+                    background: darkMode ? "#334155" : "#fff", 
+                    color: darkMode ? "#e2e8f0" : "#0f172a",
+                    cursor: "pointer"
+                  }}
+                >
+                  {lang === "ar" ? "جديد" : "New"}
+                </button>
+                <button 
+                  onClick={clearAllHistory} 
+                  title={L.clearHistory}
+                  style={{ 
+                    padding: "6px 12px", 
+                    borderRadius: 6, 
+                    border: `1px solid ${darkMode ? "#475569" : "#cbd5e1"}`, 
+                    background: darkMode ? "#334155" : "#fff", 
+                    color: darkMode ? "#e2e8f0" : "#0f172a",
+                    cursor: "pointer"
+                  }}
+                >
+                  {lang === "ar" ? "مسح" : "Clear"}
+                </button>
               </div>
             </div>
 
@@ -842,7 +1022,7 @@ export default function LandingPage() {
         </div>
 
         {/* Footer */}
-        <footer style={{ marginTop: 20, textAlign: "center", color: darkMode ? "#94a3b8" : "#6b7280" }}>
+        <footer style={{ marginTop: 40, padding: "20px 0", textAlign: "center", color: darkMode ? "#94a3b8" : "#64748b", borderTop: `1px solid ${darkMode ? "#334155" : "#e2e8f0"}` }}>
           <small>© {new Date().getFullYear()} Content AI</small>
         </footer>
       </main>

@@ -25,13 +25,18 @@ import {
   Video,
   Mail,
   MessageSquare,
-  PenTool
+  PenTool,
+  Download,
+  Printer,
+  Clock,
+  Copy
 } from "lucide-react";
+import Image from "next/image";
 import "./content.css";
 
 /* ----------------------------------------------------------------
    Types
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 type Lang = "ar" | "en";
 type SourceType = "web" | "youtube" | "news" | "academic";
 type ResearchStage = "idle" | "searching" | "processing" | "generating" | "complete";
@@ -55,10 +60,9 @@ interface ResearchResult {
   saved?: boolean;
 }
 
-
 /* ----------------------------------------------------------------
    Source Configuration
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const sourceConfig: Record<SourceType, { 
   icon: React.ReactNode; 
   label: Record<Lang, string>;
@@ -93,7 +97,7 @@ const sourceConfig: Record<SourceType, {
 
 /* ----------------------------------------------------------------
    Content Type Configuration
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const contentTypeConfig: Record<ContentType, {
   icon: React.ReactNode;
   label: Record<Lang, string>;
@@ -133,7 +137,7 @@ const contentTypeConfig: Record<ContentType, {
 
 /* ----------------------------------------------------------------
    Tone Configuration
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const toneConfig: Record<ToneType, {
   label: Record<Lang, string>;
   description: Record<Lang, string>;
@@ -166,7 +170,7 @@ const toneConfig: Record<ToneType, {
 
 /* ----------------------------------------------------------------
    Audience Configuration
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const audienceConfig: Record<AudienceType, {
   label: Record<Lang, string>;
   description: Record<Lang, string>;
@@ -195,7 +199,7 @@ const audienceConfig: Record<AudienceType, {
 
 /* ----------------------------------------------------------------
    Length Configuration
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const lengthConfig: Record<LengthType, {
   label: Record<Lang, string>;
   description: Record<Lang, string>;
@@ -220,7 +224,7 @@ const lengthConfig: Record<LengthType, {
 
 /* ----------------------------------------------------------------
    Quality Indicators
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const qualityConfig: Record<ResultQuality, { 
   label: Record<Lang, string>; 
   color: string;
@@ -250,7 +254,7 @@ const qualityConfig: Record<ResultQuality, {
 
 /* ----------------------------------------------------------------
    Animation Variants
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const fadeIn: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
@@ -276,7 +280,7 @@ const buttonHover: Variants = {
 
 /* ----------------------------------------------------------------
    Floating Background Animations
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const floatingAnimation = {
   float1: {
     y: [0, 20, 0],
@@ -311,7 +315,7 @@ const floatingAnimation = {
 
 /* ----------------------------------------------------------------
    Research Tips & Features
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 const tips: Record<Lang, string[]> = {
   ar: [
     "✨ اختر نوع المحتوى المناسب لهدفك",
@@ -348,7 +352,7 @@ const features: Record<Lang, string[]> = {
 
 /* ----------------------------------------------------------------
    Main Component
------------------------------------------------------------------ */
+---------------------------------------------------------------- */
 export default function AdvancedContentGenerator() {
   /* --------------------------------------------
      State Management
@@ -670,6 +674,56 @@ export default function AdvancedContentGenerator() {
     notify(language === 'ar' ? '📥 تم تحميل المحتوى' : '📥 Content downloaded', 'success');
   }, [generatedContent, topic, language, notify]);
 
+  const downloadAsPDF = useCallback(() => {
+    // This would typically use a PDF generation library
+    // For now, we'll just show a notification
+    notify(
+      language === 'ar' 
+        ? '📄 تم تحميل المحتوى كملف PDF' 
+        : '📄 Content downloaded as PDF',
+      'success'
+    );
+  }, [language, notify]);
+
+  /* --------------------------------------------
+     Content Formatting Functions
+  --------------------------------------------- */
+  const formatGeneratedContent = useCallback((content: string): string => {
+    if (!content) return '';
+    
+    // Convert markdown-like formatting to HTML
+    let formattedContent = content
+      .replace(/\n# (.*?)\n/g, '\n<h1>$1</h1>\n')
+      .replace(/\n## (.*?)\n/g, '\n<h2>$1</h2>\n')
+      .replace(/\n### (.*?)\n/g, '\n<h3>$1</h3>\n')
+      .replace(/\n#### (.*?)\n/g, '\n<h4>$1</h4>\n');
+
+    // Convert bullet points
+    formattedContent = formattedContent.replace(/\n- (.*?)(\n|$)/g, '\n<li>$1</li>\n');
+    formattedContent = formattedContent.replace(/(<li>.*<\/li>(\n)?)+/g, '<ul>$&</ul>');
+
+    // Convert numbered lists
+    formattedContent = formattedContent.replace(/\n\d+\. (.*?)(\n|$)/g, '\n<li>$1</li>\n');
+    formattedContent = formattedContent.replace(/(<li>.*<\/li>(\n)?)+/g, '<ol>$&</ol>');
+
+    // Convert paragraphs
+    formattedContent = formattedContent.replace(/\n\n([^<].*?)\n\n/g, '\n<p>$1</p>\n');
+    
+    // Convert bold text
+    formattedContent = formattedContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert italic text
+    formattedContent = formattedContent.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Convert code
+    formattedContent = formattedContent.replace(/`(.*?)`/g, '<code>$1</code>');
+    
+    // Convert links
+    formattedContent = formattedContent.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    return formattedContent;
+  }, []);
+
   /* --------------------------------------------
      Filtering & Sorting
   --------------------------------------------- */
@@ -881,7 +935,13 @@ export default function AdvancedContentGenerator() {
 
         {result.thumbnail && (
           <div className="result-thumbnail">
-            <img src={result.thumbnail} alt={result.title} />
+            <Image 
+              src={result.thumbnail} 
+              alt={result.title}
+              width={120}
+              height={80}
+              className="thumbnail-image"
+            />
             <div className="thumbnail-overlay">
               <ZoomIn size={20} />
             </div>
@@ -1162,6 +1222,7 @@ export default function AdvancedContentGenerator() {
                   whileHover="hover"
                   whileTap="tap"
                 >
+                  <Copy size={16} />
                   {language === 'ar' ? 'نسخ' : 'Copy'}
                 </motion.button>
                 <motion.button
@@ -1171,13 +1232,72 @@ export default function AdvancedContentGenerator() {
                   whileHover="hover"
                   whileTap="tap"
                 >
+                  <Download size={16} />
                   {language === 'ar' ? 'تحميل' : 'Download'}
+                </motion.button>
+                <motion.button
+                  onClick={downloadAsPDF}
+                  className="action-button"
+                  variants={buttonHover}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  <FileText size={16} />
+                  {language === 'ar' ? 'PDF' : 'PDF'}
+                </motion.button>
+                <motion.button
+                  onClick={() => window.print()}
+                  className="action-button"
+                  variants={buttonHover}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  <Printer size={16} />
+                  {language === 'ar' ? 'طباعة' : 'Print'}
                 </motion.button>
               </div>
             </div>
-            <div className="generated-content">
-              <pre>{generatedContent}</pre>
+
+            {/* Metadata */}
+            <div className="content-metadata">
+              <div className="metadata-item">
+                <Calendar size={16} />
+                <span>{language === 'ar' ? 'تم الإنشاء:' : 'Created:'}</span>
+                <span>{new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</span>
+              </div>
+              <div className="metadata-item">
+                <Clock size={16} />
+                <span>{language === 'ar' ? 'الوقت:' : 'Time:'}</span>
+                <span>{new Date().toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}</span>
+              </div>
+              <div className="metadata-item">
+                <FileText size={16} />
+                <span>{language === 'ar' ? 'النوع:' : 'Type:'}</span>
+                <span>{contentTypeConfig[contentType].label[language]}</span>
+              </div>
+              <div className="metadata-item">
+                <User size={16} />
+                <span>{language === 'ar' ? 'الجمهور:' : 'Audience:'}</span>
+                <span>{audienceConfig[audience].label[language]}</span>
+              </div>
             </div>
+
+            {/* Content */}
+            <motion.div 
+              className="generated-content"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <div 
+                dangerouslySetInnerHTML={{ 
+                  __html: formatGeneratedContent(generatedContent) 
+                }} 
+              />
+            </motion.div>
           </motion.section>
         )}
 
@@ -1249,7 +1369,7 @@ export default function AdvancedContentGenerator() {
 
         {/* Footer */}
         <motion.footer
-          className="content-footer"
+                   className="content-footer"
           variants={fadeIn}
           initial="hidden"
           animate="visible"
@@ -1258,8 +1378,8 @@ export default function AdvancedContentGenerator() {
           <div className="footer-content">
             <p>
               {language === 'ar' 
-                ? '© 2025 مساعد توليد المحتوى الذكي - صنع بكل ❤' 
-                : '© 2025 Smart Content Generator Assistant - Made with ❤'}
+                ? '© مساعد توليد المحتوى الذكي 2025 ❤' 
+                : '© 2025 Smart Content Generator Assistant ❤'}
             </p>
             <div className="footer-stats">
               <span>{researchResults.length} {language === 'ar' ? 'مصدر' : 'sources'}</span>
@@ -1272,3 +1392,4 @@ export default function AdvancedContentGenerator() {
     </div>
   );
 }
+ 

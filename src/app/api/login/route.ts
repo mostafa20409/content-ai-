@@ -2,25 +2,38 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
 import { connectToDB } from "@/lib/connectToDB";
 import User from "@/models/User";
 import { checkRateLimit } from "@/lib/rateLimit";
 
-// بديل أكثر أماناً - تجاوز مشكلة TypeScript تماماً
-function createJWT(payload: object): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error("JWT_SECRET غير معرف");
-  }
+// التحقق من وجود متغيرات البيئة الضرورية
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET غير معرف في متغيرات البيئة");
+}
 
-  // استخدام any لتجاوز مشكلة TypeScript بشكل كامل
-  const jwtAny = jwt as any;
-  return jwtAny.sign(payload, secret, { expiresIn: process.env.JWT_EXPIRES_IN || "1d" });
+function createJWT(payload: object): string {
+  const secret = process.env.JWT_SECRET as string;
+  
+  // استخدام الطريقة الصحيحة لإنشاء التوكن
+  return jwt.sign(payload, secret, { 
+    expiresIn: process.env.JWT_EXPIRES_IN || "1d",
+    algorithm: "HS256" // تحديد الخوارزمية بشكل صريح
+  } as jwt.SignOptions);
 }
 
 export async function POST(req: Request) {
   try {
+    // التحقق من اتصال قاعدة البيانات أولاً
+    try {
+      await connectToDB();
+    } catch (dbError) {
+      console.error("❌ Database connection error:", dbError);
+      return NextResponse.json(
+        { error: "تعذر الاتصال بقاعدة البيانات" },
+        { status: 500 }
+      );
+    }
+
     // الحصول على IP العميل (لـ Rate Limiting)
     const forwarded = req.headers.get('x-forwarded-for');
     const realIp = req.headers.get('x-real-ip');
@@ -52,7 +65,15 @@ export async function POST(req: Request) {
     }
 
     // معالجة الجسم مباشرة
-    const body = await req.json().catch(() => null);
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: "تنسيق JSON غير صالح في الجسم المرسل" },
+        { status: 400 }
+      );
+    }
     
     if (!body || !body.email || !body.password) {
       return NextResponse.json(
@@ -88,9 +109,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    // الاتصال بقاعدة البيانات
-    await connectToDB();
 
     // البحث عن المستخدم باستخدام البريد المعالج (تطبيع البريد)
     const normalizedEmail = email.toLowerCase().trim();
@@ -131,22 +149,12 @@ export async function POST(req: Request) {
     const token = createJWT(tokenPayload);
     const maxAge = parseInt(process.env.JWT_COOKIE_EXPIRES_IN || "86400", 10);
 
-    // حفظ الكوكي - يجب استخدام await مع cookies()
-    const cookieStore = await cookies();
-    cookieStore.set("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: maxAge,
-    });
-
     // تحديث آخر تسجيل دخول (بدون انتظار الحفظ)
     user.lastLogin = new Date();
     user.save({ validateBeforeSave: false }).catch(console.error);
 
-    // الرد الناجح
-    return NextResponse.json({
+    // الرد الناجح مع تعيين الكوكي باستخدام NextResponse
+    const response = NextResponse.json({
       success: true,
       message: "تم تسجيل الدخول بنجاح",
       redirect: "/dashboard",
@@ -157,6 +165,17 @@ export async function POST(req: Request) {
         role: user.role || "user",
       },
     });
+
+    // تعيين الكوكي في الاستجابة
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: maxAge,
+    });
+
+    return response;
 
   } catch (error: any) {
     console.error("❌ Unexpected error:", error);

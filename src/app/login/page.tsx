@@ -18,6 +18,7 @@ const locales = {
     requiredField: "This field is required.",
     networkError: "Network error. Please check your connection and try again.",
     serverError: "Server error. Please try again later.",
+    tooManyRequests: "Too many attempts. Please try again later.",
   },
   ar: {
     loginTitle: "تسجيل الدخول إلى حسابك",
@@ -33,6 +34,7 @@ const locales = {
     requiredField: "هذا الحقل مطلوب.",
     networkError: "خطأ في الشبكة. يرجى التحقق من اتصالك والمحاولة مرة أخرى.",
     serverError: "خطأ في الخادم. يرجى المحاولة مرة أخرى لاحقاً.",
+    tooManyRequests: "تم تجاوز عدد المحاولات المسموحة. يرجى المحاولة مرة أخرى لاحقاً.",
   },
 };
 
@@ -41,8 +43,8 @@ export default function LoginPage() {
   const t = locales[lang];
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("test@example.com"); // إضافة قيمة افتراضية للتجربة
+  const [password, setPassword] = useState("password"); // إضافة قيمة افتراضية للتجربة
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<{ email?: string; password?: string; general?: string }>({});
   const [loading, setLoading] = useState(false);
@@ -100,11 +102,19 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
+      // التحقق من حالة الرد
+      if (res.status === 429) {
+        setError({ general: t.tooManyRequests });
+        setLoading(false);
+        return;
+      }
+
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
         console.error("Non-JSON response:", text.substring(0, 200));
         setError({ general: t.serverError });
+        setLoading(false);
         return;
       }
 
@@ -112,6 +122,7 @@ export default function LoginPage() {
 
       if (!res.ok) {
         setError({ general: data.error || data.message || t.serverError });
+        setLoading(false);
         return;
       }
 
@@ -119,11 +130,11 @@ export default function LoginPage() {
         router.push(data.redirect || "/dashboard");
       } else {
         setError({ general: data.error || "Login failed" });
+        setLoading(false);
       }
     } catch (err: any) {
       console.error("Login error:", err);
       setError({ general: t.networkError });
-    } finally {
       setLoading(false);
     }
   };
@@ -385,6 +396,20 @@ export default function LoginPage() {
           >
             {t.createAccount}
           </a>
+        </div>
+
+        {/* إضافة معلومات للمساعدة في التصحيح */}
+        <div style={{
+          marginTop: '20px',
+          padding: '10px',
+          background: '#f5f5f5',
+          borderRadius: '6px',
+          fontSize: '12px',
+          color: '#666'
+        }}>
+          <strong>لتجربة الدخول:</strong><br />
+          البريد: test@example.com<br />
+          كلمة المرور: password
         </div>
       </div>
     </div>

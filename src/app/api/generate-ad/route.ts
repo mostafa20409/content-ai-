@@ -11,6 +11,13 @@ const RATE_LIMIT = { MAX: 20, WINDOW: 60 * 1000 }; // زيادة الحد إلى
 const GROQ_API_BASE = 'https://api.groq.com/openai/v1';
 const GROQ_CHAT_ENDPOINT = '/chat/completions';
 
+// ✅ نماذج API المحدثة
+const API_MODELS = {
+  groq: 'llama-3.1-8b-instant', // نموذج نصي مناسب
+  deepseek: 'deepseek-chat',
+  openai: 'gpt-4'
+};
+
 // ✅ أنواع المنصات المتاحة
 const PLATFORM_TYPES = {
   facebook: 'فيسبوك',
@@ -81,7 +88,7 @@ async function validateGroqAPI(apiKey: string): Promise<boolean> {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: API_MODELS.groq, // استخدام النموذج المحدث
         messages: [{ role: "user", content: "Hello" }],
         max_tokens: 5,
         stream: false
@@ -288,7 +295,7 @@ function createMarketAnalysisPrompt(
           "adExamples": ["مثال إعلان 1", "مثال إعلان 2"]
         }
       ],
-      "trends": ["اتجاه 1", "اتجاه 2", "اتجاه 3", "اتجاه 4", "اتجاه 5"],
+      "trends": ["اتجاه 1", "اتجاه 2", "اتجاه 3", "توجيه 4", "اتجاه 5"],
       "audienceInsights": ["رؤية 1", "رؤية 2", "رؤية 3"],
       "recommendations": ["توصية 1", "توصية 2", "توصية 3", "توصية 4", "توصية 5"],
       "socialMediaTrends": [
@@ -337,7 +344,7 @@ function createMarketAnalysisPrompt(
       "socialMediaTrends": [
         {
           "platform": "youtube",
-          "trendingContent": ["Topic 极", "Topic 2", "Topic 3"],
+          "trendingContent": ["Topic 1", "Topic 2", "Topic 3"],
           "engagementRate": 15.5,
           "popularHashtags": ["Hashtag1", "Hashtag2", "Hashtag3"]
         },
@@ -479,7 +486,7 @@ export async function POST(req: Request) {
         "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: API_MODELS.groq, // استخدام النموذج المحدث
         messages: [
           { 
             role: "system", 
@@ -593,11 +600,11 @@ export async function POSTAnalyzeMarket(req: Request) {
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: API_MODELS.groq, // استخدام النموذج المحدث
         messages: [
           { 
             role: "system", 
@@ -681,6 +688,7 @@ export async function GET() {
     provider: 'Groq API',
     hasApiKey: hasApiKey,
     platformTypes: PLATFORM_TYPES,
-    rateLimit: `${RATE_LIMIT.MAX} requests per ${RATE_LIMIT.WINDOW/1000} seconds`
+    rateLimit: `${RATE_LIMIT.MAX} requests per ${RATE_LIMIT.WINDOW/1000} seconds`,
+    currentModel: API_MODELS.groq
   });
 }

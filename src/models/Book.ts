@@ -9,6 +9,7 @@ export interface IBook extends Document {
   language: string;        // لغة الكتاب (مثال: ar, en, la)
   genre?: string;          // التصنيف (خيالي، تاريخي، إلخ)
   chapters: {
+    imageUrl: any;
     title: string;
     content: string;
   }[];

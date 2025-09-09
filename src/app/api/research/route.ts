@@ -1,3 +1,4 @@
+// app/api/research/route.ts
 import { NextResponse } from 'next/server';
 
 // أنواع البيانات
@@ -26,15 +27,69 @@ interface ResearchResponse {
 
 // إعدادات البحث
 const SEARCH_CONFIG = {
-  timeout: 10000, // 10 ثواني لكل طلب
+  timeout: 15000, // زيادة المهلة إلى 15 ثانية
   maxResults: 5, // أقصى عدد نتائج لكل مصدر
   fallbackEnabled: true // تمكين البحث الاحتياطي
 };
 
+// مهلات مخصصة لكل مصدر
+const SOURCE_TIMEOUTS: { [key: string]: number } = {
+  web: 10000,
+  youtube: 10000,
+  news: 10000,
+  academic: 20000, // مهلة أطول للبحث الأكاديمي
+  wikipedia: 10000
+};
+
+// ذاكرة تخزين مؤقت للطلبات
+const requestCache = new Map();
+const RATE_LIMIT = {
+  MAX_REQUESTS: 5,
+  WINDOW_MS: 60 * 1000 // 60 ثانية
+};
+
+// دالة للتحقق من معدل الطلبات
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT.WINDOW_MS;
+  
+  // تنظيف الطلبات القديمة
+  for (const [key, timestamp] of requestCache.entries()) {
+    if (timestamp < windowStart) {
+      requestCache.delete(key);
+    }
+  }
+  
+  // عد الطلبات الحالية
+  const requestCount = Array.from(requestCache.values()).filter(
+    timestamp => timestamp >= windowStart
+  ).length;
+  
+  if (requestCount >= RATE_LIMIT.MAX_REQUESTS) {
+    return false;
+  }
+  
+  // إضافة الطلب الحالي
+  requestCache.set(ip, now);
+  return true;
+}
+
 export async function POST(req: Request) {
   const startTime = Date.now();
+  const clientIP = req.headers.get('x-forwarded-for') || '127.0.0.1';
   
   try {
+    // التحقق من معدل الطلبات
+    if (!checkRateLimit(clientIP)) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'لقد تجاوزت عدد الطلبات المسموح بها. يرجى الانتظار قليلاً.'
+        },
+        { status: 429 }
+      );
+    }
+
     const { topic, sources = ['web', 'youtube', 'news'] } = await req.json();
 
     // التحقق من صحة البيانات
@@ -141,8 +196,9 @@ async function searchWithTimeout<T>(
   sourceName: string
 ): Promise<T[]> {
   try {
+    const timeout = SOURCE_TIMEOUTS[sourceName] || SEARCH_CONFIG.timeout;
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timeout exceeded for ${sourceName}`)), SEARCH_CONFIG.timeout)
+      setTimeout(() => reject(new Error(`Timeout exceeded for ${sourceName}`)), timeout)
     );
 
     return await Promise.race([searchFunction(), timeoutPromise]);
@@ -152,7 +208,7 @@ async function searchWithTimeout<T>(
   }
 }
 
-// البحث في الويب - محسّن
+// البحث في الويب - محسّن مع معالجة الأخطاء
 async function searchWeb(query: string): Promise<SearchResult[]> {
   if (!process.env.BRAVE_SEARCH_API_KEY) {
     console.warn('Brave Search API key not configured');
@@ -161,15 +217,16 @@ async function searchWeb(query: string): Promise<SearchResult[]> {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), SEARCH_CONFIG.timeout);
+    const timeoutId = setTimeout(() => controller.abort(), SOURCE_TIMEOUTS.web);
 
     const response = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${SEARCH_CONFIG.maxResults}`,
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=3`, // تقليل عدد النتائج لتجنب 429
       {
         headers: {
           'Accept': 'application/json',
           'X-Subscription-Token': process.env.BRAVE_SEARCH_API_KEY,
-          'User-Agent': 'Research-Assistant/1.0'
+          'User-Agent': 'Research-Assistant/1.0',
+          'Accept-Language': 'ar,en;q=0.9'
         },
         signal: controller.signal
       }
@@ -177,13 +234,19 @@ async function searchWeb(query: string): Promise<SearchResult[]> {
 
     clearTimeout(timeoutId);
 
+    if (response.status === 429) {
+      console.warn('Brave API rate limit exceeded');
+      return []; // إرجاع مصفوفة فارغة بدلاً من الخطأ
+    }
+
     if (!response.ok) {
-      throw new Error(`Brave API responded with status: ${response.status}`);
+      console.warn(`Brave API responded with status: ${response.status}`);
+      return [];
     }
 
     const data = await response.json();
     
-    return data.web?.results?.slice(0, SEARCH_CONFIG.maxResults).map((result: any) => ({
+    return data.web?.results?.slice(0, 3).map((result: any) => ({
       title: result.title,
       description: result.description,
       url: result.url,
@@ -209,9 +272,15 @@ async function searchYouTube(query: string): Promise<SearchResult[]> {
     // المحاولة الأولى: YouTube API الرسمي
     if (process.env.YOUTUBE_API_KEY) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), SOURCE_TIMEOUTS.youtube);
+        
         const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&maxResults=${SEARCH_CONFIG.maxResults}&type=video&key=${process.env.YOUTUBE_API_KEY}`
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&maxResults=3&type=video&key=${process.env.YOUTUBE_API_KEY}`,
+          { signal: controller.signal }
         );
+        
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           const data = await response.json();
@@ -230,35 +299,16 @@ async function searchYouTube(query: string): Promise<SearchResult[]> {
       }
     }
 
-    // المحاولة الثانية: استخدام Brave Search إذا لم نحصل على نتائج كافية
-    if (results.length < SEARCH_CONFIG.maxResults && process.env.BRAVE_SEARCH_API_KEY) {
+    // إذا لم نحصل على نتائج كافية، نستخدم بحث Wikipedia كبديل
+    if (results.length < 2) {
       try {
-        const response = await fetch(
-          `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query + " site:youtube.com")}`,
-          {
-            headers: {
-              'Accept': 'application/json',
-              'X-Subscription-Token': process.env.BRAVE_SEARCH_API_KEY
-            }
-          }
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          const youtubeResults = data.web?.results
-            ?.filter((result: any) => result.url.includes('youtube.com/watch?v='))
-            .slice(0, SEARCH_CONFIG.maxResults - results.length)
-            .map((result: any) => ({
-              title: result.title,
-              description: result.description,
-              url: result.url,
-              source: 'youtube'
-            })) || [];
-          
-          results.push(...youtubeResults);
-        }
+        const wikiResults = await searchWikipedia(query + " يوتيوب");
+        results.push(...wikiResults.slice(0, 2).map(result => ({
+          ...result,
+          source: 'youtube'
+        })));
       } catch (error) {
-        console.log('Brave YouTube search failed...');
+        console.log('YouTube fallback search failed...');
       }
     }
 
@@ -266,7 +316,7 @@ async function searchYouTube(query: string): Promise<SearchResult[]> {
     console.error('YouTube search error:', error);
   }
 
-  return results.slice(0, SEARCH_CONFIG.maxResults);
+  return results.slice(0, 3);
 }
 
 // البحث في الأخبار - محسّن
@@ -277,17 +327,24 @@ async function searchNews(query: string): Promise<SearchResult[]> {
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SOURCE_TIMEOUTS.news);
+
     const response = await fetch(
-      `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=ar&pageSize=${SEARCH_CONFIG.maxResults}&apiKey=${process.env.NEWS_API_KEY}`
+      `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=ar&pageSize=3&apiKey=${process.env.NEWS_API_KEY}`,
+      { signal: controller.signal }
     );
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      throw new Error(`News API responded with status: ${response.status}`);
+      console.warn(`News API responded with status: ${response.status}`);
+      return [];
     }
 
     const data = await response.json();
     
-    return data.articles?.slice(0, SEARCH_CONFIG.maxResults).map((article: any) => ({
+    return data.articles?.slice(0, 3).map((article: any) => ({
       title: article.title,
       description: article.description,
       url: article.url,
@@ -306,15 +363,21 @@ async function searchNews(query: string): Promise<SearchResult[]> {
 // البحث الأكاديمي - محسّن
 async function searchAcademic(query: string): Promise<SearchResult[]> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SOURCE_TIMEOUTS.academic);
+
     // استخدام CrossRef API للبحث الأكاديمي (مجاني)
     const response = await fetch(
-      `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${SEARCH_CONFIG.maxResults}`
+      `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=3`,
+      { signal: controller.signal }
     );
+
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const data = await response.json();
       
-      return data.message?.items?.slice(0, SEARCH_CONFIG.maxResults).map((item: any) => ({
+      return data.message?.items?.slice(0, 3).map((item: any) => ({
         title: item.title?.[0] || 'No title',
         description: item.abstract || `Published in: ${item['container-title']?.[0] || 'Unknown journal'}`,
         url: item.URL,
@@ -333,9 +396,15 @@ async function searchAcademic(query: string): Promise<SearchResult[]> {
 // بحث Wikipedia الجديد
 async function searchWikipedia(query: string): Promise<SearchResult[]> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SOURCE_TIMEOUTS.wikipedia);
+
     const response = await fetch(
-      `https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=${SEARCH_CONFIG.maxResults}&format=json&utf8=1`
+      `https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=5&format=json&utf8=1`,
+      { signal: controller.signal }
     );
+
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const data = await response.json();
@@ -354,8 +423,6 @@ async function searchWikipedia(query: string): Promise<SearchResult[]> {
   return [];
 }
 
-// دالة بحث احتياطية
-
 // دالة للتحقق من توفر APIs
 export async function GET() {
   const availableSources = {
@@ -369,7 +436,12 @@ export async function GET() {
   return NextResponse.json({
     status: '🟢 API is operational',
     availableSources,
-    maxResults: SEARCH_CONFIG.maxResults,
-    timeout: SEARCH_CONFIG.timeout
+    maxResults: 3, // تقليل عدد النتائج
+    timeout: SEARCH_CONFIG.timeout,
+    sourceTimeouts: SOURCE_TIMEOUTS,
+    rateLimit: {
+      maxRequests: RATE_LIMIT.MAX_REQUESTS,
+      windowMs: RATE_LIMIT.WINDOW_MS
+    }
   });
 }

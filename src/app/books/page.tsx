@@ -1,6 +1,8 @@
+// app/page.tsx
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import "./BooksPage.css";
 
 /* ---------- الأنواع والواجهات ---------- */
@@ -10,10 +12,11 @@ type Chapter = {
   description: string;
   content: string;
   estimatedWords?: number;
+  imageUrl?: string;
+  imageDescription?: string;
 };
-type PlanLimits = { adsPerMonth: number; booksPerMonth: number; wordsPerMonth: number };
 type LangKey = "ar" | "en";
-type BookType = "RELIGIOUS" | "PHILOSOPHICAL" | "HORROR" | "SCIENTIFIC" | "HISTORICAL" | "LITERARY" | "SELF_DEVELOPMENT" | "ROMANCE" | "BIOGRAPHY" | "CHILDREN";
+type BookType = "RELIGIOUS" | "PHILOSOPHICAL" | "HORROR" | "SCIENTIFIC" | "HISTORICAL" | "LITERARY" | "SELF_DEVELOPMENT" | "ROMANCE" | "BIOGRAPHY" | "CHILDREN" | "REAL_STORY";
 
 type BookState = {
   title: string;
@@ -31,18 +34,18 @@ type BookState = {
   notice: string | null;
   editingChapter: Chapter | null;
   autoSaveStatus: "idle" | "saving" | "saved";
-  includeExamples: boolean;
   authorName: string;
   currentStep: number;
+  coverUrl: string | null;
+  coverDescription: string;
+  generatingCover: boolean;
+  totalWords: number;
+  generatingChapterImages: boolean;
+  authorStyle: "professional" | "academic" | "creative" | "conversational" | "formal";
+  saveToLibrary: boolean;
 };
 
 /* ---------- القيم الافتراضية والمساعدات ---------- */
-const DEFAULT_LIMITS: Record<string, PlanLimits> = {
-  free: { adsPerMonth: 5, booksPerMonth: 1, wordsPerMonth: 30000 },
-  pro: { adsPerMonth: 100, booksPerMonth: 12, wordsPerMonth: 500000 },
-  premium: { adsPerMonth: 9999, booksPerMonth: 9999, wordsPerMonth: 9999999 },
-};
-
 const BOOK_TYPES = {
   RELIGIOUS: "ديني",
   PHILOSOPHICAL: "فلسفي", 
@@ -53,7 +56,16 @@ const BOOK_TYPES = {
   SELF_DEVELOPMENT: "تطوير ذاتي",
   ROMANCE: "رومانسي",
   BIOGRAPHY: "سيرة ذاتية",
-  CHILDREN: "أطفال"
+  CHILDREN: "أطفال",
+  REAL_STORY: "قصه حقيقيه"
+} as const;
+
+const AUTHOR_STYLES = {
+  professional: "احترافي",
+  academic: "أكاديمي",
+  creative: "إبداعي",
+  conversational: "محادثة",
+  formal: "رسمي"
 } as const;
 
 const generateId = (prefix = "c") => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -97,12 +109,10 @@ const TRANSLATIONS = {
     downloadPromptTitle: "تحميل كتاب كملف نصي",
     downloadPromptMsg: "سيتم تنزيل ملف TXT يحتوي على محتوى الكتاب.",
     previewTitle: "عرض سريع",
-    includeExamples: "تضمين أمثلة واقعية",
     authorNameLabel: "اسم الكاتب *",
     addChapter: "إضافة فصل",
-    researchExamples: "أمثلة بحثية",
     advancedOptions: "خيارات متقدمة",
-    saveToLibrary: "حفظ في المكتبة",
+    saveToLibraryLabel: "حفظ في المكتبة",
     step1: "معلومات الكتاب الأساسية",
     step2: "إعداد الفصول",
     step3: "توليد المحتوى",
@@ -112,7 +122,35 @@ const TRANSLATIONS = {
     prevStep: "السابق",
     startGenerating: "ابدأ التوليد",
     welcomeTitle: "مرحباً بك في منصة كتاب.آي",
-    welcomeDesc: "منصة متكاملة لإنشاء الكتب الذكية باستخدام الذكاء الاصطناعي"
+    welcomeDesc: "منصة متكاملة لإنشاء الكتب الذكية باستخدام الذكاء الاصطناعي",
+    connectionError: "فشل الاتصال بخدمة الذكاء الاصطناعي. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.",
+    offlineMode: "الوضع غير المتصل",
+    useOfflineContent: "استخدام المحتوى التجريبي",
+    offlineContentNotice: "يتم استخدام محتوى تجريبي لأغراض العرض فقط",
+    booksPerMonth: "الكتب شهرياً",
+    wordsPerMonth: "الكلمات شهرياً",
+    warning: "تحذير",
+    chapterWarning: "يجب إضافة وصف مفصل لكل فصل (20 كلمة على الأقل) للحصول على نتائج أفضل",
+    coverDescriptionLabel: "وصف غلاف الكتاب (40 كلمة كحد أقصى)",
+    generateCoverBtn: "توليد غلاف الكتاب",
+    generatingCover: "جاري توليد الغلاف...",
+    coverPlaceholder: "صف كيف تريد أن يبدو غلاف كتابك (لون، تصميم، عناصر، إلخ)",
+    coverPreview: "معاينة الغلاف",
+    maxWordsWarning: "الحد الأقصى 40 كلمة",
+    totalWords: "إجمالي الكلمات",
+    words: "كلمات",
+    generateChapterImages: "توليد صور للفصول",
+    generatingChapterImages: "جاري توليد صور الفصول...",
+    chapterImageLabel: "وصف صورة الفصل (اختياري)",
+    chapterImagePlaceholder: "صف كيف تريد أن تبدو صورة هذا الفصل",
+    chapterImagePreview: "صورة الفصل",
+    maxChapterImages: "الحد الأقصى 2 صورة للفصل الواحد",
+    authorStyleLabel: "أسلوب الكتابة",
+    professionalStyle: "احترافي",
+    academicStyle: "أكاديمي",
+    creativeStyle: "إبداعي",
+    conversationalStyle: "محادثة",
+    formalStyle: "رسمي"
   },
   en: {
     brand: "Book.AI",
@@ -147,12 +185,10 @@ const TRANSLATIONS = {
     downloadPromptTitle: "Download book as TXT",
     downloadPromptMsg: "A TXT file containing the book content will be downloaded.",
     previewTitle: "Quick preview",
-    includeExamples: "Include real examples",
     authorNameLabel: "Author Name *",
     addChapter: "Add Chapter",
-    researchExamples: "Research Examples",
     advancedOptions: "Advanced Options",
-    saveToLibrary: "Save to Library",
+    saveToLibraryLabel: "Save to Library",
     step1: "Basic Book Information",
     step2: "Chapter Setup",
     step3: "Content Generation",
@@ -162,9 +198,97 @@ const TRANSLATIONS = {
     prevStep: "Previous",
     startGenerating: "Start Generation",
     welcomeTitle: "Welcome to Book.AI Platform",
-    welcomeDesc: "A comprehensive platform for creating smart books using AI"
+    welcomeDesc: "A comprehensive platform for creating smart books using AI",
+    connectionError: "Failed to connect to AI service. Please check your internet connection and try again.",
+    offlineMode: "Offline Mode",
+    useOfflineContent: "Use sample content",
+    offlineContentNotice: "Using sample content for demonstration purposes only",
+    booksPerMonth: "Books per month",
+    wordsPerMonth: "Words per month",
+    warning: "Warning",
+    chapterWarning: "Please add detailed description for each chapter (at least 20 words) for better results",
+    coverDescriptionLabel: "Book cover description (max 40 words)",
+    generateCoverBtn: "Generate Book Cover",
+    generatingCover: "Generating cover...",
+    coverPlaceholder: "Describe how you want your book cover to look (color, design, elements, etc.)",
+    coverPreview: "Cover Preview",
+    maxWordsWarning: "Maximum 40 words",
+    totalWords: "Total Words",
+    words: "words",
+    generateChapterImages: "Generate chapter images",
+    generatingChapterImages: "Generating chapter images...",
+    chapterImageLabel: "Chapter image description (optional)",
+    chapterImagePlaceholder: "Describe how you want this chapter image to look",
+    chapterImagePreview: "Chapter Image",
+    maxChapterImages: "Maximum 2 images per chapter",
+    authorStyleLabel: "Writing Style",
+    professionalStyle: "Professional",
+    academicStyle: "Academic",
+    creativeStyle: "Creative",
+    conversationalStyle: "Conversational",
+    formalStyle: "Formal"
   },
 } as const;
+
+// محتوى تجريبي للاستخدام في وضع عدم الاتصال
+const SAMPLE_CONTENT = {
+  ar: {
+    chapters: [
+      {
+        title: "مقدمة في الكتابة",
+        content: `الكتابة هي فن التعبير عن الأفكار والمشاعر باستخدام الكلمات. تمتلك الكتابة قوة سحرية تمكن الكاتب من نقل تجاربه ورؤيته للعالم إلى القارئ. في هذا الفصل، سنستكشف الأساسيات التي يحتاجها كل كاتب مبتدئ لبدء رحلته في عالم التأليف.
+
+تتطلب الكتابة الجودة الممارسة المستمرة والقراءة الواسعة. كلما قرأت أكثر، كلما اكتسبت أدوات أكثر للتعبير عن أفكارك بطلاقة ووضوح. ليس المهم فقط ما تكتبه، ولكن كيف تكتبه والأسلوب الذي تتبناه في صياغة جملك.
+
+ستتعلم في هذا الفصل كيفية تنظيم أفكارك، وإنشاء مخطط أولي لكتابك، والتغلب على عقبات الكاتب التي يواجهها الكثيرون في البداية.`
+      },
+      {
+        title: "بناء الشخصيات في الرواية",
+        content: `الشخصيات هي قلب أي قصة روائية. بدون شخصيات ذات عمق ومصداقية، تفقد القصة بريقها وقدرتها على جذب القارئ. في هذا الفصل، سنتعمق في فن创建 شخصيات لا تنسى.
+
+أولاً، يجب أن تمتلك الشخصية دافعًا واضحًا وأهدافًا تسعى لتحقيقها. ثانيًا، تحتاج إلى خلفية تاريخية تشرح تصرفاتها وتفكيرها. ثالثًا، يجب أن تكون هناك تطورات في الشخصية مع تقدم الأحداث.
+
+سنتعلم أيضًا كيفية كتابة الحوار المقنع الذي يعكس شخصية المتحدث، وكيفية وصف الملامح والإيمونات التي تعبر عن حالة الشخصية العاطفية دون الحاجة إلى شرح مباشر.`
+      },
+      {
+        title: "الخاتمة والإرث",
+        content: `إنهاء الكتاب بشكل مناسب هو تحدي يواجه العديد من الكتاب. الخاتمة الجيدة تترك أثرًا دائمًا في ذهن القارئ وتغلق جميع الأقواس الدرامية التي فتحت خلال القصة.
+
+في هذا الفصل، سنناقش أنواع النهايات المختلفة: النهايات المفتوحة التي تترك مجالاً للتخيل، النهايات المغلقة التي تقدم حلًا نهائيًا لكل الأسئلة، والنهايات المفاجئة التي تغير منظور القارئ للقصة بأكملها.
+
+سنتعلم أيضًا كيفية كتابة خاتمة تليق بالرحلة التي مر بها القارئ، وتوفر الإشباع العاطفي مع ترك بعض الأسئلة الفلسفية للتفكير فيها بعد انتهاء القراءة.`
+      }
+    ]
+  },
+  en: {
+    chapters: [
+      {
+        title: "Introduction to Writing",
+        content: `Writing is the art of expressing ideas and emotions using words. It possesses a magical power that enables the writer to transfer their experiences and worldview to the reader. In this chapter, we will explore the fundamentals that every beginner writer needs to start their journey in the world of authorship.
+
+Good writing requires continuous practice and extensive reading. The more you read, the more tools you acquire to express your ideas fluently and clearly. It's not only important what you write, but how you write it and the style you adopt in formulating your sentences.
+
+In this chapter, you will learn how to organize your ideas, create an initial outline for your book, and overcome writer's block that many face at the beginning.`
+      },
+      {
+        title: "Character Building in Novels",
+        content: `Characters are the heart of any novel story. Without characters with depth and credibility, the story loses its luster and its ability to attract the reader. In this chapter, we will delve into the art of creating unforgettable characters.
+
+First, the character must have a clear motivation and goals to achieve. Second, they need a historical background that explains their actions and thinking. Third, there must be developments in the character as events progress.
+
+We will also learn how to write convincing dialogue that reflects the speaker's personality, and how to describe features and gestures that express the character's emotional state without the need for direct explanation.`
+      },
+      {
+        title: "Conclusion and Legacy",
+        content: `Ending a book appropriately is a challenge many writers face. A good conclusion leaves a lasting impression in the reader's mind and closes all the dramatic arcs opened during the story.
+
+In this chapter, we will discuss different types of endings: open endings that leave room for imagination, closed endings that provide a final solution to all questions, and surprising endings that change the reader's perspective of the entire story.
+
+We will also learn how to write a conclusion worthy of the journey the reader has undergone, providing emotional satisfaction while leaving some philosophical questions to ponder after finishing reading.`
+      }
+    ]
+  }
+};
 
 /* ---------- المكون الرئيسي ---------- */
 export default function BooksPage() {
@@ -186,14 +310,20 @@ export default function BooksPage() {
     notice: null,
     editingChapter: null,
     autoSaveStatus: "idle",
-    includeExamples: true,
     authorName: "",
-    currentStep: 1
+    currentStep: 1,
+    coverUrl: null,
+    coverDescription: "",
+    generatingCover: false,
+    totalWords: 0,
+    generatingChapterImages: false,
+    authorStyle: "professional",
+    saveToLibrary: true
   });
 
-  const limits = DEFAULT_LIMITS[state.plan];
   const genCancelRef = useRef<{ cancelled?: boolean }>({ cancelled: false });
   const autosaveTimer = useRef<number | null>(null);
+  const prevStateRef = useRef<Partial<BookState>>({});
 
   // حساب عدد الكلمات
   const wordCount = useMemo(() => {
@@ -264,7 +394,8 @@ export default function BooksPage() {
             error: null,
             notice: null,
             editingChapter: null,
-            autoSaveStatus: "idle"
+            autoSaveStatus: "idle",
+            generatingChapterImages: false
           }));
         } else {
           setState(prev => ({ ...prev, lang, darkMode, plan }));
@@ -283,7 +414,7 @@ export default function BooksPage() {
     document.documentElement.setAttribute("data-theme", state.darkMode ? "dark" : "light");
   }, [state.lang, state.darkMode]);
 
-  // الحفظ التلقائي
+  // الحفظ التلقائي - تم التصحيح لمنع التكرار اللانهائي
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -291,28 +422,35 @@ export default function BooksPage() {
       clearTimeout(autosaveTimer.current);
     }
 
-    setState(prev => ({ ...prev, autoSaveStatus: "saving" }));
+    // الحفظ فقط عند تغيير البيانات المهمة، وليس عند كل تغيير في state
+    const shouldSave = 
+      state.title !== prevStateRef.current?.title ||
+      state.description !== prevStateRef.current?.description ||
+      state.chapters !== prevStateRef.current?.chapters ||
+      state.authorName !== prevStateRef.current?.authorName;
 
-    autosaveTimer.current = window.setTimeout(() => {
-      try {
-        const { generating, progressPercent, error, notice, editingChapter, autoSaveStatus, ...toSave } = state;
-        localStorage.setItem("book:draft:v4", JSON.stringify(toSave));
-        setState(prev => ({ ...prev, autoSaveStatus: "saved" }));
-        setTimeout(() => setState(prev => ({ ...prev, autoSaveStatus: "idle" })), 900);
-      } catch (e) {
-        console.error("Autosave failed", e);
-        setState(prev => ({ ...prev, autoSaveStatus: "idle" }));
-      }
-    }, 1000);
+    if (shouldSave) {
+      autosaveTimer.current = window.setTimeout(() => {
+        try {
+          const { generating, progressPercent, error, notice, editingChapter, autoSaveStatus, generatingChapterImages, ...toSave } = state;
+          localStorage.setItem("book:draft:v4", JSON.stringify(toSave));
+          setState(prev => ({ ...prev, autoSaveStatus: "saved" }));
+          setTimeout(() => setState(prev => ({ ...prev, autoSaveStatus: "idle" })), 2000);
+        } catch (e) {
+          console.error("Autosave failed", e);
+          setState(prev => ({ ...prev, autoSaveStatus: "idle" }));
+        }
+      }, 2000); // زيادة وقت التأخير إلى 2 ثانية
+    }
+
+    prevStateRef.current = state;
 
     return () => {
       if (autosaveTimer.current) {
         clearTimeout(autosaveTimer.current);
       }
     };
-  }, [state.title, state.subtitle, state.description, state.bookType, state.chapters, 
-      state.chaptersCount, state.lang, state.plan, state.includeExamples, 
-      state.authorName]);
+  }, [state.title, state.description, state.chapters, state.authorName]); // dependencies محدودة
 
   // استخدام useCallback لمنع إنشاء دوال جديدة في كل render
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,8 +487,16 @@ export default function BooksPage() {
     }));
   }, []);
 
-  const handleIncludeExamplesChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setState(prev => ({ ...prev, includeExamples: e.target.checked }));
+  const handleCoverDescriptionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setState(prev => ({ ...prev, coverDescription: e.target.value }));
+  }, []);
+
+  const handleAuthorStyleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setState(prev => ({ ...prev, authorStyle: e.target.value as any }));
+  }, []);
+
+  const handleSaveToLibraryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setState(prev => ({ ...prev, saveToLibrary: e.target.checked }));
   }, []);
 
   const handleStepChange = useCallback((step: number) => {
@@ -371,6 +517,21 @@ export default function BooksPage() {
     setState(prev => ({ ...prev, currentStep: step, error: null }));
   }, [validateStep1, validateChapters]);
 
+  // معالج التغيير لمحرر الفصول - تم التصحيح لمنع التكرار اللانهائي
+  const handleEditChapterChange = useCallback((field: 'title' | 'description' | 'imageDescription', value: string) => {
+    setState(prev => {
+      if (!prev.editingChapter) return prev;
+      
+      return {
+        ...prev,
+        editingChapter: {
+          ...prev.editingChapter,
+          [field]: value
+        }
+      };
+    });
+  }, []);
+
   /* ---------- دوال إدارة الفصول ---------- */
   const createEmptyChapters = (count: number) => {
     return Array.from({ length: count }, (_, i) => ({
@@ -378,20 +539,7 @@ export default function BooksPage() {
       title: `${state.lang === "ar" ? "الفصل" : "Chapter"} ${i + 1}`,
       description: "",
       content: "",
-    }));
-  };
-
-  const addNewChapter = () => {
-    const newChapter: Chapter = {
-      id: generateId(),
-      title: `${state.lang === "ar" ? "الفصل" : "Chapter"} ${state.chapters.length + 1}`,
-      description: "",
-      content: "",
-    };
-    setState(prev => ({
-      ...prev,
-      chapters: [...prev.chapters, newChapter],
-      chaptersCount: prev.chapters.length + 1
+      imageDescription: "",
     }));
   };
 
@@ -435,10 +583,16 @@ export default function BooksPage() {
     }));
     genCancelRef.current.cancelled = false;
 
+    let controller: AbortController | null = new AbortController();
+    let timeoutId: NodeJS.Timeout | null = null;
+
     try {
       // إضافة مؤقت للتحقق من اتصال API
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 ثانية timeout
+      timeoutId = setTimeout(() => {
+        if (controller && !controller.signal.aborted) {
+          controller.abort();
+        }
+      }, 60000); // 60 ثانية timeout
       
       const response = await fetch("/api/books/generate", {
         method: "POST",
@@ -453,19 +607,26 @@ export default function BooksPage() {
           chapters: state.chapters.map((ch, index) => ({
             chapterNumber: index + 1,
             title: ch.title,
-            description: ch.description
+            description: ch.description,
+            imageDescription: ch.imageDescription || ""
           })),
-          includeExamples: state.includeExamples,
           authorName: state.authorName,
-          researchDepth: "advanced",
-          authorStyle: "professional"
+          authorStyle: state.authorStyle,
+          coverDescription: state.coverDescription,
+          generateChapterImages: true,
+          saveToLibrary: state.saveToLibrary
         }),
         signal: controller.signal
       });
 
-      clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(state.lang === "ar" ? "غير مصرح بالوصول" : "Unauthorized access");
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || t.genError);
       }
@@ -477,10 +638,21 @@ export default function BooksPage() {
         data.chapters.forEach((generatedChapter: any, index: number) => {
           if (index < state.chapters.length) {
             updateChapter(state.chapters[index].id, { 
-              content: generatedChapter.content 
+              content: generatedChapter.content,
+              imageUrl: generatedChapter.imageUrl || undefined
             });
           }
         });
+      }
+
+      // تحديث رابط الغلاف إذا تم توليده
+      if (data.book && data.book.coverUrl) {
+        setState(prev => ({ ...prev, coverUrl: data.book.coverUrl }));
+      }
+
+      // تحديث إجمالي الكلمات إذا كان متوفراً في الاستجابة
+      if (data.totalWords) {
+        setState(prev => ({ ...prev, totalWords: data.totalWords }));
       }
 
       setState(prev => ({
@@ -492,18 +664,57 @@ export default function BooksPage() {
     } catch (err: any) {
       console.error("Generation error:", err);
       
-      let errorMessage = t.genError;
+      let errorMessage: string;
       if (err.name === 'AbortError') {
-        errorMessage = t.genError;
+        errorMessage = t.connectionError;
       } else if (err.message) {
         errorMessage = err.message;
+      } else {
+        errorMessage = t.genError;
       }
       
-      setState(prev => ({
-        ...prev,
-        error: errorMessage
-      }));
+      // في حالة فشل الاتصال، نعرض خيار استخدام المحتوى التجريبي
+      if (err.name === 'AbortError' || err.message?.includes('Failed to fetch') || err.message?.includes('connection')) {
+        setState(prev => ({
+          ...prev,
+          error: errorMessage,
+          notice: state.lang === "ar" ? 
+            "يمكنك استخدام المحتوى التجريبي للاستمرار" : 
+            "You can use sample content to continue"
+        }));
+        
+        // استخدام المحتوى التجريبي مباشرة بدلاً من استدعاء دالة
+        const sampleChapters = SAMPLE_CONTENT[state.lang].chapters;
+        setState(prev => {
+          const updatedChapters = prev.chapters.map((chapter, index) => {
+            if (index < sampleChapters.length) {
+              return {
+                ...chapter,
+                content: sampleChapters[index].content
+              };
+            }
+            return chapter;
+          });
+          
+          return {
+            ...prev,
+            chapters: updatedChapters,
+            notice: t.offlineContentNotice,
+            progressPercent: 100
+          };
+        });
+      } else {
+        setState(prev => ({
+          ...prev,
+          error: errorMessage
+        }));
+      }
     } finally {
+      // تنظيف المؤقتات
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
       setState(prev => ({
         ...prev,
         generating: false
@@ -515,6 +726,112 @@ export default function BooksPage() {
   const cancelGeneration = () => {
     genCancelRef.current.cancelled = true;
     setState(prev => ({ ...prev, generating: false }));
+  };
+
+  /* ---------- توليد غلاف الكتاب ---------- */
+  const handleGenerateCover = async () => {
+    if (!state.coverDescription.trim() || state.coverDescription.split(/\s+/).filter(Boolean).length > 40) {
+      setState(prev => ({
+        ...prev,
+        error: state.lang === "ar" 
+          ? "يجب إدخال وصف للغلاف (40 كلمة كحد أقصى)" 
+          : "Please enter a cover description (max 40 words)"
+      }));
+      return;
+    }
+
+    setState(prev => ({ ...prev, generatingCover: true, error: null }));
+
+    try {
+      const response = await fetch("/api/books/generate-cover", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: state.title,
+          coverDescription: state.coverDescription,
+          bookType: state.bookType,
+          language: state.lang,
+          authorName: state.authorName
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(state.lang === "ar" ? "فشل في توليد الغلاف" : "Failed to generate cover");
+      }
+
+      const data = await response.json();
+      if (data.coverUrl) {
+        setState(prev => ({ ...prev, coverUrl: data.coverUrl }));
+      }
+    } catch (error: any) {
+      console.error('Cover generation error:', error);
+      setState(prev => ({
+        ...prev,
+        error: error.message || (state.lang === "ar" ? "فشل في توليد الغلاف" : "Failed to generate cover")
+      }));
+    } finally {
+      setState(prev => ({ ...prev, generatingCover: false }));
+    }
+  };
+
+  /* ---------- توليد صور الفصول ---------- */
+  const handleGenerateChapterImages = async () => {
+    setState(prev => ({ ...prev, generatingChapterImages: true, error: null }));
+
+    try {
+      const response = await fetch("/api/books/generate-chapter-images", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chapters: state.chapters.map((ch, index) => ({
+            chapterNumber: index + 1,
+            title: ch.title,
+            description: ch.description,
+            imageDescription: ch.imageDescription || ""
+          })),
+          bookTitle: state.title,
+          bookType: state.bookType,
+          language: state.lang
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(state.lang === "ar" ? "فشل في توليد صور الفصول" : "Failed to generate chapter images");
+      }
+
+      const data = await response.json();
+      
+      // تحديث صور الفصول
+      if (data.result && Array.isArray(data.result)) {
+        data.result.forEach((result: any) => {
+          if (result.success && result.imageUrl) {
+            const chapterIndex = state.chapters.findIndex(ch => ch.id === state.chapters[result.chapterNumber - 1]?.id);
+            if (chapterIndex !== -1) {
+              updateChapter(state.chapters[chapterIndex].id, { 
+                imageUrl: result.imageUrl
+              });
+            }
+          }
+        });
+      }
+
+      setState(prev => ({ 
+        ...prev, 
+        notice: state.lang === "ar" ? "تم توليد صور الفصول بنجاح" : "Chapter images generated successfully" 
+      }));
+    } catch (error: any) {
+      console.error('Chapter images generation error:', error);
+      setState(prev => ({
+        ...prev,
+        error: error.message || (state.lang === "ar" ? "فشل في توليد صور الفصول" : "Failed to generate chapter images")
+      }));
+    } finally {
+      setState(prev => ({ ...prev, generatingChapterImages: false }));
+    }
   };
 
   /* ---------- إدارة الملفات ---------- */
@@ -533,6 +850,7 @@ export default function BooksPage() {
       ...state.chapters.flatMap((ch, i) => [
         `## ${state.lang === "ar" ? "الفصل" : "Chapter"} ${i + 1}: ${ch.title}`,
         `### ${state.lang === "ar" ? "الوصف" : "Description"}: ${ch.description}`,
+        ch.imageUrl && `### ${state.lang === "ar" ? "صورة الفصل" : "Chapter Image"}: ${ch.imageUrl}`,
         "",
         ch.content || "",
         "",
@@ -562,8 +880,8 @@ export default function BooksPage() {
         bookType: state.bookType,
         language: state.lang,
         chapters: state.chapters,
-        includeExamples: state.includeExamples,
         authorName: state.authorName,
+        coverUrl: state.coverUrl,
         savedAt: new Date().toISOString()
       }));
 
@@ -747,6 +1065,48 @@ export default function BooksPage() {
               </div>
 
               <div className="field">
+                <label>{t.authorStyleLabel}</label>
+                <select 
+                  value={state.authorStyle}
+                  onChange={handleAuthorStyleChange}
+                >
+                  {Object.entries(AUTHOR_STYLES).map(([key, value]) => (
+                    <option key={key} value={key}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label>{t.coverDescriptionLabel}</label>
+                <textarea
+                  rows={2}
+                  value={state.coverDescription}
+                  onChange={handleCoverDescriptionChange}
+                  placeholder={t.coverPlaceholder}
+                  maxLength={200}
+                />
+                <div className="word-count-hint">
+                  {state.coverDescription.split(/\s+/).filter(Boolean).length} {state.lang === "ar" ? "كلمة" : "words"}
+                  {state.coverDescription.split(/\s+/).filter(Boolean).length > 40 && (
+                    <span className="error-text"> - {t.maxWordsWarning}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={state.saveToLibrary}
+                    onChange={handleSaveToLibraryChange}
+                  />
+                  {t.saveToLibraryLabel}
+                </label>
+              </div>
+
+              <div className="field">
                 <label>{t.languageLabel}</label>
                 <div className="inline-switch">
                   <button
@@ -764,129 +1124,205 @@ export default function BooksPage() {
                 </div>
               </div>
 
-              <button 
-                className="btn primary full-width" 
-                onClick={() => handleStepChange(2)}
-                disabled={!!validateStep1()}
-              >
-                {t.nextStep}
-              </button>
+              <div className="actions">
+                <button 
+                  className="btn-primary"
+                  onClick={() => handleStepChange(2)}
+                >
+                  {t.nextStep}
+                </button>
+              </div>
             </>
           )}
 
           {state.currentStep === 2 && (
             <>
-              <div className="step-header">
-                <h3>{t.step2}</h3>
-                <button 
-                  className="btn-ghost" 
-                  onClick={() => handleStepChange(1)}
-                >
-                  ← {t.prevStep}
-                </button>
-              </div>
-
+              <h3>{t.step2}</h3>
+              
               <div className="field">
                 <label>{t.chaptersLabel}</label>
                 <input
                   type="number"
-                  min={1}
-                  max={20}
+                  min="1"
+                  max="20"
                   value={state.chaptersCount}
                   onChange={handleChaptersCountChange}
-                  required
                 />
               </div>
 
-              {/* خيارات متقدمة */}
-              <div className="advanced-options">
-                <h4>{t.advancedOptions}</h4>
-                
-                <div className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    id="includeExamples"
-                    checked={state.includeExamples}
-                    onChange={handleIncludeExamplesChange}
-                  />
-                  <label htmlFor="includeExamples">{t.includeExamples}</label>
-                </div>
+              <div className="actions">
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    const newChapters = createEmptyChapters(state.chaptersCount);
+                    setState(prev => ({
+                      ...prev,
+                      chapters: newChapters
+                    }));
+                  }}
+                >
+                  {t.createEmptyBtn}
+                </button>
               </div>
 
-              <button
-                className="btn outline full-width"
-                onClick={() => {
-                  setState(prev => ({
-                    ...prev,
-                    chapters: createEmptyChapters(prev.chaptersCount),
-                    progressPercent: 0,
-                    notice: state.lang === "ar" ? "تم إنشاء الفصول الفارغة" : "Empty chapters created"
-                  }));
-                  setTimeout(() => setState(prev => ({ ...prev, notice: null })), 2200);
-                }}
-              >
-                {t.createEmptyBtn}
-              </button>
+              {state.chapters.length > 0 && (
+                <div className="chapters-list">
+                  {state.chapters.map((chapter, index) => (
+                    <div key={chapter.id} className="chapter-item">
+                      <div className="chapter-header">
+                        <span className="chapter-number">{index + 1}</span>
+                        <span className="chapter-title">{chapter.title}</span>
+                        <div className="chapter-actions">
+                          <button
+                            className="btn-icon"
+                            onClick={() => openEditor(chapter)}
+                            title={t.edit}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="btn-icon"
+                            onClick={() => deleteChapter(chapter.id)}
+                            title={t.delete}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                      <div className="chapter-desc">
+                        {chapter.description || (
+                          <span className="placeholder">
+                            {state.lang === "ar" ? "لا يوجد وصف" : "No description"}
+                          </span>
+                        )}
+                      </div>
+                      {chapter.description && countWords(chapter.description) < 20 && (
+                        <div className="warning-text">
+                          ⚠️ {t.chapterWarning}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              <button 
-                className="btn primary full-width" 
-                onClick={() => handleStepChange(3)}
-                disabled={state.chapters.length === 0 || !!validateChapters()}
-              >
-                {t.nextStep}
-              </button>
+              <div className="actions">
+                <button 
+                  className="btn-secondary"
+                  onClick={() => handleStepChange(1)}
+                >
+                  {t.prevStep}
+                </button>
+                <button 
+                  className="btn-primary"
+                  onClick={() => handleStepChange(3)}
+                  disabled={state.chapters.length === 0}
+                >
+                  {t.nextStep}
+                </button>
+              </div>
             </>
           )}
 
           {state.currentStep === 3 && (
             <>
-              <div className="step-header">
-                <h3>{t.step3}</h3>
-                <button 
-                  className="btn-ghost" 
-                  onClick={() => handleStepChange(2)}
+              <h3>{t.step3}</h3>
+              
+              <div className="book-meta">
+                <div className="book-title">{state.title}</div>
+                {state.subtitle && <div className="book-subtitle">{state.subtitle}</div>}
+                <div className="book-type">{BOOK_TYPES[state.bookType]}</div>
+                <div className="book-stats">
+                  <span>{state.chapters.length} {state.lang === "ar" ? "فصل" : "chapters"}</span>
+                  <span>•</span>
+                  <span>{wordCount} {state.lang === "ar" ? "كلمة" : "words"}</span>
+                </div>
+              </div>
+
+              <div className="actions">
+                <button
+                  className="btn-secondary"
+                  onClick={handleGenerateCover}
+                  disabled={state.generatingCover || !state.coverDescription.trim()}
                 >
-                  ← {t.prevStep}
+                  {state.generatingCover ? t.generatingCover : t.generateCoverBtn}
                 </button>
               </div>
 
-              {state.error && <div className="error-box">{state.error}</div>}
-              {state.notice && <div className="notice-box">{state.notice}</div>}
+              {state.coverUrl && (
+                <div className="cover-preview">
+                  <h4>{t.coverPreview}</h4>
+                  <Image 
+                    src={state.coverUrl} 
+                    alt={state.lang === "ar" ? "غلاف الكتاب" : "Book cover"} 
+                    width={300}
+                    height={400}
+                    style={{ objectFit: "cover" }}
+                  />
+                </div>
+              )}
 
-              <div className="controls-area">
+              <div className="actions">
                 <button
-                  className="btn primary full-width"
+                  className="btn-secondary"
+                  onClick={handleGenerateChapterImages}
+                  disabled={state.generatingChapterImages || state.chapters.length === 0}
+                >
+                  {state.generatingChapterImages ? t.generatingChapterImages : t.generateChapterImages}
+                </button>
+              </div>
+
+              <div className="actions">
+                <button
+                  className="btn-primary"
                   onClick={handleGenerateBook}
-                  disabled={state.generating || state.chapters.length === 0}
+                  disabled={state.generating}
                 >
                   {state.generating ? t.generating : t.startGenerating}
                 </button>
-
-                <button
-                  className="btn full-width"
-                  onClick={handleDownloadTXT}
-                  disabled={state.chapters.length === 0 || state.chapters.some(ch => !ch.content)}
-                >
-                  {t.downloadBtn}
-                </button>
-
-                <button
-                  className="btn save full-width"
-                  onClick={handleSaveFinal}
-                  disabled={state.chapters.length === 0 || state.chapters.some(ch => !ch.content)}
-                >
-                  {t.saveFinalBtn}
-                </button>
+                {state.generating && (
+                  <button
+                    className="btn-secondary"
+                    onClick={cancelGeneration}
+                  >
+                    {state.lang === "ar" ? "إلغاء" : "Cancel"}
+                  </button>
+                )}
               </div>
 
-              <div className="meta small muted">
-                <div><strong>{t.planLabel}:</strong> {state.plan.toUpperCase()}</div>
-                <div><strong>{t.draftStatus}:</strong> <em>{state.autoSaveStatus}</em></div>
-                <div><strong>{t.wordsLabel}:</strong> <strong>{wordCount}</strong></div>
-                <div style={{ marginTop: 8 }}>
-                  {limits.booksPerMonth === 1 ? "1 كتاب شهريًا" : `${limits.booksPerMonth} كتب شهريًا`}
-                  {state.plan === "free" && ` (${limits.wordsPerMonth} كلمة)`}
+              {state.generating && (
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${state.progressPercent}%` }}
+                  ></div>
                 </div>
+              )}
+
+              {!state.generating && state.chapters.some(ch => ch.content) && (
+                <div className="actions">
+                  <button
+                    className="btn-secondary"
+                    onClick={handleDownloadTXT}
+                  >
+                    {t.downloadBtn}
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={handleSaveFinal}
+                  >
+                    {t.saveFinalBtn}
+                  </button>
+                </div>
+              )}
+
+              <div className="actions">
+                <button 
+                  className="btn-secondary"
+                  onClick={() => handleStepChange(2)}
+                >
+                  {t.prevStep}
+                </button>
               </div>
             </>
           )}
@@ -894,155 +1330,106 @@ export default function BooksPage() {
 
         {/* اللوحة اليمنى */}
         <section className="panel-right">
-          {state.currentStep >= 2 && (
-            <div className="chapters-header">
-              <h3>
-                {state.lang === "ar" ? "الفصول" : "Chapters"} 
-                <span className="count-badge">{state.chapters.length}</span>
-              </h3>
-              <button className="btn-ghost" onClick={addNewChapter}>
-                + {t.addChapter}
-              </button>
+          {state.chapters.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">📖</div>
+              <h3>{t.emptyState}</h3>
+              <p>{t.welcomeDesc}</p>
+            </div>
+          ) : (
+            <div className="book-content">
+              <header className="book-header">
+                {state.coverUrl && (
+                  <div className="book-cover">
+                    <Image 
+                      src={state.coverUrl} 
+                      alt={state.lang === "ar" ? "غلاف الكتاب" : "Book cover"} 
+                      width={200}
+                      height={300}
+                      style={{ objectFit: "cover" }}
+                    />
+                  </div>
+                )}
+                <h1>{state.title}</h1>
+                {state.subtitle && <h2>{state.subtitle}</h2>}
+                <div className="book-meta">
+                  <span>{BOOK_TYPES[state.bookType]}</span>
+                  <span>•</span>
+                  <span>{state.authorName}</span>
+                </div>
+                <div className="total-words">
+                  {t.totalWords}: {wordCount} {t.words}
+                </div>
+              </header>
+
+              {state.chapters.map((chapter, index) => (
+                <article key={chapter.id} className="chapter">
+                  <h3>
+                    {state.lang === "ar" ? "الفصل" : "Chapter"} {index + 1}: {chapter.title}
+                  </h3>
+                  {chapter.imageUrl && (
+                    <div className="chapter-image">
+                      <Image 
+                        src={chapter.imageUrl} 
+                        alt={`${state.lang === "ar" ? "صورة الفصل" : "Chapter image"} ${index + 1}`}
+                        width={400}
+                        height={300}
+                        style={{ objectFit: "cover" }}
+                      />
+                    </div>
+                  )}
+                  {chapter.description && (
+                    <blockquote className="chapter-desc">
+                      {chapter.description}
+                    </blockquote>
+                  )}
+                  {chapter.content ? (
+                    <div className="chapter-content">
+                      {chapter.content.split("\n").map((para, i) => (
+                        <p key={i}>{para}</p>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="placeholder-content">
+                      {state.lang === "ar" 
+                        ? "لم يتم إنشاء محتوى هذا الفصل بعد. انقر فوق توليد الكتاب لإنشاء المحتوى."
+                        : "This chapter's content hasn't been generated yet. Click Generate Book to create content."}
+                    </div>
+                  )}
+                </article>
+              ))}
             </div>
           )}
-
-          <div className="chapters-list">
-            {state.chapters.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">📝</div>
-                <p>{t.emptyState}</p>
-                <button 
-                  className="btn outline" 
-                  onClick={() => {
-                    setState(prev => ({
-                      ...prev,
-                      chapters: createEmptyChapters(prev.chaptersCount)
-                    }));
-                  }}
-                >
-                  {t.createEmptyBtn}
-                </button>
-              </div>
-            ) : (
-              state.chapters.map((chapter, index) => (
-                <div key={chapter.id} className="chapter-card">
-                  <div className="chapter-header">
-                    <span className="chapter-number">{index + 1}</span>
-                    <h4 className="chapter-title">
-                      {chapter.title || `${state.lang === "ar" ? "الفصل" : "Chapter"} ${index + 1}`}
-                    </h4>
-                    <div className="chapter-actions">
-                      <button
-                        className="btn-ghost"
-                        onClick={() => openEditor(chapter)}
-                        title={t.edit}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn-ghost"
-                        onClick={() => deleteChapter(chapter.id)}
-                        title={t.delete}
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="chapter-content">
-                    <p className="chapter-desc">
-                      {chapter.description || (
-                        <span className="muted">
-                          {state.lang === "ar" ? "لا يوجد وصف" : "No description"}
-                        </span>
-                      )}
-                    </p>
-
-                    {chapter.content && (
-                      <div className="content-preview">
-                        <details>
-                          <summary>{t.previewTitle}</summary>
-                          <div className="preview-content">
-                            {chapter.content.slice(0, 200)}...
-                          </div>
-                        </details>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="chapter-footer">
-                    <span className="word-count">
-                      {countWords(chapter.content)} {state.lang === "ar" ? "كلمة" : "words"}
-                    </span>
-                    {chapter.estimatedWords && (
-                      <span className="estimated">
-                        ~{chapter.estimatedWords} {state.lang === "ar" ? "متوقع" : "est."}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
         </section>
       </main>
 
-      {/* شريط التقدم أثناء التوليد */}
-      {state.generating && (
-        <div className="generation-overlay">
-          <div className="generation-modal">
-            <h3>{t.generating}</h3>
-            <div className="progress-bar">
-              <div
-                className="progress-fill"
-                style={{ width: `${state.progressPercent}%` }}
-              ></div>
-            </div>
-            <div className="progress-text">{Math.round(state.progressPercent)}%</div>
-            <button className="btn outline" onClick={cancelGeneration}>
-              {state.lang === "ar" ? "إلغاء" : "Cancel"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* محرر الفصل */}
       {state.editingChapter && (
-        <div className="editor-overlay">
-          <div className="editor-modal">
-            <div className="editor-header">
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
               <h3>{t.edit} {state.editingChapter.title}</h3>
-              <button className="btn-ghost" onClick={closeEditor}>
-                {t.close}
+              <button className="btn-icon" onClick={closeEditor}>
+                ✕
               </button>
             </div>
-
-            <div className="editor-body">
+            <div className="modal-body">
               <div className="field">
                 <label>{t.chapterTitleLabel}</label>
                 <input
                   value={state.editingChapter.title}
-                  onChange={(e) => {
-                    setState(prev => ({
-                      ...prev,
-                      editingChapter: { ...prev.editingChapter!, title: e.target.value }
-                    }));
-                  }}
+                  onChange={(e) => handleEditChapterChange('title', e.target.value)}
                 />
               </div>
-
               <div className="field">
                 <label>{t.chapterDescLabel}</label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={state.editingChapter.description}
-                  onChange={(e) => {
-                    setState(prev => ({
-                      ...prev,
-                      editingChapter: { ...prev.editingChapter!, description: e.target.value }
-                    }));
-                  }}
-                  placeholder={state.lang === "ar" ? "صف محتوى هذا الفصل بالتفصيل..." : "Describe this chapter's content in detail..."}
+                  onChange={(e) => handleEditChapterChange('description', e.target.value)}
+                  placeholder={state.lang === "ar" 
+                    ? "صف محتوى الفصل (20 كلمة على الأقل)" 
+                    : "Describe chapter content (at least 20 words)"}
                 />
                 <div className="word-count-hint">
                   {countWords(state.editingChapter.description)} {state.lang === "ar" ? "كلمة" : "words"}
@@ -1051,38 +1438,30 @@ export default function BooksPage() {
                   )}
                 </div>
               </div>
-
-              {state.editingChapter.content && (
-                <div className="field">
-                  <label>{state.lang === "ar" ? "المحتوى" : "Content"}</label>
-                  <textarea
-                    rows={8}
-                    value={state.editingChapter.content}
-                    onChange={(e) => {
-                      setState(prev => ({
-                        ...prev,
-                        editingChapter: { ...prev.editingChapter!, content: e.target.value }
-                      }));
-                    }}
-                    readOnly={state.generating}
-                  />
-                  <div className="word-count-hint">
-                    {countWords(state.editingChapter.content)} {state.lang === "ar" ? "كلمة" : "words"}
-                  </div>
+              <div className="field">
+                <label>{t.chapterImageLabel}</label>
+                <textarea
+                  rows={2}
+                  value={state.editingChapter.imageDescription || ""}
+                  onChange={(e) => handleEditChapterChange('imageDescription', e.target.value)}
+                  placeholder={t.chapterImagePlaceholder}
+                  maxLength={100}
+                />
+                <div className="word-count-hint">
+                  {countWords(state.editingChapter.imageDescription || "")} {state.lang === "ar" ? "كلمة" : "words"}
                 </div>
-              )}
+              </div>
             </div>
-
-            <div className="editor-footer">
-              <button className="btn" onClick={closeEditor}>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={closeEditor}>
                 {t.close}
               </button>
-              <button
-                className="btn primary"
+              <button 
+                className="btn-primary" 
                 onClick={() => saveEditor({
                   title: state.editingChapter!.title,
                   description: state.editingChapter!.description,
-                  content: state.editingChapter!.content
+                  imageDescription: state.editingChapter!.imageDescription
                 })}
               >
                 {t.saveChapter}
@@ -1092,7 +1471,16 @@ export default function BooksPage() {
         </div>
       )}
 
-      {/* رسائل النظام */}
+      {/* الإشعارات */}
+      {state.notice && (
+        <div className="toast notice">
+          <span>{state.notice}</span>
+          <button onClick={() => setState(prev => ({ ...prev, notice: null }))}>
+            ✕
+          </button>
+        </div>
+      )}
+
       {state.error && (
         <div className="toast error">
           <span>{state.error}</span>
@@ -1102,12 +1490,15 @@ export default function BooksPage() {
         </div>
       )}
 
-      {state.notice && (
-        <div className="toast notice">
-          <span>{state.notice}</span>
-          <button onClick={() => setState(prev => ({ ...prev, notice: null }))}>
-            ✕
-          </button>
+      {state.autoSaveStatus === "saving" && (
+        <div className="toast autosave">
+          <span>{state.lang === "ar" ? "جاري الحفظ..." : "Saving..."}</span>
+        </div>
+      )}
+
+      {state.autoSaveStatus === "saved" && (
+        <div className="toast autosave saved">
+          <span>{state.lang === "ar" ? "تم الحفظ" : "Saved"}</span>
         </div>
       )}
     </div>

@@ -1,44 +1,58 @@
-/* BooksPage.css */
+/* BooksPage.css - أنماط متقدمة لمنصة كتاب.آي */
 
 /* ---------- المتغيرات والألوان ---------- */
 :root {
-  --primary: #3b82f6;
-  --primary-dark: #2563eb;
-  --secondary: #6366f1;
-  --accent: #8b5cf6;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --background: #f8fafc;
-  --surface: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --border: #e2e8f0;
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --secondary-color: #64748b;
+  --accent-color: #8b5cf6;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --info-color: #3b82f6;
+  --background-light: #ffffff;
+  --background-dark: #0f172a;
+  --text-light: #1e293b;
+  --text-dark: #f1f5f9;
+  --border-light: #e2e8f0;
+  --border-dark: #334155;
+  --card-light: #f8fafc;
+  --card-dark: #1e293b;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius: 12px;
+  --transition: all 0.3s ease;
 }
 
 [data-theme="dark"] {
-  --background: #0f172a;
-  --surface: #1e293b;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --border: #334155;
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --background: var(--background-dark);
+  --text: var(--text-dark);
+  --border: var(--border-dark);
+  --card: var(--card-dark);
 }
 
-/* ---------- إعادة الضبط الأساسية ---------- */
+[data-theme="light"] {
+  --background: var(--background-light);
+  --text: var(--text-light);
+  --border: var(--border-light);
+  --card: var(--card-light);
+}
+
+/* ---------- الأساسيات ---------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 .bookai-root {
   min-height: 100vh;
   background-color: var(--background);
-  color: var(--text-primary);
-  transition: background-color 0.3s, color 0.3s;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-}
-
-.bookai-root * {
-  box-sizing: border-box;
+  color: var(--text);
+  transition: var(--transition);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', sans-serif;
+  line-height: 1.6;
+  padding: 0;
 }
 
 /* ---------- الشريط العلوي ---------- */
@@ -47,11 +61,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background-color: var(--surface);
+  background-color: var(--card);
+  border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow);
   position: sticky;
   top: 0;
   z-index: 100;
+  backdrop-filter: blur(10px);
 }
 
 .brand {
@@ -62,6 +78,14 @@
 
 .logo-mark {
   font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  border-radius: 12px;
+  color: white;
 }
 
 .brand-text {
@@ -70,14 +94,16 @@
 }
 
 .brand-title {
-  font-weight: 700;
   font-size: 1.5rem;
-  line-height: 1.2;
+  font-weight: 800;
+  color: var(--primary-color);
+  letter-spacing: -0.5px;
 }
 
 .brand-sub {
   font-size: 0.875rem;
-  color: var(--text-secondary);
+  color: var(--secondary-color);
+  font-weight: 500;
 }
 
 .top-actions {
@@ -86,108 +112,63 @@
   gap: 1rem;
 }
 
-/* ---------- الأزرار ---------- */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
+.plan-select select {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--background);
+  color: var(--text);
   font-weight: 500;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.2s;
-  background-color: var(--surface);
-  color: var(--text-primary);
-  border-color: var(--border);
+  transition: var(--transition);
 }
 
-.btn:hover {
-  background-color: color-mix(in srgb, var(--surface) 90%, black);
+.plan-select select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
-.btn.primary {
-  background-color: var(--primary);
-  color: white;
-  border-color: var(--primary);
-}
-
-.btn.primary:hover {
-  background-color: var(--primary-dark);
-}
-
-.btn.outline {
-  background-color: transparent;
-  border-color: var(--border);
-  color: var(--text-primary);
-}
-
-.btn.outline:hover {
-  background-color: color-mix(in srgb, var(--surface) 90%, black);
-}
-
-.btn.save {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.btn.save:hover {
-  background-color: color-mix(in srgb, var(--success) 90%, black);
-}
-
-.btn-ghost {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
+.lang-toggle button,
+.theme-toggle button {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--background);
+  color: var(--text);
   cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 0.375rem;
-  transition: all 0.2s;
+  transition: var(--transition);
+  font-weight: 500;
 }
 
-.btn-ghost:hover {
-  background-color: color-mix(in srgb, var(--surface) 90%, black);
-  color: var(--text-primary);
+.lang-toggle button:hover,
+.theme-toggle button:hover {
+  background-color: var(--card);
+  transform: translateY(-2px);
 }
 
-.btn.full-width {
-  width: 100%;
+.lang-toggle button.active,
+.theme-toggle button.active {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
 }
 
-/* ---------- التخطيط الرئيسي ---------- */
+/* ---------- الشبكة الرئيسية ---------- */
 .main-grid {
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
+  grid-template-columns: 400px 1fr;
   gap: 2rem;
   padding: 2rem;
-  max-width: 120rem;
+  max-width: 1600px;
   margin: 0 auto;
-}
-
-.panel-left {
-  background-color: var(--surface);
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  box-shadow: var(--shadow);
-  height: fit-content;
-  position: sticky;
-  top: 6rem;
-}
-
-.panel-right {
-  background-color: var(--surface);
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  box-shadow: var(--shadow);
 }
 
 /* ---------- شريط التقدم ---------- */
 .progress-steps {
   display: flex;
   justify-content: space-between;
+  grid-column: 1 / -1;
   margin-bottom: 2rem;
   position: relative;
   padding: 0 1rem;
@@ -197,8 +178,8 @@
   content: '';
   position: absolute;
   top: 50%;
-  left: 10%;
-  right: 10%;
+  left: 0;
+  right: 0;
   height: 2px;
   background-color: var(--border);
   transform: translateY(-50%);
@@ -214,474 +195,1044 @@
 }
 
 .step-number {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--surface);
+  background-color: var(--card);
   border: 2px solid var(--border);
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 0.5rem;
-  transition: all 0.3s;
+  transition: var(--transition);
 }
 
 .step.active .step-number {
-  background-color: var(--primary);
-  border-color: var(--primary);
+  background-color: var(--primary-color);
   color: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
 }
 
 .step-label {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
   text-align: center;
-  max-width: 6rem;
+  color: var(--secondary-color);
+  transition: var(--transition);
 }
 
 .step.active .step-label {
-  color: var(--primary);
-  font-weight: 500;
+  color: var(--primary-color);
+  font-weight: 700;
 }
 
-/* ---------- الحقول والنماذج ---------- */
+/* ---------- اللوحة اليسرى (النموذج) ---------- */
+.panel-left {
+  background-color: var(--card);
+  border-radius: var(--radius);
+  padding: 2rem;
+  box-shadow: var(--shadow-lg);
+  height: fit-content;
+  position: sticky;
+  top: 100px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
+.panel-left h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: var(--primary-color);
+  font-size: 1.5rem;
+  font-weight: 800;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
 .field {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .field label {
   display: block;
-  font-weight: 500;
   margin-bottom: 0.5rem;
-  color: var(--text-primary);
+  font-weight: 600;
+  color: var(--text);
 }
 
 .field input,
 .field textarea,
 .field select {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.875rem;
   border: 1px solid var(--border);
-  border-radius: 0.375rem;
-  background-color: var(--surface);
-  color: var(--text-primary);
+  border-radius: var(--radius);
+  background-color: var(--background);
+  color: var(--text);
   font-size: 1rem;
-  transition: border-color 0.2s;
+  transition: var(--transition);
+  font-family: inherit;
 }
 
 .field input:focus,
 .field textarea:focus,
 .field select:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 .field textarea {
   resize: vertical;
-  min-height: 5rem;
+  min-height: 100px;
+  line-height: 1.6;
 }
 
 .word-count-hint {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--secondary-color);
+  margin-top: 0.5rem;
+  font-weight: 500;
 }
 
 .error-text {
-  color: var(--error);
+  color: var(--error-color);
+  font-weight: 600;
 }
 
-/* ---------- المفاتيح التبديلية ---------- */
+.warning-text {
+  color: var(--warning-color);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 500;
+}
+
 .inline-switch {
-  display: inline-flex;
-  background-color: color-mix(in srgb, var(--surface) 90%, black);
-  border-radius: 0.375rem;
-  padding: 0.25rem;
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background-color: var(--background);
 }
 
 .inline-switch button {
-  padding: 0.5rem 1rem;
+  flex: 1;
+  padding: 0.875rem;
   border: none;
-  background: transparent;
-  border-radius: 0.25rem;
+  background-color: var(--background);
+  color: var(--text);
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.2s;
-  color: var(--text-secondary);
+  transition: var(--transition);
+  font-weight: 500;
 }
 
 .inline-switch button.active {
-  background-color: var(--surface);
-  color: var(--text-primary);
-  box-shadow: var(--shadow);
+  background-color: var(--primary-color);
+  color: white;
 }
 
-/* ---------- خيارات متقدمة ---------- */
-.advanced-options {
-  margin: 1.5rem 0;
-  padding: 1rem;
-  background-color: color-mix(in srgb, var(--surface) 95%, black);
-  border-radius: 0.375rem;
-  border-left: 3px solid var(--primary);
+.inline-switch button:not(:last-child) {
+  border-right: 1px solid var(--border);
 }
 
-.advanced-options h4 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-  color: var(--text-primary);
-}
-
-.checkbox-field {
+/* ---------- حقل checkbox ---------- */
+.checkbox-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  transition: var(--transition);
 }
 
-.checkbox-field input[type="checkbox"] {
+.checkbox-label:hover {
+  background-color: var(--background);
+}
+
+.checkbox-label input[type="checkbox"] {
   width: auto;
   margin: 0;
-}
-
-/* ---------- رأس الخطوة ---------- */
-.step-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.step-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
-  color: var(--text-primary);
-}
-
-/* ---------- منطقة التحكم ---------- */
-.controls-area {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 1.5rem 0;
-}
-
-/* ---------- معلومات إضافية ---------- */
-.meta {
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-}
-
-.meta.small {
-  font-size: 0.875rem;
-}
-
-.meta.muted {
-  color: var(--text-secondary);
-}
-
-/* ---------- رأس الفصول ---------- */
-.chapters-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.chapters-header h3 {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.count-badge {
-  background-color: var(--primary);
-  color: white;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 9999px;
+  transform: scale(1.2);
 }
 
 /* ---------- قائمة الفصول ---------- */
 .chapters-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  margin: 1.5rem 0;
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: var(--radius);
 }
 
-.empty-state {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: var(--text-secondary);
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-/* ---------- بطاقة الفصل ---------- */
-.chapter-card {
-  background-color: var(--surface);
+.chapter-item {
+  background-color: var(--background);
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   padding: 1.25rem;
-  transition: all 0.2s;
+  margin-bottom: 1rem;
+  transition: var(--transition);
 }
 
-.chapter-card:hover {
+.chapter-item:hover {
+  border-color: var(--primary-color);
   box-shadow: var(--shadow);
+  transform: translateY(-2px);
 }
 
 .chapter-header {
   display: flex;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.875rem;
+  gap: 0.875rem;
 }
 
 .chapter-number {
-  background-color: var(--primary);
-  color: white;
-  width: 2rem;
-  height: 2rem;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
 .chapter-title {
-  margin: 0;
-  flex-grow: 1;
-  font-size: 1.125rem;
-  color: var(--text-primary);
+  font-weight: 700;
+  flex: 1;
+  color: var(--text);
+  font-size: 1.05rem;
 }
 
 .chapter-actions {
   display: flex;
-  gap: 0.25rem;
-}
-
-.chapter-content {
-  margin-bottom: 1rem;
+  gap: 0.5rem;
 }
 
 .chapter-desc {
-  margin: 0 0 1rem 0;
-  color: var(--text-primary);
-  line-height: 1.5;
+  font-size: 0.95rem;
+  color: var(--secondary-color);
+  line-height: 1.6;
 }
 
-.content-preview {
-  margin-top: 1rem;
-}
-
-.content-preview summary {
-  cursor: pointer;
-  font-weight: 500;
-  color: var(--primary);
-  user-select: none;
-}
-
-.preview-content {
-  margin-top: 0.5rem;
-  padding: 0.75rem;
-  background-color: color-mix(in srgb, var(--surface) 95%, black);
-  border-radius: 0.375rem;
-  border-left: 3px solid var(--primary);
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.chapter-footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.word-count {
-  font-weight: 500;
-}
-
-.estimated {
+.placeholder {
+  color: var(--secondary-color);
   font-style: italic;
+  opacity: 0.7;
 }
 
-/* ---------- رسائل التنبيه ---------- */
-.error-box,
-.notice-box {
-  padding: 0.75rem 1rem;
-  border-radius: 0.375rem;
-  margin-bottom: 1rem;
+/* ---------- معلومات الكتاب ---------- */
+.book-meta {
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  margin-bottom: 1.75rem;
+  box-shadow: var(--shadow);
+}
+
+.book-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+
+.book-subtitle {
+  font-size: 1.25rem;
+  color: var(--secondary-color);
+  margin-bottom: 1.25rem;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.book-type {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  color: white;
+  padding: 0.375rem 1rem;
+  border-radius: 20px;
   font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
 }
 
-.error-box {
-  background-color: color-mix(in srgb, var(--error) 10%, transparent);
-  border-left: 3px solid var(--error);
-  color: var(--error);
-}
-
-.notice-box {
-  background-color: color-mix(in srgb, var(--success) 10%, transparent);
-  border-left: 3px solid var(--success);
-  color: var(--success);
-}
-
-/* ---------- التحميل والتقدم ---------- */
-.generation-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+.book-stats {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  gap: 0.875rem;
+  color: var(--secondary-color);
+  font-size: 0.95rem;
+  font-weight: 500;
 }
 
-.generation-modal {
-  background-color: var(--surface);
-  padding: 2rem;
-  border-radius: 0.5rem;
-  box-shadow: var(--shadow-lg);
-  width: 90%;
-  max-width: 24rem;
+/* ---------- معاينة الغلاف ---------- */
+.cover-preview {
   text-align: center;
+  margin: 1.75rem 0;
+  padding: 1.75rem;
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
-.generation-modal h3 {
+.cover-preview h4 {
   margin-top: 0;
-  margin-bottom: 1.5rem;
-  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+  color: var(--primary-color);
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
+.cover-preview img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: var(--transition);
+}
+
+.cover-preview img:hover {
+  transform: scale(1.02);
+}
+
+/* ---------- شريط التقدم ---------- */
 .progress-bar {
-  height: 0.5rem;
+  width: 100%;
+  height: 10px;
   background-color: var(--border);
-  border-radius: 9999px;
+  border-radius: 5px;
   overflow: hidden;
-  margin-bottom: 1rem;
+  margin: 1.75rem 0;
 }
 
 .progress-fill {
   height: 100%;
-  background-color: var(--primary);
-  border-radius: 9999px;
-  transition: width 0.3s;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  border-radius: 5px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
 }
 
-.progress-text {
+/* ---------- الأزرار والإجراءات ---------- */
+.actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-icon {
+  padding: 0.875rem 1.75rem;
+  border: none;
+  border-radius: var(--radius);
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 1.5rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-family: inherit;
 }
 
-/* ---------- محرر الفصل ---------- */
-.editor-overlay {
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  color: white;
+  box-shadow: var(--shadow);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  font-weight: 600;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--primary-color);
+  color: white;
+  transform: translateY(-2px);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--card);
+  transform: translateY(-2px);
+}
+
+.btn-icon {
+  padding: 0.6rem;
+  background-color: transparent;
+  color: var(--secondary-color);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background-color: var(--card);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ---------- اللوحة اليمنى (عرض الكتاب) ---------- */
+.panel-right {
+  background-color: var(--card);
+  border-radius: var(--radius);
+  padding: 2.5rem;
+  box-shadow: var(--shadow-lg);
+  min-height: 600px;
+  border: 1px solid var(--border);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--secondary-color);
+}
+
+.empty-icon {
+  font-size: 5rem;
+  margin-bottom: 2rem;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  margin-bottom: 1.25rem;
+  color: var(--text);
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.empty-state p {
+  font-size: 1.25rem;
+  max-width: 500px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ---------- محتوى الكتاب ---------- */
+.book-content {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  color: var(--text);
+  line-height: 1.8;
+}
+
+.book-header {
+  text-align: center;
+  margin-bottom: 3.5rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.book-cover {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.book-cover img {
+  max-width: 320px;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
+  transition: var(--transition);
+}
+
+.book-cover img:hover {
+  transform: scale(1.03);
+}
+
+.book-header h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  margin-bottom: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+
+.book-header h2 {
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: var(--secondary-color);
+  margin-bottom: 2rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.book-header .book-meta {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 1.25rem;
+  box-shadow: none;
+}
+
+.total-words {
+  font-size: 1.1rem;
+  color: var(--secondary-color);
+  font-weight: 600;
+  margin-top: 1.25rem;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--background);
+  border-radius: 30px;
+  display: inline-block;
+}
+
+/* ---------- الفصول والمحتوى ---------- */
+.chapter {
+  margin-bottom: 4rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.chapter:last-child {
+  border-bottom: none;
+}
+
+.chapter h3 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  margin-bottom: 2rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--border);
+  line-height: 1.3;
+}
+
+.chapter-desc {
+  font-style: italic;
+  color: var(--secondary-color);
+  border-left: 4px solid var(--primary-color);
+  padding-left: 2rem;
+  margin: 2rem 0;
+  font-size: 1.25rem;
+  line-height: 1.7;
+}
+
+.chapter-content {
+  font-size: 1.15rem;
+  text-align: justify;
+}
+
+.chapter-content p {
+  margin-bottom: 1.75rem;
+  text-indent: 2.5rem;
+  line-height: 1.9;
+}
+
+.chapter-content p:first-of-type {
+  text-indent: 0;
+  font-size: 1.25rem;
+  line-height: 1.9;
+  font-weight: 500;
+}
+
+.placeholder-content {
+  background-color: var(--background);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--secondary-color);
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+/* ---------- النافذة المنبثقة (المودال) ---------- */
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  backdrop-filter: blur(5px);
 }
 
-.editor-modal {
-  background-color: var(--surface);
-  border-radius: 0.5rem;
+.modal {
+  background-color: var(--card);
+  border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   width: 100%;
-  max-width: 50rem;
+  max-width: 650px;
   max-height: 90vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--border);
+  animation: modalAppear 0.3s ease;
 }
 
-.editor-header {
+@keyframes modalAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
+  padding: 1.75rem;
   border-bottom: 1px solid var(--border);
+  background-color: var(--background);
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 
-.editor-header h3 {
+.modal-header h3 {
   margin: 0;
-  color: var(--text-primary);
+  color: var(--primary-color);
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
-.editor-body {
-  padding: 1.5rem;
-  overflow-y: auto;
-  flex-grow: 1;
+.modal-body {
+  padding: 2rem;
+  flex: 1;
 }
 
-.editor-footer {
+.modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
+  gap: 1rem;
+  padding: 1.75rem;
   border-top: 1px solid var(--border);
+  background-color: var(--background);
+  border-radius: 0 0 var(--radius) var(--radius);
 }
 
-/* ---------- رسائل النظام (Toasts) ---------- */
+/* ---------- الإشعارات والتوست ---------- */
 .toast {
   position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.375rem;
-  box-shadow: var(--shadow-lg);
+  bottom: 2rem;
+  right: 2rem;
+  padding: 1.25rem 1.75rem;
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  max-width: 24rem;
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
-  animation: slideIn 0.3s ease-out;
-}
-
-.toast.error {
-  background-color: var(--error);
-  color: white;
+  max-width: 450px;
+  animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  border-left: 4px solid;
 }
 
 .toast.notice {
-  background-color: var(--success);
+  background-color: var(--success-color);
   color: white;
+  border-left-color: #059669;
+}
+
+.toast.error {
+  background-color: var(--error-color);
+  color: white;
+  border-left-color: #dc2626;
+}
+
+.toast.autosave {
+  background-color: var(--secondary-color);
+  color: white;
+  border-left-color: #475569;
+}
+
+.toast.autosave.saved {
+  background-color: var(--success-color);
+  border-left-color: #059669;
 }
 
 .toast button {
-  background: transparent;
+  background: none;
   border: none;
   color: inherit;
   cursor: pointer;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   padding: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin-left: auto;
+  opacity: 0.8;
+  transition: var(--transition);
 }
 
-/* ---------- أدوات مساعدة ---------- */
+.toast button:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ---------- أنماط إضافية للفصول والصور ---------- */
+.chapter-image {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.chapter-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
+  transition: var(--transition);
+}
+
+.chapter-image img:hover {
+  transform: scale(1.02);
+}
+
+/* ---------- تحسينات لحالة التحميل ---------- */
+.generating-state {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* ---------- أنماط للخطوات والتقدم ---------- */
+.step-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ---------- تحسينات للحقول والأزرار ---------- */
+.field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.field-checkbox input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.field-checkbox label {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ---------- تحسينات للقوائم والتمثيل البصري ---------- */
+.chapters-count-display {
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+/* ---------- أنماط للصور المعطلة ---------- */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+img[src=""], 
+img:not([src]) {
+  display: none;
+}
+
+/* ---------- تحسينات للوضع غير المتصل ---------- */
+.offline-mode {
+  border: 2px dashed var(--warning-color);
+  background-color: rgba(245, 158, 11, 0.1);
+  padding: 1rem;
+  border-radius: var(--radius);
+  margin: 1rem 0;
+}
+
+.offline-mode h4 {
+  color: var(--warning-color);
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- تحسينات للشريط الجانبي ---------- */
+.panel-left::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-left::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* ---------- أنماط للعناصر المخفية ---------- */
+.hidden {
+  display: none !important;
+}
+
+.visible {
+  display: block !important;
+}
+
+/* ---------- تحسينات للخطوط العربية ---------- */
+[dir="rtl"] .book-content {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.8;
+}
+
+[dir="rtl"] .chapter-content p {
+  text-indent: 0;
+  text-align: right;
+}
+
+[dir="rtl"] .chapter-content p:first-of-type {
+  text-indent: 0;
+}
+
+/* ---------- تحسينات للزر الأساسي المعطل ---------- */
+.btn-primary:disabled {
+  background: linear-gradient(135deg, var(--secondary-color), var(--border));
+  cursor: not-allowed;
+}
+
+/* ---------- أنماط للعناصر المطلوبة ---------- */
+input:required, 
+textarea:required {
+  border-left: 3px solid var(--primary-color);
+}
+
+[dir="rtl"] input:required,
+[dir="rtl"] textarea:required {
+  border-left: none;
+  border-right: 3px solid var(--primary-color);
+}
+
+/* ---------- التجاوب للشاشات المختلفة ---------- */
+@media (max-width: 1200px) {
+  .main-grid {
+    grid-template-columns: 380px 1fr;
+    padding: 1.75rem;
+    gap: 1.75rem;
+  }
+  
+  .book-header h1 {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-grid {
+    grid-template-columns: 350px 1fr;
+    padding: 1.5rem;
+    gap: 1.5rem;
+  }
+  
+  .panel-left,
+  .panel-right {
+    padding: 1.75rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .panel-left {
+    position: static;
+    max-height: none;
+    order: 2;
+  }
+  
+  .panel-right {
+    order: 1;
+    min-height: 400px;
+  }
+  
+  .topbar {
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.25rem;
+  }
+  
+  .top-actions {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .book-header h1 {
+    font-size: 2.25rem;
+  }
+  
+  .book-header h2 {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-grid {
+    padding: 1rem;
+    gap: 1.25rem;
+  }
+  
+  .panel-left,
+  .panel-right {
+    padding: 1.5rem;
+  }
+  
+  .progress-steps {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: flex-start;
+    padding-left: 1.5rem;
+  }
+  
+  .progress-steps::before {
+    display: none;
+  }
+  
+  .step {
+    flex-direction: row;
+    gap: 1rem;
+    align-items: center;
+  }
+  
+  .step-label {
+    text-align: left;
+  }
+  
+  .actions {
+    flex-direction: column;
+  }
+  
+  .book-header h1 {
+    font-size: 2rem;
+  }
+  
+  .book-header h2 {
+    font-size: 1.25rem;
+  }
+  
+  .chapter h3 {
+    font-size: 1.75rem;
+  }
+  
+  .toast {
+    bottom: 1rem;
+    right: 1rem;
+    left: 1rem;
+    max-width: none;
+  }
+  
+  .modal {
+    margin: 1rem;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1.25rem;
+  }
+}
+
+/* ---------- تحسينات للغة العربية ---------- */
+[dir="rtl"] {
+  .chapter-desc {
+    border-left: none;
+    border-right: 4px solid var(--primary-color);
+    padding-left: 0;
+    padding-right: 2rem;
+  }
+  
+  .modal-header {
+    flex-direction: row-reverse;
+  }
+  
+  .modal-footer {
+    flex-direction: row-reverse;
+  }
+  
+  .toast {
+    right: auto;
+    left: 2rem;
+    border-left: none;
+    border-right: 4px solid;
+  }
+  
+  @media (max-width: 640px) {
+    .toast {
+      right: 1rem;
+      left: 1rem;
+    }
+  }
+  
+  .progress-steps {
+    padding-left: 0;
+    padding-right: 1.5rem;
+  }
+}
+
+/* ---------- تحسينات التمرير ---------- */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+  border: 2px solid var(--background);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color);
+}
+
+/* ---------- إمكانية الوصول ---------- */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -694,118 +1245,564 @@
   border: 0;
 }
 
-.muted {
-  color: var(--text-secondary);
+/* التركيز للوصول */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
 }
 
-/* ---------- الحركات والتحويلات ---------- */
-@keyframes slideIn {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
+/* ---------- تحسينات للطباعة ---------- */
+@media print {
+  .topbar,
+  .panel-left,
+  .actions,
+  .toast,
+  .modal-overlay {
+    display: none !important;
   }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* ---------- التجاوب مع الشاشات المختلفة ---------- */
-@media (max-width: 768px) {
+  
   .main-grid {
-    grid-template-columns: 1fr;
-    padding: 1rem;
-    gap: 1rem;
+    display: block;
+    padding: 0;
   }
   
-  .topbar {
-    padding: 1rem;
-    flex-direction: column;
-    gap: 1rem;
+  .panel-right {
+    box-shadow: none;
+    padding: 0;
+    border: none;
+    background: white;
   }
   
-  .top-actions {
-    width: 100%;
-    justify-content: space-between;
+  .book-content {
+    font-size: 12pt;
+    line-height: 1.6;
+    color: black;
+  }
+  
+  .chapter-content {
+    text-align: left;
+  }
+  
+  .chapter-content p {
+    text-indent: 1.5cm;
+  }
+  
+  .book-cover img {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  
+  .chapter-image {
+    page-break-inside: avoid;
+  }
+  
+  .chapter {
+    page-break-inside: avoid;
+  }
+  
+  .chapter-content p {
+    orphans: 3;
+    widows: 3;
+  }
+}
+
+/* ---------- تحسينات الأداء والرسوم ---------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* تحسينات للشاشات عالية الدقة */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .book-content {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ---------- تحسينات للشبكة على الشاشات الكبيرة ---------- */
+@media (min-width: 1600px) {
+  .main-grid {
+    max-width: 1800px;
   }
   
   .panel-left {
-    position: static;
+    width: 450px;
+  }
+}
+
+/* ---------- تحسينات للوضع المحمول ---------- */
+@media (max-width: 480px) {
+  .chapter-image img {
+    max-width: 100%;
+    margin: 0 auto;
   }
   
-  .progress-steps {
-    flex-direction: column;
-    gap: 1.5rem;
-    align-items: flex-start;
+  .book-cover img {
+    max-width: 250px;
   }
   
-  .progress-steps::before {
-    display: none;
+  .modal {
+    margin: 0.5rem;
   }
   
-  .step {
-    flex-direction: row;
-    gap: 0.75rem;
+  .modal-body {
+    padding: 1rem;
+  }
+}
+
+/* ---------- تحسينات للوضع الأفقي على المحمول ---------- */
+@media (max-height: 600px) and (orientation: landscape) {
+  .panel-left {
+    max-height: 80vh;
   }
   
-  .editor-modal {
+  .modal {
     max-height: 80vh;
   }
 }
 
-/* ---------- دعم اللغة العربية ---------- */
-[dir="rtl"] {
-  .brand-text,
-  .step-label,
-  .field label,
-  .chapter-title,
-  .chapter-desc,
-  .preview-content,
-  .editor-header h3 {
+/* ---------- تحسينات للتركيز وإمكانية الوصول ---------- */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--primary-color);
+  color: white;
+  padding: 8px;
+  z-index: 10000;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ---------- تحسينات للرسائل الديناميكية ---------- */
+.dynamic-message {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin: 1rem 0;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+/* ---------- تحسينات للصور في الفصول ---------- */
+.chapter-image {
+  margin: 1.5rem 0;
+}
+
+.chapter-image figcaption {
+  font-style: italic;
+  color: var(--secondary-color);
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+/* ---------- تحسينات للصور في معاينة الغلاف ---------- */
+.cover-preview {
+  position: relative;
+}
+
+.cover-preview .loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+[data-theme="dark"] .cover-preview .loading-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* ---------- تحسينات للصور المعطلة ---------- */
+img.error {
+  display: none;
+}
+
+/* ---------- تحسينات للصور في وضع الطباعة ---------- */
+@media print {
+  .cover-preview,
+  .book-cover,
+  .chapter-image {
+    page-break-inside: avoid;
+  }
+  
+  img {
+    max-width: 70% !important;
+  }
+}
+
+/* ---------- تحسينات إضافية للوضع الداكن ---------- */
+[data-theme="dark"] .btn-secondary {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+[data-theme="dark"] .btn-secondary:hover:not(:disabled) {
+  background-color: var(--primary-color);
+  color: var(--text-dark);
+}
+
+[data-theme="dark"] .chapter-item {
+  background-color: var(--card-dark);
+  border-color: var(--border-dark);
+}
+
+[data-theme="dark"] .book-meta {
+  background-color: var(--background-dark);
+  border-color: var(--border-dark);
+}
+
+/* ---------- تحسينات للخطوات في الوضع الداكن ---------- */
+[data-theme="dark"] .step-number {
+  background-color: var(--card-dark);
+  border-color: var(--border-dark);
+  color: var(--text-dark);
+}
+
+[data-theme="dark"] .step.active .step-number {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+/* ---------- تحسينات للوضع الداكن في المودال ---------- */
+[data-theme="dark"] .modal {
+  background-color: var(--card-dark);
+  border-color: var(--border-dark);
+}
+
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer {
+  background-color: var(--background-dark);
+  border-color: var(--border-dark);
+}
+
+/* ---------- تحسينات للوضع الداكن في الحقول ---------- */
+[data-theme="dark"] .field input,
+[data-theme="dark"] .field textarea,
+[data-theme="dark"] .field select {
+  background-color: var(--background-dark);
+  border-color: var(--border-dark);
+  color: var(--text-dark);
+}
+
+[data-theme="dark"] .field input:focus,
+[data-theme="dark"] .field textarea:focus,
+[data-theme="dark"] .field select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* ---------- تحسينات للوضع الداكن في القوائم ---------- */
+[data-theme="dark"] .chapters-list {
+  scrollbar-color: var(--border-dark) var(--background-dark);
+}
+
+[data-theme="dark"] .panel-left::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+}
+
+/* ---------- تحسينات للوضع الداكن في الأزرار ---------- */
+[data-theme="dark"] .btn-ghost {
+  border-color: var(--border-dark);
+  color: var(--text-dark);
+}
+
+[data-theme="dark"] .btn-ghost:hover:not(:disabled) {
+  background-color: var(--card-dark);
+  border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .btn-icon {
+  border-color: var(--border-dark);
+  color: var(--text-dark);
+}
+
+[data-theme="dark"] .btn-icon:hover:not(:disabled) {
+  background-color: var(--card-dark);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* ---------- تحسينات للوضع الداكن في التمرير ---------- */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--background-dark);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+  border: 2px solid var(--background-dark);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color);
+}
+
+/* ---------- تحسينات للوضع الداكن في الحالة الفارغة ---------- */
+[data-theme="dark"] .empty-state {
+  color: var(--secondary-color);
+}
+
+[data-theme="dark"] .empty-state h3 {
+  color: var(--text-dark);
+}
+
+/* ---------- تحسينات للوضع الداكن في المحتوى النائب ---------- */
+[data-theme="dark"] .placeholder-content {
+  background-color: var(--background-dark);
+  border-color: var(--border-dark);
+  color: var(--secondary-color);
+}
+
+/* ---------- تحسينات للوضع الداكن في العناصر المعطلة ---------- */
+[data-theme="dark"] button:disabled {
+  opacity: 0.5;
+}
+
+/* ---------- تحسينات للوضع الداكن في الرسائل التحذيرية ---------- */
+[data-theme="dark"] .warning-text {
+  color: var(--warning-color);
+}
+
+[data-theme="dark"] .error-text {
+  color: var(--error-color);
+}
+
+/* ---------- تحسينات للوضع الداكن في العناصر النشطة ---------- */
+[data-theme="dark"] .inline-switch button.active {
+  background-color: var(--primary-color);
+  color: var(--text-dark);
+}
+
+/* ---------- تحسينات للوضع الداكن في عناصر الواجهة ---------- */
+[data-theme="dark"] .plan-select select {
+  background-color: var(--background-dark);
+  border-color: var(--border-dark);
+  color: var(--text-dark);
+}
+
+[data-theme="dark"] .plan-select select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* ---------- أنماط جديدة للعناصر المضافة ---------- */
+.author-style-select {
+  background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: inline-block;
+}
+
+.save-library-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--background);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  transition: var(--transition);
+}
+
+.save-library-toggle:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow);
+}
+
+/* ---------- تحسينات للصور المتولدة ---------- */
+.generated-image {
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s ease;
+}
+
+.generated-image:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+}
+
+/* ---------- تحسينات للوضع المحمول في اللغة العربية ---------- */
+[dir="rtl"] .modal-header h3 {
+  text-align: right;
+}
+
+[dir="rtl"] .modal-footer {
+  justify-content: flex-start;
+}
+
+[dir="rtl"] .checkbox-label {
+  flex-direction: row-reverse;
+}
+
+/* ---------- تحسينات للخط في اللغة العربية ---------- */
+[dir="rtl"] .book-content {
+  font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.9;
+}
+
+[dir="rtl"] .chapter-content p {
+  line-height: 2;
+  text-align: justify;
+}
+
+/* ---------- تحسينات للزر الأساسي في اللغة العربية ---------- */
+[dir="rtl"] .btn-primary,
+[dir="rtl"] .btn-secondary {
+  flex-direction: row-reverse;
+}
+
+/* ---------- تحسينات للشريط الجانبي في اللغة العربية ---------- */
+[dir="rtl"] .panel-left {
+  direction: rtl;
+}
+
+[dir="rtl"] .panel-left h3 {
+  text-align: right;
+}
+
+[dir="rtl"] .field label {
+  text-align: right;
+}
+
+[dir="rtl"] .word-count-hint {
+  text-align: right;
+}
+
+/* ---------- تحسينات للقوائم في اللغة العربية ---------- */
+[dir="rtl"] .chapters-list {
+  direction: rtl;
+}
+
+[dir="rtl"] .chapter-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .chapter-actions {
+  flex-direction: row-reverse;
+}
+
+/* ---------- تحسينات للخطوات في اللغة العربية ---------- */
+[dir="rtl"] .progress-steps {
+  direction: rtl;
+}
+
+[dir="rtl"] .step {
+  direction: rtl;
+}
+
+/* ---------- تحسينات للشريط العلوي في اللغة العربية ---------- */
+[dir="rtl"] .topbar {
+  direction: rtl;
+}
+
+[dir="rtl"] .brand-text {
+  text-align: right;
+}
+
+[dir="rtl"] .top-actions {
+  direction: rtl;
+}
+
+/* ---------- تحسينات للاستجابة في اللغة العربية ---------- */
+[dir="rtl"] @media (max-width: 640px) {
+  .progress-steps {
+    padding-left: 0;
+    padding-right: 1.5rem;
+  }
+  
+  .step {
+    flex-direction: row-reverse;
+  }
+}
+
+/* ---------- تحسينات للطباعة في اللغة العربية ---------- */
+[dir="rtl"] @media print {
+  .book-content {
+    direction: rtl;
     text-align: right;
   }
   
-  .advanced-options {
-    border-left: none;
-    border-right: 3px solid var(--primary);
-  }
-  
-  .content-preview .preview-content {
-    border-left: none;
-    border-right: 3px solid var(--primary);
-  }
-  
-  .error-box,
-  .notice-box {
-    border-left: none;
-    border-right: 3px solid;
-  }
-  
-  .editor-footer {
-    justify-content: flex-start;
-  }
-  
-  .toast {
-    right: auto;
-    left: 1.5rem;
+  .chapter-content p {
+    text-indent: 1.5cm;
+    text-align: right;
   }
 }
 
-/* ---------- تحسينات التمرير ---------- */
-.editor-body::-webkit-scrollbar {
-  width: 8px;
+/* ---------- تحسينات الأداء للصور ---------- */
+.image-loading {
+  background: linear-gradient(90deg, var(--border) 25%, var(--card) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
 }
 
-.editor-body::-webkit-scrollbar-track {
-  background: var(--border);
-  border-radius: 4px;
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
-.editor-body::-webkit-scrollbar-thumb {
-  background: var(--text-secondary);
-  border-radius: 4px;
+/* ---------- تحسينات للرسائل التحذيرية ---------- */
+.warning-banner {
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid var(--warning-color);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin: 1rem 0;
+  color: var(--warning-color);
 }
 
-.editor-body::-webkit-scrollbar-thumb:hover {
-  background: var(--text-primary);
+.warning-banner h4 {
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+}
+
+/* ---------- تحسينات للرسائل الناجحة ---------- */
+.success-banner {
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 1px solid var(--success-color);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin: 1rem 0;
+  color: var(--success-color);
+}
+
+.success-banner h4 {
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
 }
