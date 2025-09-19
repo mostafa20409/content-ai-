@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from "react";
-import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiRefreshCw } from "react-icons/fi";
+import { FiSun, FiMoon, FiBell, FiLogOut, FiSettings, FiBook, FiFileText, FiTrendingUp, FiStar, FiEdit, FiTrash, FiEye, FiPlus, FiDownload, FiRefreshCw, FiUser, FiCreditCard, FiShield } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
 /* ==========================================================================
@@ -10,10 +10,11 @@ import { useRouter } from "next/navigation";
    ========================================================================== */
 
 /* -------------------- أنواع البيانات (Types) -------------------- */
+
 export type User = {
   id: string;
   name: string;
-  email?: string;
+  email: string;
   role?: string;
   avatar?: string;
   subscription?: string;
@@ -23,8 +24,12 @@ export type User = {
     content: number;
     books: number;
   };
+  contentCount?: number;
+  booksCount?: number;
+  adsCount?: number;
+  createdAt?: Date;
+  lastUpdated?: Date;
 };
-
 export type Notification = {
   id: string;
   message: string;
@@ -171,6 +176,7 @@ const Sidebar: React.FC<{
   active: string;
   setActive: (s: string) => void;
 }> = ({ open, onToggle, lang, onChangeLang, dark, onToggleDark, active, setActive }) => {
+
   return (
     <aside
       style={{
@@ -230,10 +236,19 @@ const Sidebar: React.FC<{
           { key: "content", label: lang === "ar" ? "المحتوى" : "Content", icon: "📝" },
           { key: "books", label: lang === "ar" ? "الكتب" : "Books", icon: "📚" },
           { key: "ads", label: lang === "ar" ? "الإعلانات" : "Ads", icon: "📢" },
+          { key: "account", label: lang === "ar" ? "الحساب" : "Account", icon: "👤" },
         ].map((it) => (
           <button
             key={it.key}
-            onClick={() => setActive(it.key)}
+            onClick={() => {
+              if (it.key === "account") {
+                // إذا كان العنصر هو "الحساب"، افتح صفحة الحساب في علامة تبويب جديدة
+                window.open("/dashboard/account", "_blank");
+              } else {
+                // إذا كان عنصراً آخر، غيّر التبويب النشط كالمعتاد
+                setActive(it.key);
+              }
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -481,30 +496,40 @@ const StatsSection: React.FC<{
   booksCount: number;
   adsCount: number;
   loading?: boolean;
-}> = ({ lang, contentCount, booksCount, adsCount, loading }) => {
+}> = ({ lang, user, contentCount, booksCount, adsCount, loading }) => {
+  const isAr = lang === "ar";
+  const isPro = user?.subscription === "pro" || user?.subscription === "premium";
+
   const stats = useMemo(() => [
     {
       icon: <FiFileText size={24} />,
-      title: lang === "ar" ? "المحتوى المنشور" : "Published Content",
+      title: isAr ? "المحتوى المنشور" : "Published Content",
       value: contentCount.toString(),
       change: "+12%",
       color: "#7C3AED",
     },
     {
       icon: <FiBook size={24} />,
-      title: lang === "ar" ? "الكتب المنشورة" : "Published Books",
+      title: isAr ? "الكتب المنشورة" : "Published Books",
       value: booksCount.toString(),
       change: "+8%",
       color: "#60A5FA",
     },
     {
       icon: <FiTrendingUp size={24} />,
-      title: lang === "ar" ? "الإعلانات النشطة" : "Active Ads",
+      title: isAr ? "الإعلانات النشطة" : "Active Ads",
       value: adsCount.toString(),
       change: "+23%",
       color: "#10B981",
     },
-  ], [lang, contentCount, booksCount, adsCount]);
+    {
+      icon: <FiStar size={24} />,
+      title: isAr ? "الباقة الحالية" : "Current Plan",
+      value: isPro ? (isAr ? "برو" : "Pro") : (isAr ? "مجاني" : "Free"),
+      change: isAr ? "ترقية" : "Upgrade",
+      color: isPro ? "#F59E0B" : "#9CA3AF",
+    },
+  ], [lang, contentCount, booksCount, adsCount, isPro, isAr]);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16, marginBottom: 24 }}>
@@ -517,7 +542,7 @@ const StatsSection: React.FC<{
                 {loading ? "..." : stat.value}
               </div>
               <div style={{ fontSize: 12, color: stat.change.startsWith("+") ? "#10B981" : "#EF4444", marginTop: 4 }}>
-                {stat.change} {lang === "ar" ? "من الشهر الماضي" : "from last month"}
+                {stat.change} {isAr ? "من الشهر الماضي" : "from last month"}
               </div>
             </div>
             <div style={{ color: stat.color, padding: 8, borderRadius: 8, background: `${stat.color}20` }}>
@@ -1055,6 +1080,168 @@ const AdsSection: React.FC<{ lang: "ar" | "en"; adItems: AdItem[] }> = ({ lang, 
   );
 };
 
+/* -------------------- قسم الحساب -------------------- */
+const AccountSection: React.FC<{ lang: "ar" | "en"; userData: any }> = ({ lang, userData }) => {
+  const router = useRouter();
+  const isAr = lang === "ar";
+  
+  return (
+    <section>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2>{isAr ? "إدارة الحساب" : "Account Management"}</h2>
+        <button
+          onClick={() => router.push("/dashboard/account")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 16px",
+            background: "#7C3AED",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          {isAr ? "فتح صفحة الحساب" : "Open Account Page"}
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+        <Card style={{ borderLeft: "4px solid #7C3AED" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              background: "linear-gradient(135deg, #7C3AED, #60A5FA)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontWeight: "bold",
+              fontSize: 18
+            }}>
+              {userData?.name ? userData.name.charAt(0).toUpperCase() : "U"}
+            </div>
+            <div>
+              <h3 style={{ margin: 0 }}>{userData?.name || (isAr ? "مستخدم" : "User")}</h3>
+              <p style={{ margin: 0, color: "var(--muted,#6b7280)", fontSize: 14 }}>
+                {userData?.email || (isAr ? "لا يوجد بريد إلكتروني" : "No email")}
+              </p>
+            </div>
+          </div>
+          
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "var(--muted,#6b7280)" }}>{isAr ? "الباقة" : "Plan"}</span>
+              <span style={{ fontWeight: 600 }}>
+                {userData?.subscription === "pro" ? "Pro" : 
+                 userData?.subscription === "premium" ? "Premium" : 
+                 isAr ? "مجاني" : "Free"}
+              </span>
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "var(--muted,#6b7280)" }}>{isAr ? "تاريخ الانضمام" : "Join Date"}</span>
+              <span>
+                {userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString(isAr ? "ar-SA" : "en-US") : "-"}
+              </span>
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--muted,#6b7280)" }}>{isAr ? "آخر تحديث" : "Last Update"}</span>
+              <span>
+                {userData?.lastUpdated ? new Date(userData.lastUpdated).toLocaleDateString(isAr ? "ar-SA" : "en-US") : "-"}
+              </span>
+            </div>
+          </div>
+        </Card>
+
+        <Card style={{ borderLeft: "4px solid #10B981" }}>
+          <h3 style={{ margin: "0 0 16px 0" }}>{isAr ? "إحصائيات الاستخدام" : "Usage Statistics"}</h3>
+          
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "var(--muted,#6b7280)" }}>{isAr ? "المحتوى المنشور" : "Published Content"}</span>
+              <span style={{ fontWeight: 600 }}>{userData?.contentCount || 0}</span>
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "var(--muted,#6b7280)" }}>{isAr ? "الكتب المنشورة" : "Published Books"}</span>
+              <span style={{ fontWeight: 600 }}>{userData?.booksCount || 0}</span>
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--muted,#6b7280)" }}>{isAr ? "الإعلانات النشطة" : "Active Ads"}</span>
+              <span style={{ fontWeight: 600 }}>{userData?.adsCount || 0}</span>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => router.push("/dashboard/account")}
+            style={{
+              width: "100%",
+              padding: "10px 16px",
+              background: "#10B981",
+              color: "white",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontWeight: 500,
+            }}
+          >
+            {isAr ? "عرض التفاصيل الكاملة" : "View Full Details"}
+          </button>
+        </Card>
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <h3 style={{ marginBottom: 16 }}>{isAr ? "الإعدادات السريعة" : "Quick Settings"}</h3>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+          <Card style={{ cursor: "pointer" }} onClick={() => router.push("/dashboard/account")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ color: "#7C3AED" }}>
+                <FiUser size={20} />
+              </div>
+              <span>{isAr ? "الملف الشخصي" : "Profile"}</span>
+            </div>
+          </Card>
+          
+          <Card style={{ cursor: "pointer" }} onClick={() => router.push("/dashboard/account")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ color: "#F59E0B" }}>
+                <FiCreditCard size={20} />
+              </div>
+              <span>{isAr ? "الاشتراك" : "Subscription"}</span>
+            </div>
+          </Card>
+          
+          <Card style={{ cursor: "pointer" }} onClick={() => router.push("/dashboard/account")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ color: "#EF4444" }}>
+                <FiShield size={20} />
+              </div>
+              <span>{isAr ? "الأمان" : "Security"}</span>
+            </div>
+          </Card>
+          
+          <Card style={{ cursor: "pointer" }} onClick={() => router.push("/dashboard/account")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ color: "#10B981" }}>
+                <FiBell size={20} />
+              </div>
+              <span>{isAr ? "الإشعارات" : "Notifications"}</span>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 /* -------------------- المكوّن الرئيسي -------------------- */
 const DashboardClient: React.FC<DashboardClientProps> = ({
   user,
@@ -1071,7 +1258,35 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   const [activeTab, setActiveTab] = useState("overview");
   const [notificationsState, setNotificationsState] = useState(notifications);
   const [loading, setLoading] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  const [realContent, setRealContent] = useState(contentItems);
+  const [realBooks, setRealBooks] = useState(bookItems);
+  const [realAds, setRealAds] = useState(adItems);
   const router = useRouter();
+
+  // جلب البيانات الحقيقية عند تحميل المكون
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/me');
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserData(data.data);
+        setRealContent(data.data.content || []);
+        setRealBooks(data.data.books || []);
+        setRealAds(data.data.ads || []);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // تأثير لتعيين سمة الألوان
   useEffect(() => {
@@ -1082,6 +1297,8 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   // معالجة تسجيل الخروج
   const handleLogout = () => {
     if (confirm(lang === "ar" ? "هل أنت متأكد من تسجيل الخروج؟" : "Are you sure you want to logout?")) {
+      // حذف التوكن
+      document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
       router.push("/login");
     }
   };
@@ -1089,9 +1306,7 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   // معالجة تحديث البيانات
   const handleRefresh = () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-    }, 1500);
+    fetchUserData();
   };
 
   // معالجة تحديد جميع الإشعارات كمقروءة
@@ -1102,10 +1317,10 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   // حساب عدد الإشعارات غير المقروءة
   const unreadNotificationsCount = notificationsState.filter(n => !n.read).length;
 
-  // إحصائيات المحتوى
-  const contentCount = contentItems.filter(item => item.status === "منشور").length;
-  const booksCount = bookItems.filter(book => book.status === "مكتمل").length;
-  const adsCount = adItems.filter(ad => ad.status === "نشط").length;
+  // إحصائيات المحتوى الحقيقية
+  const contentCount = realContent.filter(item => item.status === "منشور" || item.status === "published").length;
+  const booksCount = realBooks.filter(book => book.status === "مكتمل" || book.status === "completed").length;
+  const adsCount = realAds.filter(ad => ad.status === "نشط" || ad.status === "active").length;
 
   return (
     <div style={{
@@ -1153,20 +1368,24 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
                 loading={loading}
               />
               <ToolsSection lang={lang} />
-              <ContentSection lang={lang} contentItems={contentItems} />
+              <ContentSection lang={lang} contentItems={realContent} />
             </>
           )}
 
           {activeTab === "content" && (
-            <ContentSection lang={lang} contentItems={contentItems} />
+            <ContentSection lang={lang} contentItems={realContent} />
           )}
 
           {activeTab === "books" && (
-            <BooksSection lang={lang} bookItems={bookItems} />
+            <BooksSection lang={lang} bookItems={realBooks} />
           )}
 
           {activeTab === "ads" && (
-            <AdsSection lang={lang} adItems={adItems} />
+            <AdsSection lang={lang} adItems={realAds} />
+          )}
+
+          {activeTab === "account" && (
+            <AccountSection lang={lang} userData={userData} />
           )}
         </main>
       </div>

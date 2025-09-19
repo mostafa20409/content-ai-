@@ -1,4 +1,3 @@
-// lib/connectToDB.ts
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -7,49 +6,70 @@ if (!MONGODB_URI) {
   throw new Error("❌ MONGODB_URI is not defined in environment variables");
 }
 
-let cached = (global as any).mongooseConnection;
+interface MongooseCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
 
-if (!cached) {
-  cached = (global as any).mongooseConnection = { conn: null, promise: null };
+declare global {
+  var mongooseGlobal: MongooseCache | undefined;
+}
+
+let cached: MongooseCache = global.mongooseGlobal || {
+  conn: null,
+  promise: null,
+};
+
+if (!global.mongooseGlobal) {
+  global.mongooseGlobal = cached;
 }
 
 export const connectToDB = async () => {
-  if (cached.conn) return cached.conn;
+  if (cached.conn) {
+    // تحقق أن الاتصال لا يزال نشطاً
+    if (cached.conn.connection.readyState === 1) {
+      return cached.conn;
+    } else {
+      // إعادة الاتصال إذا كان مغلقاً
+      console.log("🔄 إعادة الاتصال بقاعدة البيانات...");
+      cached.conn = null;
+      cached.promise = null;
+    }
+  }
 
   if (!cached.promise) {
     const options = {
       bufferCommands: false,
-      autoIndex: true,
-      connectTimeoutMS: 10000,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      family: 4,
-      maxPoolSize: 10,
+      autoIndex: process.env.NODE_ENV === 'development',
+      connectTimeoutMS: 10000, // تقليل الوقت
+      serverSelectionTimeoutMS: 10000, // تقليل الوقت
+      socketTimeoutMS: 20000, // تقليل الوقت
+      maxPoolSize: 5, // تقليل حجم pool
       minPoolSize: 1,
-      maxIdleTimeMS: 30000,
-      serverMonitoringMode: 'auto' as const,
+      maxIdleTimeMS: 10000,
     };
 
-    cached.promise = mongoose
-      .connect(MONGODB_URI!, options)
+    cached.promise = mongoose.connect(MONGODB_URI, options)
       .then((mongooseInstance) => {
         console.log("✅ MongoDB connected successfully");
         return mongooseInstance;
       })
       .catch((error) => {
         console.error("❌ Failed to connect to MongoDB:", error);
+        cached.promise = null;
         throw error;
       });
   }
 
   try {
     cached.conn = await cached.promise;
-    return cached.conn;
   } catch (error) {
+    cached.promise = null;
     console.error("❌ Error connecting to MongoDB:", error);
     throw error;
   }
+
+  return cached.conn;
 };
 
-// ✅ أضفنا default export عشان أي طريقة استيراد تشتغل
 export default connectToDB;

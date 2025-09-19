@@ -51,12 +51,18 @@ export const authMiddleware = (options: AuthOptions = {}) => {
         );
       }
 
-      // إرفاق بيانات المستخدم في request
-      const requestWithUser = req as NextRequest & { user: UserPayload };
-      requestWithUser.user = decoded;
+      // إضافة headers للتحكم في CORS
+      const response = NextResponse.next();
+      response.headers.set('Access-Control-Allow-Origin', 
+        process.env.NODE_ENV === 'production' 
+          ? 'https://yourdomain.com' 
+          : 'http://localhost:3000'
+      );
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
 
-      // تمرير الطلب
-      return NextResponse.next();
+      return response;
     } catch (error: any) {
       console.error("‼ خطأ في المصادقة:", error.message);
 

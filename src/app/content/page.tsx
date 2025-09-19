@@ -29,7 +29,8 @@ import {
   Download,
   Printer,
   Clock,
-  Copy
+  Copy,
+  X
 } from "lucide-react";
 import Image from "next/image";
 import "./content.css";
@@ -376,6 +377,8 @@ export default function AdvancedContentGenerator() {
   const [savedResults, setSavedResults] = useState<ResearchResult[]>([]);
   const [sortBy, setSortBy] = useState<"relevance" | "date" | "quality">("relevance");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [userSubscription, setUserSubscription] = useState<{ type: string; limits: any; usage: any } | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   /* --------------------------------------------
      Memoized Data
@@ -402,7 +405,7 @@ export default function AdvancedContentGenerator() {
   --------------------------------------------- */
   useEffect(() => {
     // Load settings and history
-    const loadSettings = () => {
+    const loadSettings = async () => {
       try {
         const settings = JSON.parse(localStorage.getItem('content-settings') || '{}');
         const history = JSON.parse(localStorage.getItem('search-history') || '[]');
@@ -418,6 +421,9 @@ export default function AdvancedContentGenerator() {
         
         setSearchHistory(history.slice(0, 10));
         setSavedResults(saved);
+
+        // تحميل معلومات الاشتراك
+        await loadUserSubscription();
       } catch (error) {
         console.error('Failed to load settings:', error);
       }
@@ -527,6 +533,40 @@ export default function AdvancedContentGenerator() {
       return;
     }
 
+    // التحقق من حدود الاشتراك أولاً
+    try {
+      const checkResponse = await fetch('/api/generate/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ contentType }),
+      });
+
+      if (!checkResponse.ok) {
+        const errorData = await checkResponse.json();
+        if (errorData.error === 'SUBSCRIPTION_LIMIT_EXCEEDED') {
+          setShowSubscriptionModal(true);
+          notify(
+            language === 'ar' 
+              ? '❌ لقد تجاوزت الحد المسموح به لهذا الشهر' 
+              : '❌ You have exceeded your monthly limit',
+            'error'
+          );
+          return;
+        }
+        throw new Error(errorData.error || 'Check failed');
+      }
+    } catch (error) {
+      console.error('Subscription check failed:', error);
+      notify(
+        language === 'ar' 
+          ? '⚠ فشل في التحقق من الاشتراك، جاري التوليد...' 
+          : '⚠ Subscription check failed, proceeding with generation...',
+        'info'
+      );
+    }
+
     setLoading(true);
     setStage('searching');
     setResearchResults([]);
@@ -583,13 +623,26 @@ export default function AdvancedContentGenerator() {
       });
 
       if (!generateResponse.ok) {
-        const errorText = await generateResponse.text();
-        throw new Error(`Generation failed: ${errorText}`);
+        const errorData = await generateResponse.json();
+        if (errorData.error === 'SUBSCRIPTION_LIMIT_EXCEEDED') {
+          setShowSubscriptionModal(true);
+          notify(
+            language === 'ar' 
+              ? '❌ لقد تجاوزت الحد المسموح به لهذا الشهر' 
+              : '❌ You have exceeded your monthly limit',
+            'error'
+          );
+          return;
+        }
+        throw new Error(errorData.error || 'Generation failed');
       }
 
       const generateData = await generateResponse.json();
       setGeneratedContent(generateData.content);
       setStage('complete');
+      
+      // تحديث معلومات الاشتراك
+      await loadUserSubscription();
       
       notify(
         language === 'ar' 
@@ -610,6 +663,44 @@ export default function AdvancedContentGenerator() {
       setLoading(false);
     }
   }, [topic, selectedSources, contentType, tone, audience, length, language, notify, processResults]);
+
+  // دالة لتحميل معلومات اشتراك المستخدم
+  const loadUserSubscription = async () => {
+    try {
+      const response = await fetch('/api/user/subscription');
+      if (response.ok) {
+        const data = await response.json();
+        setUserSubscription(data);
+      } else {
+        // إذا فشل الطلب، استخدم بيانات افتراضية
+        setUserSubscription({
+          type: 'free',
+          limits: {
+            monthlyRequests: 10,
+            contentLimitPerMonth: 2000
+          },
+          usage: {
+            contentUsedThisMonth: 0,
+            contentGenerated: 0
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load subscription:', error);
+      // استخدم بيانات افتراضية في حالة الخطأ
+      setUserSubscription({
+        type: 'free',
+        limits: {
+          monthlyRequests: 10,
+          contentLimitPerMonth: 2000
+        },
+        usage: {
+          contentUsedThisMonth: 0,
+          contentGenerated: 0
+        }
+      });
+    }
+  };
 
   /* --------------------------------------------
      Result Management
@@ -750,6 +841,149 @@ export default function AdvancedContentGenerator() {
 
     return results;
   }, [researchResults, savedResults, activeTab, sortBy]);
+
+  /* --------------------------------------------
+     Subscription Modal
+  --------------------------------------------- */
+  const renderSubscriptionModal = () => {
+    if (!showSubscriptionModal) return null;
+
+    return (
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowSubscriptionModal(false)}
+      >
+        <motion.div
+          className="subscription-modal"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="modal-header">
+            <h2>{language === 'ar' ? 'ترقية الاشتراك' : 'Upgrade Subscription'}</h2>
+            <button onClick={() => setShowSubscriptionModal(false)} className="close-button">
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="modal-content">
+            <div className="subscription-plans">
+              <div className="plan-card">
+                <h3>{language === 'ar' ? 'مجاني' : 'Free'}</h3>
+                <div className="plan-price">{language === 'ar' ? 'مجاني' : 'Free'}</div>
+                <ul>
+                  <li>{language === 'ar' ? '٢٠٠٠ كلمة شهرياً' : '2000 words monthly'}</li>
+                  <li>{language === 'ar' ? 'مصادر محدودة' : 'Limited sources'}</li>
+                  <li>{language === 'ar' ? 'دعم أساسي' : 'Basic support'}</li>
+                </ul>
+                <button className="plan-button current">
+                  {language === 'ar' ? 'الاشتراك الحالي' : 'Current Plan'}
+                </button>
+              </div>
+
+              <div className="plan-card featured">
+                <div className="featured-badge">{language === 'ar' ? 'مميز' : 'Featured'}</div>
+                <h3>{language === 'ar' ? 'احترافي' : 'Pro'}</h3>
+                <div className="plan-price">$9.99/{language === 'ar' ? 'شهر' : 'mo'}</div>
+                <ul>
+                  <li>{language === 'ar' ? '١٠٠٠٠ كلمة شهرياً' : '10000 words monthly'}</li>
+                  <li>{language === 'ar' ? 'جميع المصادر' : 'All sources'}</li>
+                  <li>{language === 'ar' ? 'أولوية الدعم' : 'Priority support'}</li>
+                  <li>{language === 'ar' ? 'ميزات متقدمة' : 'Advanced features'}</li>
+                </ul>
+                <button className="plan-button primary">
+                  {language === 'ar' ? 'ترقية الآن' : 'Upgrade Now'}
+                </button>
+              </div>
+
+              <div className="plan-card">
+                <h3>{language === 'ar' ? 'بريميوم' : 'Premium'}</h3>
+                <div className="plan-price">$19.99/{language === 'ar' ? 'شهر' : 'mo'}</div>
+                <ul>
+                  <li>{language === 'ar' ? 'كلمات غير محدودة' : 'Unlimited words'}</li>
+                  <li>{language === 'ar' ? 'جميع المصادر' : 'All sources'}</li>
+                  <li>{language === 'ar' ? 'دعم فوري' : 'Instant support'}</li>
+                  <li>{language === 'ar' ? 'ميزات حصرية' : 'Exclusive features'}</li>
+                </ul>
+                <button className="plan-button">
+                  {language === 'ar' ? 'ترقية الآن' : 'Upgrade Now'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  };
+
+  /* --------------------------------------------
+     Subscription Status Component
+  --------------------------------------------- */
+  const renderSubscriptionStatus = () => {
+    if (!userSubscription) return null;
+
+    const { type, limits, usage } = userSubscription;
+    const progress = Math.min((usage.contentUsedThisMonth / limits.contentLimitPerMonth) * 100, 100);
+
+    return (
+      <motion.div
+        className="subscription-status"
+        variants={fadeIn}
+        initial="hidden"
+        animate="visible"
+        transition={{ delay: 0.15 }}
+      >
+        <div className="status-header">
+          <h3>{language === 'ar' ? 'حالة الاشتراك' : 'Subscription Status'}</h3>
+          <span className={`subscription-badge ${type}`}>
+            {type === 'free' ? (language === 'ar' ? 'مجاني' : 'Free') : 
+             type === 'pro' ? (language === 'ar' ? 'احترافي' : 'Pro') : 
+             (language === 'ar' ? 'بريميوم' : 'Premium')}
+          </span>
+        </div>
+
+        <div className="usage-progress">
+          <div className="progress-header">
+            <span>{language === 'ar' ? 'الكلمات المستخدمة هذا الشهر' : 'Words used this month'}</span>
+            <span>{usage.contentUsedThisMonth} / {limits.contentLimitPerMonth}</span>
+          </div>
+          <div className="progress-bar">
+            <motion.div
+              className="progress-fill"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 1, ease: 'easeOut' }}
+              style={{
+                backgroundColor: progress > 90 ? '#EF4444' : progress > 75 ? '#F59E0B' : '#10B981'
+              }}
+            />
+          </div>
+        </div>
+
+        {progress > 75 && (
+          <div className="usage-warning">
+            <span>
+              {language === 'ar' 
+                ? `⚠️ أنت تستخدم ${Math.round(progress)}% من حدك الشهري` 
+                : `⚠️ You're using ${Math.round(progress)}% of your monthly limit`}
+            </span>
+            {progress > 90 && (
+              <button 
+                onClick={() => setShowSubscriptionModal(true)}
+                className="upgrade-link"
+              >
+                {language === 'ar' ? 'ترقية الآن' : 'Upgrade now'}
+              </button>
+            )}
+          </div>
+        )}
+      </motion.div>
+    );
+  };
 
   /* --------------------------------------------
      Render Components
@@ -1079,6 +1313,8 @@ export default function AdvancedContentGenerator() {
               <div className="input-wrapper">
                 <Search size={20} className="search-icon" />
                 <input
+                  id="topic-input"
+                  name="topic"
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
@@ -1115,6 +1351,9 @@ export default function AdvancedContentGenerator() {
                 {language === 'ar' ? 'توليد' : 'Generate'}
               </motion.button>
             </div>
+
+            {/* عرض حالة الاشتراك */}
+            {renderSubscriptionStatus()}
 
             {/* Content Type Selection */}
             <div className="content-type-section">
@@ -1369,7 +1608,7 @@ export default function AdvancedContentGenerator() {
 
         {/* Footer */}
         <motion.footer
-                   className="content-footer"
+          className="content-footer"
           variants={fadeIn}
           initial="hidden"
           animate="visible"
@@ -1388,8 +1627,10 @@ export default function AdvancedContentGenerator() {
             </div>
           </div>
         </motion.footer>
+
+        {/* Subscription Modal */}
+        {renderSubscriptionModal()}
       </motion.main>
     </div>
   );
 }
- 

@@ -5,6 +5,12 @@ interface RateLimitStore {
   blockedUntil?: number;
 }
 
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetTime?: number;
+}
+
 class RateLimiter {
   private store: Map<string, RateLimitStore>;
   private readonly maxAttempts: number;
@@ -20,9 +26,12 @@ class RateLimiter {
     this.maxAttempts = maxAttempts;
     this.windowMs = windowMs;
     this.blockDurationMs = blockDurationMs;
+
+    // تنظيف دوري للتخزين كل 5 دقائق
+    setInterval(() => this.cleanup(), 5 * 60 * 1000);
   }
 
-  check(key: string): { allowed: boolean; remaining: number; resetTime?: number } {
+  check(key: string): RateLimitResult {
     const now = Date.now();
     const record = this.store.get(key);
 
@@ -46,14 +55,15 @@ class RateLimiter {
 
     // إذا تجاوز الحد المسموح
     if (record.count >= this.maxAttempts) {
+      const blockedUntil = now + this.blockDurationMs;
       this.store.set(key, {
         ...record,
-        blockedUntil: now + this.blockDurationMs
+        blockedUntil
       });
       return {
         allowed: false,
         remaining: 0,
-        resetTime: now + this.blockDurationMs
+        resetTime: blockedUntil
       };
     }
 
@@ -73,11 +83,13 @@ class RateLimiter {
     this.store.delete(key);
   }
 
-  // تنظيف التخزين تلقائياً (اختياري)
+  // تنظيف التخزين تلقائياً
   cleanup(): void {
     const now = Date.now();
     for (const [key, record] of this.store.entries()) {
-      if (now - record.lastAttempt > this.windowMs * 2 && !record.blockedUntil) {
+      // حذف السجلات القديمة التي انتهى وقتها
+      if ((now - record.lastAttempt > this.windowMs * 2) && 
+          (!record.blockedUntil || now > record.blockedUntil)) {
         this.store.delete(key);
       }
     }
@@ -86,22 +98,80 @@ class RateLimiter {
 
 // إنشاء مثيلات منفصلة لكل نوع
 export const ipRateLimiter = new RateLimiter(
-  parseInt(process.env.RATE_LIMIT_MAX_ATTEMPTS || '5'),
-  parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-  parseInt(process.env.RATE_LIMIT_BLOCK_MS || '1800000')
+  parseInt(process.env.RATE_LIMIT_IP_MAX_ATTEMPTS || '10'),
+  parseInt(process.env.RATE_LIMIT_IP_WINDOW_MS || '900000'), // 15 دقيقة
+  parseInt(process.env.RATE_LIMIT_IP_BLOCK_MS || '1800000') // 30 دقيقة
 );
 
 export const emailRateLimiter = new RateLimiter(
-  parseInt(process.env.RATE_LIMIT_MAX_ATTEMPTS || '5'),
-  parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-  parseInt(process.env.RATE_LIMIT_BLOCK_MS || '1800000')
+  parseInt(process.env.RATE_LIMIT_EMAIL_MAX_ATTEMPTS || '5'),
+  parseInt(process.env.RATE_LIMIT_EMAIL_WINDOW_MS || '3600000'), // ساعة
+  parseInt(process.env.RATE_LIMIT_EMAIL_BLOCK_MS || '7200000') // ساعتين
 );
 
-// دالة مساعدة للتحقق من Rate Limit
-export function checkRateLimit(identifier: string, type: 'ip' | 'email' = 'ip') {
+// دالة مساعدة للتحقق من Rate Limit متوافقة مع route.ts
+export function checkRateLimit(identifier: string, type: 'ip' | 'email' = 'ip'): {
+  allowed: boolean;
+  resetTime?: number;
+  retryAfter?: number;
+} {
+  let result: RateLimitResult;
+  
   if (type === 'ip') {
-    return ipRateLimiter.check(identifier);
+    result = ipRateLimiter.check(identifier);
   } else {
-    return emailRateLimiter.check(identifier);
+    result = emailRateLimiter.check(identifier);
   }
+
+  return {
+    allowed: result.allowed,
+    resetTime: result.resetTime,
+    retryAfter: result.resetTime ? Math.ceil((result.resetTime - Date.now()) / 1000) : undefined
+  };
+}
+
+// دالة مساعدة للحصول على معلومات Rate Limit
+export function getRateLimitInfo(identifier: string, type: 'ip' | 'email' = 'ip'): {
+  allowed: boolean;
+  remaining: number;
+  resetTime?: number;
+  retryAfter?: number;
+} {
+  let result: RateLimitResult;
+  
+  if (type === 'ip') {
+    result = ipRateLimiter.check(identifier);
+  } else {
+    result = emailRateLimiter.check(identifier);
+  }
+
+  return {
+    allowed: result.allowed,
+    remaining: result.remaining,
+    resetTime: result.resetTime,
+    retryAfter: result.resetTime ? Math.ceil((result.resetTime - Date.now()) / 1000) : undefined
+  };
+}
+
+// دالة لمسح Rate Limit (للاستخدام في الاختبارات أو الإدارة)
+export function resetRateLimit(identifier: string, type: 'ip' | 'email' = 'ip'): void {
+  if (type === 'ip') {
+    ipRateLimiter.reset(identifier);
+  } else {
+    emailRateLimiter.reset(identifier);
+  }
+}
+
+// دالة للحصول على إحصائيات Rate Limit (للاستخدام في المراقبة)
+export function getRateLimitStats(): {
+  ipCount: number;
+  emailCount: number;
+  totalCount: number;
+} {
+  return {
+    ipCount: Array.from(ipRateLimiter['store'].keys()).length,
+    emailCount: Array.from(emailRateLimiter['store'].keys()).length,
+    totalCount: Array.from(ipRateLimiter['store'].keys()).length + 
+               Array.from(emailRateLimiter['store'].keys()).length
+  };
 }

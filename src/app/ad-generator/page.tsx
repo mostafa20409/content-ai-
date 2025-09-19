@@ -1,3 +1,4 @@
+// app/ad-generator/page.tsx
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -39,6 +40,16 @@ interface Analytics {
   averageRating: number;
 }
 
+interface UserSubscription {
+  type: string;
+  adsLimit: number;
+  adsUsed: number;
+  marketAnalysis: boolean;
+  advancedFeatures: boolean;
+  remainingAds: number | 'unlimited';
+  remainingAnalysis: number | 'unlimited';
+}
+
 /* ---------------- Constants ---------------- */
 const AD_TYPES: AdType[] = ["facebook", "instagram", "google", "twitter", "linkedin", "tiktok", "youtube"];
 const LANGUAGES: AdLanguage[] = ["ar", "en"];
@@ -74,6 +85,7 @@ function generateId(): string {
 
 /* ---------------- Component ---------------- */
 export default function AdvancedAdGenerator() {
+  
   /* --- state (safe defaults to avoid hydration mismatch) --- */
   const [input, setInput] = useState<AdInput>({
     product: "",
@@ -98,7 +110,7 @@ export default function AdvancedAdGenerator() {
     averageRating: 0
   });
 
-  const [activeTab, setActiveTab] = useState<"generator" | "history" | "analytics">("generator");
+  const [activeTab, setActiveTab] = useState<"generator" | "history" | "analytics" | "subscription">("generator");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<AdType | "all">("all");
   const [selectedRating, setSelectedRating] = useState<number | "all">("all");
@@ -106,12 +118,23 @@ export default function AdvancedAdGenerator() {
   const [editingAdId, setEditingAdId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
+  const [userSubscription, setUserSubscription] = useState<UserSubscription>({
+    type: "free",
+    adsLimit: 5,
+    adsUsed: 0,
+    marketAnalysis: false,
+    advancedFeatures: false,
+    remainingAds: 5,
+    remainingAnalysis: 0
+  });
+
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
   /* theme & lang: default fixed values, read persisted values in effect */
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [lang, setLang] = useState<AdLanguage>("ar");
 
   // استخدام useRef لتخزين القيم بدون إعادة تصيير
-  const inputRef = useRef<HTMLInputElement>(null);
   const isInitialLoad = useRef(true);
 
   /* ---------------- helpers ---------------- */
@@ -157,6 +180,9 @@ export default function AdvancedAdGenerator() {
 
       const storedTheme = localStorage.getItem("adGeneratorTheme") as "light" | "dark" | null;
       if (storedTheme === "dark" || storedTheme === "light") setTheme(storedTheme);
+
+      // تحميل معلومات الاشتراك
+      loadUserSubscription();
     } catch (err) {
       console.error("loadPersistedData error:", err);
     }
@@ -194,6 +220,41 @@ export default function AdvancedAdGenerator() {
     } catch {}
   }, [theme]);
 
+  // دالة لتحميل معلومات اشتراك المستخدم
+  const loadUserSubscription = async () => {
+    try {
+      const response = await fetch('/api/generate-ad');
+      if (response.ok) {
+        const data = await response.json();
+        setUserSubscription({
+          type: data.type,
+          adsLimit: data.limits.monthlyRequests,
+          adsUsed: data.usage.adsGenerated || 0,
+          marketAnalysis: data.type !== 'free',
+          advancedFeatures: data.type === 'premium',
+          remainingAds: data.remainingAds,
+          remainingAnalysis: data.remainingAnalysis
+        });
+      } else if (response.status === 402) {
+        // إذا كان الاشتراك منتهيًا
+        const errorData = await response.json();
+        setUserSubscription({
+          type: errorData.plan || 'free',
+          adsLimit: errorData.limit || 5,
+          adsUsed: errorData.used || 0,
+          marketAnalysis: false,
+          advancedFeatures: false,
+          remainingAds: 0,
+          remainingAnalysis: 0
+        });
+        setError("لقد تجاوزت الحد المسموح به لخطتك الحالية. يرجى الترقية.");
+        setShowSubscriptionModal(true);
+      }
+    } catch (error) {
+      console.error('Failed to load subscription:', error);
+    }
+  };
+
   const validateInput = useCallback((): string | null => {
     if (!input.product.trim()) return lang === "ar" ? "❌ يرجى إدخال اسم المنتج" : "❌ Please enter product name";
     if (!input.audience.trim()) return lang === "ar" ? "❌ يرجى إدخال الجمهور المستهدف" : "❌ Please enter audience";
@@ -230,9 +291,6 @@ export default function AdvancedAdGenerator() {
     trackEvent("ad_rated", { id, rating });
   }, [updateAdInHistory, trackEvent]);
 
-  const incrementAdViews = useCallback((id: string) => {
-    updateAdInHistory(id, { views: (history.find(a => a.id === id)?.views || 0) + 1 });
-  }, [history, updateAdInHistory]);
 
   /* ---------------- filters ---------------- */
   const filteredHistory = useMemo(() => {
@@ -264,34 +322,56 @@ export default function AdvancedAdGenerator() {
       return;
     }
 
+    // التحقق من حدود الاشتراك أولاً
+    if (userSubscription.remainingAds !== 'unlimited' && userSubscription.remainingAds <= 0) {
+      setError(lang === "ar" 
+        ? "❌ لقد تجاوزت الحد المسموح به لهذا الشهر. يرجى ترقية اشتراكك." 
+        : "❌ You have exceeded your monthly limit. Please upgrade your subscription.");
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     setLoading(true);
     const start = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     try {
-      // محاكاة لتوليد الإعلان
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // توليد إعلان تجريبي
-      const adTemplates = {
-        ar: {
-          facebook: `🔥 ${input.product} - الحل الأمثل لـ ${input.audience}!\n\n✨ ميزات رائعة:\n• جودة عالية\n• سعر مميز\n• ضمان شامل\n\n🚀 اطلبه الآن واستمتع بعروض خاصة!`,
-          instagram: `🌟 ${input.product} يناسب ${input.audience} بشكل مذهل!\n\n💎 لماذا تختارنا؟\n• تصميم أنيق\n• أداء متميز\n• خدمة عملاء 24/7\n\n👉 اضغط على الرابط في البايو!`,
-          google: `${input.product} | الخيار الأفضل لـ ${input.audience}\n\n✅ موثوق ومجرب\n✅ أسعار تنافسية\n✅ شحن سريع\n\n🛒 تسوق الآن بخصم خاص!`,
+      const response = await fetch('/api/generate-ad', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        en: {
-          facebook: `🔥 ${input.product} - The perfect solution for ${input.audience}!\n\n✨ Amazing features:\n• High quality\n• Competitive price\n• Full warranty\n\n🚀 Order now and enjoy special offers!`,
-          instagram: `🌟 ${input.product} perfectly suits ${input.audience}!\n\n💎 Why choose us?\n• Elegant design\n• Outstanding performance\n• 24/7 customer service\n\n👉 Click the link in our bio!`,
-          google: `${input.product} | The best choice for ${input.audience}\n\n✅ Trusted and tested\n✅ Competitive prices\n✅ Fast shipping\n\n🛒 Shop now with special discount!`,
+        body: JSON.stringify({
+          product: input.product,
+          audience: input.audience,
+          type: input.type,
+          language: input.language,
+          tone: input.tone,
+          length: input.length,
+          keywords: input.keywords,
+          specialOffers: input.specialOffers,
+          category: "تكنولوجيا",
+          includeResearch: userSubscription.type !== 'free'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.error === 'SUBSCRIPTION_LIMIT_EXCEEDED') {
+          setError(lang === "ar" 
+            ? `❌ لقد تجاوزت الحد المسموح به لخطتك الحالية (${errorData.limit} إعلان)` 
+            : `❌ You have exceeded your plan limit (${errorData.limit} ads)`);
+          setShowSubscriptionModal(true);
+          return;
         }
-      };
-      
-      const text = adTemplates[input.language]?.[input.type] || 
-                  (input.language === "ar" 
-                    ? `إعلان عن ${input.product} للجمهور المستهدف ${input.audience} على منصة ${input.type}`
-                    : `Ad for ${input.product} targeting ${input.audience} on ${input.type} platform`);
-      
-      setResult(text);
-      addToHistory(text);
+        throw new Error(errorData.error || 'Generation failed');
+      }
+
+      const data = await response.json();
+      setResult(data.adText);
+      addToHistory(data.adText);
+
+      // تحديث معلومات الاشتراك
+      await loadUserSubscription();
 
       // update analytics generation time
       const timeTaken = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - start) / 1000;
@@ -308,7 +388,7 @@ export default function AdvancedAdGenerator() {
     } finally {
       setLoading(false);
     }
-  }, [input, lang, validateInput, addToHistory, trackEvent]);
+  }, [input, lang, validateInput, addToHistory, trackEvent, userSubscription]);
 
   /* ---------------- helpers: clipboard/export/edit ---------------- */
   const copyToClipboard = useCallback(async (text: string, adId?: string) => {
@@ -351,850 +431,503 @@ export default function AdvancedAdGenerator() {
     }
   }, [editingAdId, editText, updateAdInHistory]);
 
-  const cancelEdit = useCallback(() => setEditingAdId(null), []);
-
-  /* ---------------- UI helpers ---------------- */
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setInput(prev => {
-      // تجنب إعادة التصيير إذا كانت القيمة لم تتغير
-      if (prev[name as keyof AdInput] === value) return prev;
-      return { ...prev, [name]: value };
-    });
+  const cancelEdit = useCallback(() => {
+    setEditingAdId(null);
   }, []);
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  }, []);
+  /* ---------------- subscription ---------------- */
+  const handleUpgrade = useCallback((plan: string) => {
+    // تنفيذ عملية الترقية
+    trackEvent("upgrade_clicked", { plan });
+    alert(lang === "ar" ? `سيتم توجيهك لصفحة الدفع لخطة ${plan}` : `Redirecting to payment for ${plan} plan`);
+  }, [lang, trackEvent]);
 
-  const handlePlatformFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedPlatform(e.target.value as AdType | "all");
-  }, []);
-
-  const handleRatingFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedRating(e.target.value === "all" ? "all" : Number(e.target.value));
-  }, []);
-
-  const platformName = useCallback((type: AdType) => {
-    const en: Record<AdType,string> = {
-      facebook: "Facebook",
-      instagram: "Instagram",
-      google: "Google",
-      twitter: "Twitter",
-      linkedin: "LinkedIn",
-      tiktok: "TikTok",
-      youtube: "YouTube"
-    };
-    const ar: Record<AdType,string> = {
-      facebook: "فيسبوك",
-      instagram: "إنستجرام",
-      google: "جوجل",
-      twitter: "تويتر",
-      linkedin: "لينكدإن",
-      tiktok: "تيك توك",
-      youtube: "يوتيوب"
-    };
-    return lang === "ar" ? ar[type] : en[type];
-  }, [lang]);
-
-  const formatDate = useCallback((date: Date) => {
-    try {
-      return date.toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
-        year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
-      });
-    } catch {
-      return date.toISOString();
-    }
-  }, [lang]);
-
-  /* ---------------- Theme & Lang toggles ---------------- */
-  const toggleTheme = useCallback(() => setTheme(prev => prev === "light" ? "dark" : "light"), []);
-  const switchLang = useCallback((l: AdLanguage) => setLang(l), []);
-
-  /* ---------------- Render subcomponents ---------------- */
-  const InputForm = useCallback(() => (
-    <div style={{...styles.formContainer, ...(theme === "dark" ? styles.formContainerDark : {})}}>
-      <div style={styles.formGrid}>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>{lang === "ar" ? "اسم المنتج/الخدمة" : "Product / Service"}</label>
-          <input 
-            name="product" 
-            value={input.product} 
-            onChange={handleInputChange} 
-            placeholder={lang === "ar" ? "مثال: هاتف ذكي" : "e.g. High-end smartphone"} 
-            style={styles.input} 
-            disabled={loading} 
-            ref={inputRef}
-          />
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>{lang === "ar" ? "الجمهور المستهدف" : "Target audience"}</label>
-          <input 
-            name="audience" 
-            value={input.audience} 
-            onChange={handleInputChange} 
-            placeholder={lang === "ar" ? "مثال: رجال أعمال 25-40" : "e.g. 25-40 business professionals"} 
-            style={styles.input} 
-            disabled={loading} 
-          />
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>{lang === "ar" ? "منصة" : "Platform"}</label>
-          <select name="type" value={input.type} onChange={handleInputChange} style={styles.select} disabled={loading}>
-            {AD_TYPES.map(t => <option key={t} value={t}>{platformName(t)}</option>)}
-          </select>
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>{lang === "ar" ? "اللغة" : "Language"}</label>
-          <select name="language" value={input.language} onChange={handleInputChange} style={styles.select} disabled={loading}>
-            <option value="ar">{lang === "ar" ? "العربية" : "Arabic"}</option>
-            <option value="en">{lang === "ar" ? "الإنجليزية" : "English"}</option>
-          </select>
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>{lang === "ar" ? "نغمة" : "Tone"}</label>
-          <select name="tone" value={input.tone} onChange={handleInputChange} style={styles.select} disabled={loading}>
-            {TONES.map(t => <option key={t} value={t}>{lang === "ar" ? t : t}</option>)}
-          </select>
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>{lang === "ar" ? "الطول" : "Length"}</label>
-          <select name="length" value={input.length} onChange={handleInputChange} style={styles.select} disabled={loading}>
-            <option value="short">{lang === "ar" ? "قصير" : "Short"}</option>
-            <option value="medium">{lang === "ar" ? "متوسط" : "Medium"}</option>
-            <option value="long">{lang === "ar" ? "طويل" : "Long"}</option>
-          </select>
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>{lang === "ar" ? "كلمات مفتاحية (اختياري)" : "Keywords (optional)"}</label>
-          <input name="keywords" value={input.keywords} onChange={handleInputChange} style={styles.input} disabled={loading} />
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>{lang === "ar" ? "عروض خاصة (اختياري)" : "Special offers (optional)"}</label>
-          <input name="specialOffers" value={input.specialOffers} onChange={handleInputChange} style={styles.input} disabled={loading} />
-        </div>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <button onClick={generateAd} disabled={loading} style={loading ? styles.buttonDisabled : {
-          ...styles.generateButton,
-          background: PRIMARY_GRADIENT
-        }}>
-          {loading ? (lang === "ar" ? "جاري التوليد..." : "Generating...") : (lang === "ar" ? "توليد إعلان احترافي" : "Generate professional ad")}
-        </button>
-      </div>
+  /* ---------------- render helpers ---------------- */
+  const renderInputField = (label: string, value: string, onChange: (v: string) => void, placeholder: string, type = "text") => (
+    <div className="input-group">
+      <label>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="input-field"
+      />
     </div>
-  ), [input, loading, lang, theme, handleInputChange, platformName, generateAd]);
+  );
 
-  const ResultDisplay = useCallback(() => (
-    <div style={{...styles.resultContainer, ...(theme === "dark" ? styles.resultContainerDark : {})}}>
-      {error && <div style={styles.errorAlert}><strong>!</strong>&nbsp;{error}</div>}
-
-      {result ? (
-        <>
-          <div style={styles.resultHeader}>
-            <h3 style={{...styles.resultTitle, background: PRIMARY_GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"}}>
-              {lang === "ar" ? "الإعلان المولد" : "Generated Ad"}
-            </h3>
-            <div style={styles.resultActions}>
-              <button onClick={() => copyToClipboard(result)} style={{
-                ...styles.actionButton,
-                background: SECONDARY_GRADIENT
-              }}>
-                {lang === "ar" ? "نسخ" : "Copy"} 📋
-              </button>
-              <button onClick={() => {
-               exportAd({
-                  id: generateId(),
-                  text: result,
-                  createdAt: new Date(),
-                  input,
-                  views: 0,
-                  copies: 0
-                });
-              }} style={{
-                ...styles.actionButton,
-                background: SUCCESS_GRADIENT
-              }}>
-                {lang === "ar" ? "حفظ" : "Save"} 💾
-              </button>
-            </div>
-          </div>
-
-          <div style={styles.resultContent}><pre style={styles.resultText}>{result}</pre></div>
-
-          <div style={styles.ratingContainer}>
-            <p style={styles.ratingPrompt}>{lang === "ar" ? "كيف تقيم هذا الإعلان؟" : "Rate this ad"}</p>
-            <div style={styles.ratingStars}>
-              {[1,2,3,4,5].map(star => (
-                <button key={star} onClick={() => {
-                  const latest = history[0];
-                  if (latest) rateAd(latest.id, star);
-                  alert(lang === "ar" ? `شكراً (${star} نجوم)` : `Thanks! (${star} stars)`);
-                }} style={styles.starButton}>{star <= (history[0]?.rating || 0) ? "★" : "☆"}</button>
-              ))}
-            </div>
-          </div>
-        </>
-      ) : (
-        <div style={{ color: "#777", textAlign: "center", padding: "2rem" }}>
-          {lang === "ar" ? "لا يوجد إعلان بعد — جرّب التوليد الآن" : "No ad yet — try generating one"}
-        </div>
-      )}
+  const renderSelectField = (label: string, value: any, options: any[], onChange: (v: any) => void) => (
+    <div className="input-group">
+      <label>{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field">
+        {options.map(opt => (
+          <option key={opt} value={opt}>
+            {lang === "ar" ? 
+              opt === "facebook" ? "فيسبوك" :
+              opt === "instagram" ? "إنستغرام" :
+              opt === "google" ? "جوجل" :
+              opt === "twitter" ? "تويتر" :
+              opt === "linkedin" ? "لينكدإن" :
+              opt === "tiktok" ? "تيك توك" :
+              opt === "youtube" ? "يوتيوب" :
+              opt === "formal" ? "رسمي" :
+              opt === "friendly" ? "ودي" :
+              opt === "humorous" ? "فكاهي" :
+              opt === "persuasive" ? "إقناعي" :
+              opt === "urgent" ? "عاجل" :
+              opt === "short" ? "قصير" :
+              opt === "medium" ? "متوسط" :
+              opt === "long" ? "طويل" :
+              opt === "ar" ? "العربية" : "الإنجليزية"
+            : opt}
+          </option>
+        ))}
+      </select>
     </div>
-  ), [result, error, theme, lang, history, input, copyToClipboard, exportAd, rateAd]);
+  );
 
-  const HistoryList = useCallback(() => (
-    <div style={{...styles.historyContainer, ...(theme === "dark" ? styles.historyContainerDark : {})}}>
-      <div style={styles.historyFilters}>
-        <input 
-          placeholder={lang === "ar" ? "ابحث..." : "Search..."} 
-          value={searchTerm} 
-          onChange={handleSearchChange} 
-          style={styles.searchInput} 
-        />
-        <select 
-          value={selectedPlatform} 
-          onChange={handlePlatformFilterChange} 
-          style={styles.filterSelect}
-        >
-          <option value="all">{lang === "ar" ? "كل المنصات" : "All platforms"}</option>
-          {AD_TYPES.map(t => <option key={t} value={t}>{platformName(t)}</option>)}
-        </select>
-        <select 
-          value={selectedRating} 
-          onChange={handleRatingFilterChange} 
-          style={styles.filterSelect}
-        >
-          <option value="all">{lang === "ar" ? "كل التقييمات" : "All ratings"}</option>
-          <option value="4">{lang === "ar" ? "4 نجوم فأكثر" : "4+ stars"}</option>
-          <option value="3">{lang === "ar" ? "3 نجوم فأكثر" : "3+ stars"}</option>
-        </select>
-      </div>
-
-      {filteredHistory.length === 0 ? <div style={styles.emptyState}>{lang === "ar" ? "لا توجد إعلانات" : "No ads found"}</div> : (
-        <div style={styles.historyList}>
-          {filteredHistory.map(ad => (
-            <article key={ad.id} style={{
-              ...styles.historyItem,
-              ...(theme === "dark" ? {borderColor: "#334155", background: "#1e293b"} : {})
-            }} onClick={() => incrementAdViews(ad.id)}>
-              <div style={styles.historyItemHeader}>
-                <span style={{...styles.historyPlatformTag, background: platformGradient(ad.input.type)}}>
-                  {platformName(ad.input.type)}
-                </span>
-                <span style={styles.historyDate}>{formatDate(ad.createdAt)}{ad.modifiedAt ? ` • ${lang === "ar" ? "تم التعديل" : "edited"} ${formatDate(ad.modifiedAt)}` : ""}</span>
-              </div>
-
-              <div style={styles.historyItemContent}>
-                {editingAdId === ad.id ? (
-                  <textarea value={editText} onChange={(e) => setEditText(e.target.value)} style={styles.editTextarea} rows={6} />
-                ) : (
-                  <pre style={styles.historyText}>{ad.text}</pre>
-                )}
-              </div>
-
-              <div style={styles.historyItemFooter}>
-                <div style={styles.historyStats}>
-                  <span title={lang === "ar" ? "المشاهدات" : "views"}>👁 {ad.views || 0}</span>
-                  <span title={lang === "ar" ? "النسخ" : "copies"}>📋 {ad.copies || 0}</span>
-                  {ad.rating !== undefined && <span>{Array.from({length:5}).map((_,i)=> <span key={i}>{i < ad.rating! ? "★" : "☆"}</span>)}</span>}
-                </div>
-
-                <div style={styles.historyActions}>
-                  {editingAdId === ad.id ? (
-                    <>
-                      <button onClick={saveEdit} style={{
-                        ...styles.smallButton,
-                        background: SUCCESS_GRADIENT
-                      }}>{lang === "ar" ? "حفظ" : "Save"}</button>
-                      <button onClick={cancelEdit} style={{
-                        ...styles.smallButton,
-                        background: "#f0f0f0"
-                      }}>{lang === "ar" ? "إلغاء" : "Cancel"}</button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => copyToClipboard(ad.text, ad.id)} style={{
-                        ...styles.smallButton,
-                        background: SECONDARY_GRADIENT
-                      }}>📋</button>
-                      <button onClick={() => exportAd(ad)} style={{
-                        ...styles.smallButton,
-                        background: SUCCESS_GRADIENT
-                      }}>💾</button>
-                      <button onClick={() => startEditing(ad)} style={{
-                        ...styles.smallButton,
-                        background: "#f0f0f0"
-                      }}>✏</button>
-                      <button onClick={() => deleteAdFromHistory(ad.id)} style={{
-                        ...styles.smallButtonDanger,
-                        background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)"
-                      }}>🗑</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
-  ), [filteredHistory, searchTerm, selectedPlatform, selectedRating, theme, lang, editingAdId, editText, platformName, formatDate, incrementAdViews, copyToClipboard, exportAd, startEditing, deleteAdFromHistory, saveEdit, cancelEdit, handleSearchChange, handlePlatformFilterChange, handleRatingFilterChange]);
-
-  const AnalyticsDashboard = useCallback(() => {
-    // compute distribution
-    const distribution = AD_TYPES.map(type => {
-      const count = history.filter(h => h.input.type === type).length;
-      const pct = history.length > 0 ? Math.round((count / history.length) * 100) : 0;
-      return { type, count, pct };
-    });
+  const renderGeneratedAd = () => {
+    if (!result) return null;
 
     return (
-      <div style={{...styles.analyticsContainer, ...(theme === "dark" ? styles.analyticsContainerDark : {})}}>
-        <h3 style={{...styles.analyticsTitle, background: PRIMARY_GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"}}>
-          {lang === "ar" ? "إحصائيات" : "Analytics"}
-        </h3>
-
-        <div style={styles.analyticsGrid}>
-          <div style={{...styles.analyticsCard, background: SECONDARY_GRADIENT}}>
-            <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "إجمالي الإعلانات" : "Total generated"}</h4>
-            <p style={styles.analyticsCardValue}>{analytics.totalGenerations}</p>
-          </div>
-          <div style={{...styles.analyticsCard, background: SUCCESS_GRADIENT}}>
-            <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "إجمالي النسخ" : "Total copies"}</h4>
-            <p style={styles.analyticsCardValue}>{analytics.totalCopies}</p>
-          </div>
-          <div style={{...styles.analyticsCard, background: "linear-gradient(135deg, #ffd89b 0%, #19547b 100%)"}}>
-            <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "متوسط التقييم" : "Average rating"}</h4>
-            <p style={styles.analyticsCardValue}>{analytics.averageRating.toFixed(1)}/5</p>
-          </div>
-          <div style={{...styles.analyticsCard, background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"}}>
-            <h4 style={styles.analyticsCardTitle}>{lang === "ar" ? "الأكثر استخداماً" : "Most used"}</h4>
-            <p style={styles.analyticsCardValue}>{platformName(analytics.mostUsedPlatform)}</p>
-          </div>
-        </div>
-
-        <div>
-          <h4 style={styles.analyticsSectionTitle}>{lang === "ar" ? "توزيع المنصات" : "Platform distribution"}</h4>
-          <div style={styles.platformDistribution}>
-            {distribution.map(d => (
-              <div key={d.type} style={styles.distributionItem}>
-                <div style={styles.distributionLabel}>
-                  <span>{platformName(d.type)}</span>
-                  <span>{d.count} • {d.pct}%</span>
-                </div>
-                <div style={styles.distributionBarContainer}>
-                  <div style={{ ...styles.distributionBar, width: `${d.pct}%`, background: platformGradient(d.type) }} />
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="result-container">
+        <h3>{lang === "ar" ? "الإعلان المُنشأ" : "Generated Ad"}</h3>
+        <div className="ad-text">{result}</div>
+        <div className="result-actions">
+          <button
+            onClick={() => copyToClipboard(result)}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            {lang === "ar" ? "نسخ النص" : "Copy Text"}
+          </button>
+          <button
+            onClick={() => {
+              setResult("");
+              setInput(prev => ({ ...prev, product: "", audience: "" }));
+            }}
+            className="btn btn-secondary"
+          >
+            {lang === "ar" ? "مسح والبدء من جديد" : "Clear & Start Over"}
+          </button>
         </div>
       </div>
     );
-  }, [analytics, history, theme, lang, platformName]);
+  };
 
-  /* ---------------- main render ---------------- */
-  return (
-    <div style={{...styles.appContainer, ...(theme === "dark" ? styles.appContainerDark : {})}}>
-      <header style={{...styles.header, background: theme === "dark" ? DARK_GRADIENT : PRIMARY_GRADIENT, color: "#fff"}}>
-        <div>
-          <h1 style={styles.headerTitle}>{lang === "ar" ? "مولد الإعلانات الذكي" : "Smart Ad Generator"}</h1>
-          <p style={styles.headerSubtitle}>{lang === "ar" ? "أداة متقدمة لتوليد إعلانات فعالة" : "Advanced tool to generate effective ads"}</p>
+  const renderHistoryItem = (ad: GeneratedAd) => (
+    <div key={ad.id} className="history-item">
+      <div className="history-item-header">
+        <div className="platform-badge" style={{ background: platformGradient(ad.input.type) }}>
+          {lang === "ar" ? 
+            ad.input.type === "facebook" ? "فيسبوك" :
+            ad.input.type === "instagram" ? "إنستغرام" :
+            ad.input.type === "google" ? "جوجل" :
+            ad.input.type === "twitter" ? "تويتر" :
+            ad.input.type === "linkedin" ? "لينكدإن" :
+            ad.input.type === "tiktok" ? "تيك توك" :
+            ad.input.type === "youtube" ? "يوتيوب" : ad.input.type
+          : ad.input.type}
         </div>
+        <div className="history-item-actions">
+          {editingAdId === ad.id ? (
+            <>
+              <button onClick={saveEdit} className="btn-icon success">
+                ✓
+              </button>
+              <button onClick={cancelEdit} className="btn-icon danger">
+                ✗
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => startEditing(ad)} className="btn-icon">
+                ✏️
+              </button>
+              <button onClick={() => copyToClipboard(ad.text, ad.id)} className="btn-icon">
+                📋
+              </button>
+              <button onClick={() => exportAd(ad)} className="btn-icon">
+                📥
+              </button>
+              <button onClick={() => deleteAdFromHistory(ad.id)} className="btn-icon danger">
+                🗑️
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
-        <div style={styles.headerControls}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={() => switchLang("ar")} style={{
-              ...styles.langButton,
-              ...(lang === "ar" ? { background: "rgba(255,255,255,0.2)" } : {})
-            }}>العربية</button>
-            <button onClick={() => switchLang("en")} style={{
-              ...styles.langButton,
-              ...(lang === "en" ? { background: "rgba(255,255,255,0.2)" } : {})
-            }}>English</button>
+      {editingAdId === ad.id ? (
+        <textarea
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          className="edit-textarea"
+          rows={4}
+        />
+      ) : (
+        <div className="history-item-content">
+          <p className="ad-text">{ad.text}</p>
+          <div className="history-item-meta">
+            <span>{ad.createdAt.toLocaleString(lang === "ar" ? "ar-SA" : "en-US")}</span>
+            {ad.modifiedAt && <span>{lang === "ar" ? "معدل" : "Edited"}</span>}
+            <span>{lang === "ar" ? `${ad.views} مشاهدات` : `${ad.views} views`}</span>
+            <span>{lang === "ar" ? `${ad.copies} نسخ` : `${ad.copies} copies`}</span>
           </div>
-          <button onClick={toggleTheme} style={styles.themeToggle}>
-            {theme === "dark" ? "☀️" : "🌙"}
+          <div className="rating-container">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                onClick={() => rateAd(ad.id, star)}
+                className={`rating-star ${ad.rating && ad.rating >= star ? "active" : ""}`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderAnalytics = () => (
+    <div className="analytics-container">
+      <h3>{lang === "ar" ? "إحصائيات الاستخدام" : "Usage Analytics"}</h3>
+      
+      <div className="analytics-grid">
+        <div className="analytics-card" style={{ background: PRIMARY_GRADIENT }}>
+          <h4>{lang === "ar" ? "إجمالي الإنشاءات" : "Total Generations"}</h4>
+          <p className="analytics-number">{analytics.totalGenerations}</p>
+        </div>
+        
+        <div className="analytics-card" style={{ background: SECONDARY_GRADIENT }}>
+          <h4>{lang === "ar" ? "متوسط وقت الإنشاء" : "Avg. Generation Time"}</h4>
+          <p className="analytics-number">
+            {analytics.generationTime.length > 0
+              ? (analytics.generationTime.reduce((a, b) => a + b, 0) / analytics.generationTime.length).toFixed(2)
+              : "0.00"}s
+          </p>
+        </div>
+        
+        <div className="analytics-card" style={{ background: SUCCESS_GRADIENT }}>
+          <h4>{lang === "ar" ? "إجمالي النسخ" : "Total Copies"}</h4>
+          <p className="analytics-number">{analytics.totalCopies}</p>
+        </div>
+        
+        <div className="analytics-card" style={{ background: DARK_GRADIENT }}>
+          <h4>{lang === "ar" ? "المنصة الأكثر استخدامًا" : "Most Used Platform"}</h4>
+          <p className="analytics-number">
+            {lang === "ar" ? 
+              analytics.mostUsedPlatform === "facebook" ? "فيسبوك" :
+              analytics.mostUsedPlatform === "instagram" ? "إنستغرام" :
+              analytics.mostUsedPlatform === "google" ? "جوجل" :
+              analytics.mostUsedPlatform === "twitter" ? "تويتر" :
+              analytics.mostUsedPlatform === "linkedin" ? "لينكدإن" :
+              analytics.mostUsedPlatform === "tiktok" ? "تيك توك" :
+              analytics.mostUsedPlatform === "youtube" ? "يوتيوب" : analytics.mostUsedPlatform
+            : analytics.mostUsedPlatform}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSubscriptionInfo = () => (
+    <div className="subscription-container">
+      <h3>{lang === "ar" ? "خطة الاشتراك" : "Subscription Plan"}</h3>
+      
+      <div className="subscription-card">
+        <div className="subscription-header">
+          <h4>{userSubscription.type === "free" 
+            ? (lang === "ar" ? "مجاني" : "Free") 
+            : userSubscription.type === "premium" 
+              ? (lang === "ar" ? "بريميوم" : "Premium")
+              : (lang === "ar" ? "احترافي" : "Pro")}</h4>
+          <span className="subscription-badge">{userSubscription.type}</span>
+        </div>
+        
+        <div className="subscription-details">
+          <div className="subscription-feature">
+            <span>{lang === "ar" ? "عدد الإعلانات المتبقية:" : "Remaining Ads:"}</span>
+            <span className="feature-value">
+              {userSubscription.remainingAds === 'unlimited' 
+                ? (lang === "ar" ? "غير محدود" : "Unlimited")
+                : userSubscription.remainingAds}
+            </span>
+          </div>
+          
+          <div className="subscription-feature">
+            <span>{lang === "ar" ? "التحليلات التسويقية:" : "Market Analysis:"}</span>
+            <span className="feature-value">
+              {userSubscription.marketAnalysis 
+                ? (lang === "ar" ? "مفعل" : "Enabled") 
+                : (lang === "ar" ? "غير مفعل" : "Disabled")}
+            </span>
+          </div>
+          
+          <div className="subscription-feature">
+            <span>{lang === "ar" ? "الميزات المتقدمة:" : "Advanced Features:"}</span>
+            <span className="feature-value">
+              {userSubscription.advancedFeatures 
+                ? (lang === "ar" ? "مفعل" : "Enabled") 
+                : (lang === "ar" ? "غير مفعل" : "Disabled")}
+            </span>
+          </div>
+        </div>
+        
+        <button 
+          onClick={() => setShowSubscriptionModal(true)}
+          className="btn btn-primary"
+        >
+          {lang === "ar" ? "ترقية الخطة" : "Upgrade Plan"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderSubscriptionModal = () => (
+    <div className={`modal ${showSubscriptionModal ? 'active' : ''}`}>
+      <div className="modal-content">
+        <h3>{lang === "ar" ? "ترقية الخطة" : "Upgrade Plan"}</h3>
+        
+        <div className="plans-container">
+          <div className="plan-card">
+            <h4>{lang === "ar" ? "بريميوم" : "Premium"}</h4>
+            <p className="plan-price">$19.99/{lang === "ar" ? "شهر" : "month"}</p>
+            <ul>
+              <li>{lang === "ar" ? "١٠٠ إعلان شهريًا" : "100 ads per month"}</li>
+              <li>{lang === "ar" ? "تحليلات تسويقية" : "Market analysis"}</li>
+              <li>{lang === "ar" ? "دعم أولوية" : "Priority support"}</li>
+            </ul>
+            <button 
+              onClick={() => handleUpgrade("premium")}
+              className="btn btn-primary"
+            >
+              {lang === "ar" ? "اختر البريميوم" : "Choose Premium"}
+            </button>
+          </div>
+          
+          <div className="plan-card featured">
+            <h4>{lang === "ar" ? "احترافي" : "Pro"}</h4>
+            <p className="plan-price">$49.99/{lang === "ar" ? "شهر" : "month"}</p>
+            <ul>
+              <li>{lang === "ar" ? "إعلانات غير محدودة" : "Unlimited ads"}</li>
+              <li>{lang === "ar" ? "تحليلات متقدمة" : "Advanced analytics"}</li>
+              <li>{lang === "ar" ? "ميزات حصرية" : "Exclusive features"}</li>
+              <li>{lang === "ar" ? "دعم على مدار الساعة" : "24/7 support"}</li>
+            </ul>
+            <button 
+              onClick={() => handleUpgrade("pro")}
+              className="btn btn-primary"
+            >
+              {lang === "ar" ? "اختر الاحترافي" : "Choose Pro"}
+            </button>
+          </div>
+        </div>
+        
+        <button 
+          onClick={() => setShowSubscriptionModal(false)}
+          className="btn btn-secondary"
+        >
+          {lang === "ar" ? "إلغاء" : "Cancel"}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={`ad-generator-container ${theme}`}>
+      <header className="app-header">
+        <h1>{lang === "ar" ? "منشئ الإعلانات الذكي" : "Smart Ad Generator"}</h1>
+        <div className="header-controls">
+          <button
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            className="btn-icon"
+          >
+            {theme === "light" ? "🌙" : "☀️"}
+          </button>
+          <button
+            onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+            className="btn-icon"
+          >
+            {lang === "ar" ? "EN" : "AR"}
           </button>
         </div>
       </header>
 
-      <nav style={styles.nav}>
-        <button onClick={() => setActiveTab("generator")} style={{
-          ...styles.navButton,
-          ...(activeTab === "generator" ? { background: PRIMARY_GRADIENT, color: "#fff" } : {})
-        }}>{lang === "ar" ? "المولد" : "Generator"}</button>
-        <button onClick={() => setActiveTab("history")} style={{
-          ...styles.navButton,
-          ...(activeTab === "history" ? { background: PRIMARY_GRADIENT, color: "#fff" } : {})
-        }}>{lang === "ar" ? "السجل" : "History"}</button>
-        <button onClick={() => setActiveTab("analytics")} style={{
-          ...styles.navButton,
-          ...(activeTab === "analytics" ? { background: PRIMARY_GRADIENT, color: "#fff" } : {})
-        }}>{lang === "ar" ? "الإحصائيات" : "Analytics"}</button>
+      <nav className="tabs-container">
+        <button
+          onClick={() => setActiveTab("generator")}
+          className={`tab ${activeTab === "generator" ? "active" : ""}`}
+        >
+          {lang === "ar" ? "منشئ الإعلانات" : "Ad Generator"}
+        </button>
+        <button
+          onClick={() => setActiveTab("history")}
+          className={`tab ${activeTab === "history" ? "active" : ""}`}
+        >
+          {lang === "ar" ? "السجل" : "History"}
+        </button>
+        <button
+          onClick={() => setActiveTab("analytics")}
+          className={`tab ${activeTab === "analytics" ? "active" : ""}`}
+        >
+          {lang === "ar" ? "الإحصائيات" : "Analytics"}
+        </button>
+        <button
+          onClick={() => setActiveTab("subscription")}
+          className={`tab ${activeTab === "subscription" ? "active" : ""}`}
+        >
+          {lang === "ar" ? "الاشتراك" : "Subscription"}
+        </button>
       </nav>
 
-      <main style={styles.main}>
+      <main className="main-content">
         {activeTab === "generator" && (
-          <div style={styles.generatorLayout}>
-            <InputForm />
-            <ResultDisplay />
+          <div className="generator-tab">
+            <div className="input-section">
+              <h2>{lang === "ar" ? "إنشاء إعلان جديد" : "Create New Ad"}</h2>
+              
+              {renderInputField(
+                lang === "ar" ? "المنتج/الخدمة" : "Product/Service",
+                input.product,
+                (v) => setInput(prev => ({ ...prev, product: v })),
+                lang === "ar" ? "أدخل اسم المنتج أو الخدمة..." : "Enter product or service name..."
+              )}
+              
+              {renderInputField(
+                lang === "ar" ? "الجمهور المستهدف" : "Target Audience",
+                input.audience,
+                (v) => setInput(prev => ({ ...prev, audience: v })),
+                lang === "ar" ? "مثل: شباب ١٨-٢٥، رجال الأعمال..." : "e.g., youth 18-25, business professionals..."
+              )}
+              
+              {renderSelectField(
+                lang === "ar" ? "منصة الإعلان" : "Ad Platform",
+                input.type,
+                AD_TYPES,
+                (v) => setInput(prev => ({ ...prev, type: v as AdType }))
+              )}
+              
+              {renderSelectField(
+                lang === "ar" ? "لغة الإعلان" : "Ad Language",
+                input.language,
+                LANGUAGES,
+                (v) => setInput(prev => ({ ...prev, language: v as AdLanguage }))
+              )}
+              
+              {renderSelectField(
+                lang === "ar" ? "نبرة الإعلان" : "Ad Tone",
+                input.tone,
+                TONES,
+                (v) => setInput(prev => ({ ...prev, tone: v as AdTone }))
+              )}
+              
+              {renderSelectField(
+                lang === "ar" ? "طول الإعلان" : "Ad Length",
+                input.length,
+                ["short", "medium", "long"],
+                (v) => setInput(prev => ({ ...prev, length: v as AdLength }))
+              )}
+              
+              {renderInputField(
+                lang === "ar" ? "كلمات مفتاحية (اختياري)" : "Keywords (optional)",
+                input.keywords || "",
+                (v) => setInput(prev => ({ ...prev, keywords: v })),
+                lang === "ar" ? "كلمات مفتاحية مفصولة بفواصل..." : "Keywords separated by commas..."
+              )}
+              
+              {renderInputField(
+                lang === "ar" ? "عروض خاصة (اختياري)" : "Special Offers (optional)",
+                input.specialOffers || "",
+                (v) => setInput(prev => ({ ...prev, specialOffers: v })),
+                lang === "ar" ? "خصومات، عروض محدودة..." : "Discounts, limited offers..."
+              )}
+              
+              <button
+                onClick={generateAd}
+                disabled={loading}
+                className="btn btn-primary generate-btn"
+              >
+                {loading 
+                  ? (lang === "ar" ? "جاري الإنشاء..." : "Generating...") 
+                  : (lang === "ar" ? "إنشاء الإعلان" : "Generate Ad")}
+              </button>
+              
+              {error && <div className="error-message">{error}</div>}
+            </div>
+            
+            {renderGeneratedAd()}
           </div>
         )}
 
-        {activeTab === "history" && <HistoryList />}
-        {activeTab === "analytics" && <AnalyticsDashboard />}
+        {activeTab === "history" && (
+          <div className="history-tab">
+            <div className="history-filters">
+              <input
+                type="text"
+                placeholder={lang === "ar" ? "بحث في السجل..." : "Search history..."}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+              
+              <select
+                value={selectedPlatform}
+                onChange={(e) => setSelectedPlatform(e.target.value as AdType | "all")}
+                className="filter-select"
+              >
+                <option value="all">{lang === "ar" ? "كل المنصات" : "All Platforms"}</option>
+                {AD_TYPES.map(type => (
+                  <option key={type} value={type}>
+                    {lang === "ar" ? 
+                      type === "facebook" ? "فيسبوك" :
+                      type === "instagram" ? "إنستغرام" :
+                      type === "google" ? "جوجل" :
+                      type === "twitter" ? "تويتر" :
+                      type === "linkedin" ? "لينكدإن" :
+                      type === "tiktok" ? "تيك توك" :
+                      type === "youtube" ? "يوتيوب" : type
+                    : type}
+                  </option>
+                ))}
+              </select>
+              
+              <select
+                value={selectedRating}
+                onChange={(e) => setSelectedRating(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+                className="filter-select"
+              >
+                <option value="all">{lang === "ar" ? "كل التقييمات" : "All Ratings"}</option>
+                <option value="4">{lang === "ar" ? "٤ نجوم وأعلى" : "4+ Stars"}</option>
+                <option value="3">{lang === "ar" ? "٣ نجوم وأعلى" : "3+ Stars"}</option>
+              </select>
+            </div>
+            
+            <div className="history-list">
+              {filteredHistory.length === 0 ? (
+                <p className="empty-state">
+                  {lang === "ar" ? "لا توجد إعلانات في السجل بعد." : "No ads in history yet."}
+                </p>
+              ) : (
+                filteredHistory.map(renderHistoryItem)
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "analytics" && renderAnalytics()}
+        
+        {activeTab === "subscription" && renderSubscriptionInfo()}
       </main>
 
-      <footer style={{...styles.footer, ...(theme === "dark" ? styles.footerDark : {})}}>
-        <p>{lang === "ar" ? "أداة متقدمة لتوليد إعلانات فعالة" : "Advanced tool to generate effective ads"}</p>
+      {renderSubscriptionModal()}
+
+      <footer className="app-footer">
+        <p>{lang === "ar" ? "منشئ الإعلانات الذكي © 2023" : "Smart Ad Generator © 2023"}</p>
       </footer>
     </div>
   );
 }
 
 /* ---------------- Styles ---------------- */
-const styles: Record<string, React.CSSProperties> = {
-  appContainer: {
-    minHeight: "100vh",
-    background: "#f8fafc",
-    color: "#1e293b"
-  },
-  appContainerDark: {
-    background: "#0f172a",
-    color: "#e2e8f0"
-  },
-  header: {
-    padding: "1.5rem 2rem",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "1rem"
-  },
-  headerTitle: {
-    margin: 0,
-    fontSize: "1.8rem",
-    fontWeight: 700
-  },
-  headerSubtitle: {
-    margin: "0.5rem 0 0",
-    opacity: 0.9,
-    fontSize: "1rem"
-  },
-  headerControls: {
-    display: "flex",
-    gap: "1rem",
-    alignItems: "center"
-  },
-  langButton: {
-    padding: "0.5rem 1rem",
-    border: "none",
-    borderRadius: "0.5rem",
-    color: "#fff",
-    cursor: "pointer",
-    transition: "background 0.2s"
-  },
-  themeToggle: {
-    padding: "0.5rem",
-    border: "none",
-    borderRadius: "50%",
-    background: "rgba(255,255,255,0.1)",
-    color: "#fff",
-    cursor: "pointer",
-    fontSize: "1.2rem",
-    width: "2.5rem",
-    height: "2.5rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  nav: {
-    display: "flex",
-    background: "#fff",
-    borderBottom: "1px solid #e2e8f0"
-  },
-  navDark: {
-    background: "#1e293b",
-    borderColor: "#334155"
-  },
-  navButton: {
-    padding: "1rem 1.5rem",
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
-    fontWeight: 500,
-    transition: "all 0.2s"
-  },
-  main: {
-    padding: "2rem",
-    maxWidth: "1200px",
-    margin: "0 auto",
-    width: "100%",
-    boxSizing: "border-box"
-  },
-  generatorLayout: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "2rem",
-    alignItems: "start"
-  },
-  formContainer: {
-    background: "#fff",
-    padding: "1.5rem",
-    borderRadius: "1rem",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
-  },
-  formContainerDark: {
-    background: "#1e293b",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1)"
-  },
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "1rem"
-  },
-  formGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem"
-  },
-  label: {
-    fontWeight: 500,
-    fontSize: "0.875rem"
-  },
-  input: {
-    padding: "0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "0.5rem",
-    fontSize: "1rem",
-    transition: "border-color 0.2s"
-  },
-  inputDark: {
-    background: "#334155",
-    borderColor: "#475569",
-    color: "#e2e8f0"
-  },
-  select: {
-    padding: "0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "0.5rem",
-    fontSize: "1rem",
-    background: "#fff"
-  },
-  selectDark: {
-    background: "#334155",
-    borderColor: "#475569",
-    color: "#e2e8f0"
-  },
-  generateButton: {
-    padding: "1rem 1.5rem",
-    border: "none",
-    borderRadius: "0.5rem",
-    color: "#fff",
-    fontSize: "1rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    width: "100%",
-    transition: "opacity 0.2s"
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-    cursor: "not-allowed"
-  },
-  resultContainer: {
-    background: "#fff",
-    padding: "1.5rem",
-    borderRadius: "1rem",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
-  },
-  resultContainerDark: {
-    background: "#1e293b",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1)"
-  },
-  errorAlert: {
-    background: "#fee2e2",
-    color: "#b91c1c",
-    padding: "1rem",
-    borderRadius: "0.5rem",
-    marginBottom: "1rem",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem"
-  },
-  resultHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "1rem"
-  },
-  resultTitle: {
-    margin: 0,
-    fontSize: "1.5rem",
-    fontWeight: 700
-  },
-  resultActions: {
-    display: "flex",
-    gap: "0.5rem"
-  },
-  actionButton: {
-    padding: "0.5rem 1rem",
-    border: "none",
-    borderRadius: "0.5rem",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: 500
-  },
-  resultContent: {
-    background: "#f1f5f9",
-    padding: "1rem",
-    borderRadius: "0.5rem",
-    marginBottom: "1rem"
-  },
-  resultContentDark: {
-    background: "#334155"
-  },
-  resultText: {
-    margin: 0,
-    whiteSpace: "pre-wrap",
-    lineHeight: 1.5
-  },
-  ratingContainer: {
-    textAlign: "center"
-  },
-  ratingPrompt: {
-    margin: "0 0 0.5rem",
-    fontWeight: 500
-  },
-  ratingStars: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "0.25rem"
-  },
-  starButton: {
-    background: "none",
-    border: "none",
-    fontSize: "1.5rem",
-    cursor: "pointer",
-    padding: 0,
-    color: "#fbbf24"
-  },
-  historyContainer: {
-    background: "#fff",
-    padding: "1.5rem",
-    borderRadius: "1rem",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
-  },
-  historyContainerDark: {
-    background: "#1e293b",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1)"
-  },
-  historyFilters: {
-    display: "flex",
-    gap: "1rem",
-    marginBottom: "1.5rem",
-    flexWrap: "wrap"
-  },
-  searchInput: {
-    padding: "0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "0.5rem",
-    fontSize: "1rem",
-    flex: "1",
-    minWidth: "200px"
-  },
-  searchInputDark: {
-    background: "#334155",
-    borderColor: "#475569",
-    color: "#e2e8f0"
-  },
-  filterSelect: {
-    padding: "0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "0.5rem",
-    fontSize: "1rem",
-    minWidth: "150px"
-  },
-  filterSelectDark: {
-    background: "#334155",
-    borderColor: "#475569",
-    color: "#e2e8f0"
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "3rem",
-    color: "#64748b"
-  },
-  historyList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem"
-  },
-  historyItem: {
-    border: "1px solid #e2e8f0",
-    borderRadius: "0.75rem",
-    padding: "1rem",
-    transition: "box-shadow 0.2s",
-    cursor: "pointer"
-  },
-  historyItemHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "0.75rem"
-  },
-  historyPlatformTag: {
-    padding: "0.25rem 0.75rem",
-    borderRadius: "1rem",
-    color: "#fff",
-    fontSize: "0.75rem",
-    fontWeight: 600
-  },
-  historyDate: {
-    fontSize: "0.875rem",
-    color: "#64748b"
-  },
-  historyItemContent: {
-    marginBottom: "0.75rem"
-  },
-  editTextarea: {
-    width: "100%",
-    padding: "0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "0.5rem",
-    fontSize: "1rem",
-    resize: "vertical",
-    minHeight: "120px"
-  },
-  editTextareaDark: {
-    background: "#334155",
-    borderColor: "#475569",
-    color: "#e2e8f0"
-  },
-  historyText: {
-    margin: 0,
-    whiteSpace: "pre-wrap",
-    lineHeight: 1.5
-  },
-  historyItemFooter: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
-  historyStats: {
-    display: "flex",
-    gap: "1rem",
-    fontSize: "0.875rem",
-    color: "#64748b"
-  },
-  historyActions: {
-    display: "flex",
-    gap: "0.5rem"
-  },
-  smallButton: {
-    padding: "0.25rem 0.5rem",
-    border: "none",
-    borderRadius: "0.375rem",
-    color: "#fff",
-    cursor: "pointer",
-    fontSize: "0.875rem"
-  },
-  smallButtonDanger: {
-    padding: "0.25rem 0.5rem",
-    border: "none",
-    borderRadius: "0.375rem",
-    color: "#fff",
-    cursor: "pointer",
-    fontSize: "0.875rem"
-  },
-  analyticsContainer: {
-    background: "#fff",
-    padding: "1.5rem",
-    borderRadius: "1rem",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
-  },
-  analyticsContainerDark: {
-    background: "#1e293b",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -1px rgba(0,0,0,0.1)"
-  },
-  analyticsTitle: {
-    margin: "0 0 1.5rem",
-    fontSize: "1.5rem",
-    fontWeight: 700
-  },
-  analyticsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "1rem",
-    marginBottom: "2rem"
-  },
-  analyticsCard: {
-    padding: "1.5rem",
-    borderRadius: "1rem",
-    color: "#fff",
-    textAlign: "center"
-  },
-  analyticsCardTitle: {
-    margin: "0 0 0.5rem",
-    fontSize: "0.875rem",
-    opacity: 0.9
-  },
-  analyticsCardValue: {
-    margin: 0,
-    fontSize: "2rem",
-    fontWeight: 700
-  },
-  analyticsSectionTitle: {
-    margin: "0 0 1rem",
-    fontSize: "1.25rem",
-    fontWeight: 600
-  },
-  platformDistribution: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem"
-  },
-  distributionItem: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.25rem"
-  },
-  distributionLabel: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: "0.875rem"
-  },
-  distributionBarContainer: {
-    height: "0.5rem",
-    background: "#e2e8f0",
-    borderRadius: "1rem",
-    overflow: "hidden"
-  },
-  distributionBarContainerDark: {
-    background: "#334155"
-  },
-  distributionBar: {
-    height: "100%",
-    borderRadius: "1rem",
-    transition: "width 0.5s ease"
-  },
-  footer: {
-    padding: "1.5rem 2rem",
-    textAlign: "center",
-    borderTop: "1px solid #e2e8f0",
-    color: "#64748b"
-  },
-  footerDark: {
-    borderColor: "#334155",
-    color: "#94a3b8"
-  }
-};

@@ -1,6 +1,10 @@
 // app/api/generate/route.ts
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
+import { connectToDB } from '@/lib/connectToDB';
+import User from '@/models/User';
 
 // تحقق من صحة البيانات
 const generateSchema = z.object({
@@ -26,13 +30,95 @@ const GENERATION_CONFIG = {
 
 // نماذج API المفضلة (محدثة)
 const API_MODELS = {
-  groq: 'llama-3.1-8b-instant', // نموذج نصي مناسب
+  groq: 'llama-3.1-8b-instant',
   deepseek: 'deepseek-chat',
   openai: 'gpt-4'
 };
 
+// تكلفة كل نوع محتوى من حيث عدد الكلمات المستخدمة
+const CONTENT_TYPE_COST = {
+  article: 1,
+  video_script: 0.8,
+  social_media: 0.3,
+  email: 0.4,
+  blog_post: 1.2,
+  summary: 0.5
+};
+
+// دالة للتحقق من حدود الاشتراك
+async function checkSubscriptionLimits(user: any, contentType: string, contentLength: number) {
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  // إذا لم يكن هناك سجل للشهر الحالي، نبدأ من الصفر
+  if (!user.monthlyUsage || user.monthlyUsage.month !== currentMonth || user.monthlyUsage.year !== currentYear) {
+    user.monthlyUsage = {
+      month: currentMonth,
+      year: currentYear,
+      contentGenerated: 0,
+      contentWords: 0,
+      lastReset: new Date()
+    };
+  }
+
+  const contentCost = Math.ceil(contentLength / 100) * CONTENT_TYPE_COST[contentType as keyof typeof CONTENT_TYPE_COST];
+  const limits = user.subscriptionLimits || {
+    monthlyRequests: 10,
+    contentLimitPerMonth: 2000
+  };
+
+  // التحقق من الحدود بناءً على نوع الاشتراك
+  if (user.subscription === "free" || user.subscription === "pro") {
+    if (user.monthlyUsage.contentWords + contentCost > limits.contentLimitPerMonth) {
+      return { allowed: false, error: "SUBSCRIPTION_LIMIT_EXCEEDED" };
+    }
+  }
+  // Premium لا حدود له
+
+  return { allowed: true, contentCost };
+}
+
 export async function POST(req: Request) {
   try {
+    // التحقق من التوكن والمستخدم
+    const token = (await cookies()).get("token")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: '⚠ لم يتم العثور على التوكن. يرجى تسجيل الدخول.'
+        },
+        { status: 401 }
+      );
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    } catch {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: '🔒 التوكن غير صالح أو منتهي الصلاحية.'
+        },
+        { status: 403 }
+      );
+    }
+
+    await connectToDB();
+    
+    // البحث عن المستخدم والتحقق من صلاحيته
+    const user = await User.findOne({ email: decoded.email });
+    if (!user) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'المستخدم غير موجود'
+        },
+        { status: 404 }
+      );
+    }
+
     const body = await req.json();
     const { researchData, topic, language, tone, contentType, length, targetAudience } = generateSchema.parse(body);
 
@@ -49,6 +135,21 @@ export async function POST(req: Request) {
       );
     }
 
+    // التحقق من حدود الاشتراك قبل التوليد
+    const estimatedLength = GENERATION_CONFIG.maxTokens[length as keyof typeof GENERATION_CONFIG.maxTokens];
+    const subscriptionCheck = await checkSubscriptionLimits(user, contentType, estimatedLength);
+    if (!subscriptionCheck.allowed) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: language === 'ar' 
+            ? 'لقد تجاوزت الحد المسموح به لهذا الشهر. يرجى ترقية اشتراكك.' 
+            : 'You have exceeded your monthly limit. Please upgrade your subscription.'
+        },
+        { status: 402 }
+      );
+    }
+
     // توليد المحتوى
     const generatedContent = await generateContent({
       researchData,
@@ -59,6 +160,33 @@ export async function POST(req: Request) {
       length,
       targetAudience
     });
+
+    // تحديث عدد الكلمات المستخدمة هذا الشهر
+    const actualContentCost = Math.ceil(generatedContent.length / 100) * CONTENT_TYPE_COST[contentType as keyof typeof CONTENT_TYPE_COST];
+    
+    if (!user.monthlyUsage) {
+      user.monthlyUsage = {
+        month: new Date().getMonth(),
+        year: new Date().getFullYear(),
+        contentGenerated: 0,
+        contentWords: 0,
+        lastReset: new Date()
+      };
+    }
+    
+    user.monthlyUsage.contentWords += actualContentCost;
+    user.monthlyUsage.contentGenerated += 1;
+    
+    // إعادة تعيين العداد إذا كان الشهر قد انتهى
+    const now = new Date();
+    const lastReset = new Date(user.monthlyUsage.lastReset || now);
+    if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+      user.monthlyUsage.contentWords = actualContentCost;
+      user.monthlyUsage.contentGenerated = 1;
+      user.monthlyUsage.lastReset = now;
+    }
+    
+    await user.save();
 
     return NextResponse.json({
       success: true,
@@ -71,17 +199,32 @@ export async function POST(req: Request) {
         length,
         targetAudience,
         generatedAt: new Date().toISOString(),
-        sourcesUsed: Object.keys(researchData)
+        sourcesUsed: Object.keys(researchData),
+        contentLength: generatedContent.length,
+        contentCost: actualContentCost,
+        remainingWords: Math.max(0, ((user.subscriptionLimits?.contentLimitPerMonth || 2000) - user.monthlyUsage.contentWords)),
+        subscription: user.subscription
       }
     });
 
   } catch (error: any) {
     console.error('Generate error:', error);
     
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'بيانات غير صالحة',
+          details: error.errors
+        },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         success: false,
-        error: 'Failed to generate content',
+        error: 'فشل في توليد المحتوى',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       },
       { status: 500 }
@@ -165,18 +308,18 @@ function createIntelligentPrompt(params: GenerationParams): string {
   
   if (language === 'ar') {
     return `
-أنت كاتب محتوى محترف. الرجاء إنشاء ${contentTypes[contentType]} حول الموضوع التالي:
+أنت كاتب محتوى محترف. الرجاء إنشاء ${contentTypes[contentType as keyof typeof contentTypes]} حول الموضوع التالي:
 
 الموضوع: ${topic}
-نوع المحتوى: ${contentTypes[contentType]}
-النبرة: ${tones[tone]}
-الجمهور المستهدف: ${audiences[targetAudience]}
+نوع المحتوى: ${contentTypes[contentType as keyof typeof contentTypes]}
+النبرة: ${tones[tone as keyof typeof tones]}
+الجمهور المستهدف: ${audiences[targetAudience as keyof typeof audiences]}
 
 معلومات البحث المتاحة:
 ${researchSummary}
 
 الرجاء تقديم محتوى أصلي وجذاب وذو قيمة، مع الاستفادة من المعلومات أعلاه.
-أكتب بطريقة ${tones[tone]} تناسب جمهور ${audiences[targetAudience]}.
+أكتب بطريقة ${tones[tone as keyof typeof tones]} تناسب جمهور ${audiences[targetAudience as keyof typeof audiences]}.
 
 تأكد من:
 1. تقديم معلومات دقيقة وموثوقة
@@ -259,10 +402,10 @@ async function generateWithGroq(prompt: string, length: string): Promise<string>
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: API_MODELS.groq, // استخدام النموذج المحدث
+        model: API_MODELS.groq,
         messages: [{ role: 'user', content: prompt }],
         temperature: GENERATION_CONFIG.temperature,
-        max_tokens: GENERATION_CONFIG.maxTokens[length],
+        max_tokens: GENERATION_CONFIG.maxTokens[length as keyof typeof GENERATION_CONFIG.maxTokens],
         stream: false
       }),
       signal: controller.signal
@@ -302,7 +445,7 @@ async function generateWithDeepSeek(prompt: string, length: string): Promise<str
         model: API_MODELS.deepseek,
         messages: [{ role: 'user', content: prompt }],
         temperature: GENERATION_CONFIG.temperature,
-        max_tokens: GENERATION_CONFIG.maxTokens[length],
+        max_tokens: GENERATION_CONFIG.maxTokens[length as keyof typeof GENERATION_CONFIG.maxTokens],
         stream: false
       }),
       signal: controller.signal
@@ -341,7 +484,7 @@ async function generateWithOpenAI(prompt: string, length: string): Promise<strin
         model: API_MODELS.openai,
         messages: [{ role: 'user', content: prompt }],
         temperature: GENERATION_CONFIG.temperature,
-        max_tokens: GENERATION_CONFIG.maxTokens[length],
+        max_tokens: GENERATION_CONFIG.maxTokens[length as keyof typeof GENERATION_CONFIG.maxTokens],
         stream: false
       }),
       signal: controller.signal

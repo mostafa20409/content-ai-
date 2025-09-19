@@ -1,3 +1,4 @@
+// src/app/api/account/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
@@ -129,4 +130,4 @@ export async function PUT(req: Request) {
       { status: 500 }
     );
   }
-} 
+}

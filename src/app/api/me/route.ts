@@ -4,6 +4,9 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { connectToDB } from "../../../lib/connectToDB";
 import User, { IUser } from "../../../models/User";
+import Content from "../../../models/Content";
+import Book from "../../../models/Book";
+import Ad from "../../../models/Ad";
 
 interface DecodedJWT {
   id?: string;
@@ -111,6 +114,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, code: "NOT_FOUND", message: "المستخدم غير موجود" }, { status: 404 });
     }
 
+    // جلب المحتوى الحقيقي للمستخدم
+    const userContent = await Content.find({ userId: user._id }).sort({ createdAt: -1 }).limit(6).lean();
+    const userBooks = await Book.find({ userId: user._id }).sort({ createdAt: -1 }).limit(6).lean();
+    const userAds = await Ad.find({ userId: user._id }).sort({ createdAt: -1 }).limit(6).lean();
+
+    // جلب الإحصائيات الحقيقية
+    const contentCount = await Content.countDocuments({ userId: user._id });
+    const booksCount = await Book.countDocuments({ userId: user._id });
+    const adsCount = await Ad.countDocuments({ userId: user._id });
+
     // --- تجهيز الرد ---
     const safeUser = sanitizeUser(user);
     const subscription = (user.subscription || "free").toLowerCase();
@@ -124,6 +137,12 @@ export async function GET(req: Request) {
         content: user.contentUsedThisMonth || 0,
         books: user.booksUsedThisMonth || 0,
       },
+      content: userContent, // إضافة المحتوى الحقيقي
+      books: userBooks, // إضافة الكتب الحقيقية
+      ads: userAds, // إضافة الإعلانات الحقيقية
+      contentCount, // عدد المحتوى
+      booksCount, // عدد الكتب
+      adsCount, // عدد الإعلانات
       createdAt: safeUser.createdAt,
       lastActivityAt: user.updatedAt ?? user.createdAt,
       meta: {

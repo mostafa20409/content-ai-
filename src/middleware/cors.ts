@@ -1,30 +1,31 @@
 // src/middleware/cors.ts
-import { Request, Response, NextFunction } from 'express';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const corsMiddleware = (allowedOrigins: string[] = []) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const origin = req.headers.origin || '';
+  return (req: NextRequest) => {
+    const origin = req.headers.get('origin') || '';
     const isAllowedOrigin = allowedOrigins.includes(origin) || allowedOrigins.includes('*');
 
+    const response = NextResponse.next();
+
     if (isAllowedOrigin) {
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Access-Control-Allow-Credentials', 'true');
-      res.header(
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set(
         'Access-Control-Allow-Headers',
         'Authorization, Content-Type, X-Requested-With, x-auth-token'
       );
-      res.header(
+      response.headers.set(
         'Access-Control-Allow-Methods',
         'GET, POST, PUT, PATCH, DELETE, OPTIONS'
       );
     }
 
     if (req.method === 'OPTIONS') {
-      res.header('Access-Control-Max-Age', '86400');
-      res.status(204).end();
-      return;
+      response.headers.set('Access-Control-Max-Age', '86400');
+      return new NextResponse(null, { status: 204 });
     }
 
-    next();
+    return response;
   };
 };

@@ -1,11 +1,16 @@
+// مسار: app/api/generate-ad/route.ts
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
+import { connectToDB } from "../../../lib/connectToDB";
+import User from "../../../models/User";
 
 // ✅ إعداد خريطة لتتبع معدل الطلبات (Rate Limit)
 const globalAny: any = global;
 if (!globalAny.__AD_RATE_MAP) {
   globalAny.__AD_RATE_MAP = new Map<string, { count: number; resetAt: number }>();
 }
-const RATE_LIMIT = { MAX: 20, WINDOW: 60 * 1000 }; // زيادة الحد إلى 20 طلب في الدقيقة
+const RATE_LIMIT = { MAX: 20, WINDOW: 60 * 1000 }; 
 
 // ✅ تكوين Groq API
 const GROQ_API_BASE = 'https://api.groq.com/openai/v1';
@@ -13,7 +18,7 @@ const GROQ_CHAT_ENDPOINT = '/chat/completions';
 
 // ✅ نماذج API المحدثة
 const API_MODELS = {
-  groq: 'llama-3.1-8b-instant', // نموذج نصي مناسب
+  groq: 'llama-3.1-8b-instant', 
   deepseek: 'deepseek-chat',
   openai: 'gpt-4'
 };
@@ -88,7 +93,7 @@ async function validateGroqAPI(apiKey: string): Promise<boolean> {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: API_MODELS.groq, // استخدام النموذج المحدث
+        model: API_MODELS.groq,
         messages: [{ role: "user", content: "Hello" }],
         max_tokens: 5,
         stream: false
@@ -248,8 +253,8 @@ function createAdvancedAdPrompt(
     1. Start with attention-grabbing
     2. Present the product's core value
     3. Highlight customer benefits
-    4. End with clear call to action
-    5. Use proper Arabic language suitable for the platform
+    - End with clear call to action
+    - Use proper Arabic language suitable for the platform
 
     ## Important Notes:
     - Avoid unrealistic exaggeration
@@ -390,6 +395,87 @@ function parseMarketAnalysis(text: string): MarketAnalysis {
   };
 }
 
+// ✅ دالة للتحقق من حدود الاشتراك
+async function checkSubscriptionLimits(email: string, serviceType: 'ad' | 'analysis' = 'ad') {
+  try {
+    await connectToDB();
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return { allowed: false, error: "المستخدم غير موجود" };
+    }
+
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    // إذا لم يكن هناك سجل للشهر الحالي، نبدأ من الصفر
+    if (!user.monthlyUsage || user.monthlyUsage.month !== currentMonth || user.monthlyUsage.year !== currentYear) {
+      user.monthlyUsage = {
+        month: currentMonth,
+        year: currentYear,
+        adsGenerated: 0,
+        marketAnalysis: 0
+      };
+      await user.save();
+    }
+
+    // تعريف حدود كل خطة
+    const planLimits = {
+      'free': {
+        monthlyAds: 5,
+        monthlyAnalysis: 0
+      },
+      'pro': {
+        monthlyAds: 50,
+        monthlyAnalysis: 10
+      },
+      'premium': {
+        monthlyAds: -1, // -1 يعني غير محدود
+        monthlyAnalysis: -1
+      }
+    };
+
+    // الحصول على خطة المستخدم الحالية
+    const userPlan = user.subscription || 'free';
+    
+    // الحصول على الحدود الحالية
+    const currentLimits = planLimits[userPlan];
+    
+    // التحقق من الحدود
+    if (serviceType === 'ad') {
+      if (currentLimits.monthlyAds !== -1 && user.monthlyUsage.adsGenerated >= currentLimits.monthlyAds) {
+        return { 
+          allowed: false, 
+          error: "SUBSCRIPTION_LIMIT_EXCEEDED",
+          plan: userPlan,
+          limit: currentLimits.monthlyAds,
+          used: user.monthlyUsage.adsGenerated
+        };
+      }
+    } else if (serviceType === 'analysis') {
+      if (currentLimits.monthlyAnalysis !== -1 && user.monthlyUsage.marketAnalysis >= currentLimits.monthlyAnalysis) {
+        return { 
+          allowed: false, 
+          error: "SUBSCRIPTION_LIMIT_EXCEEDED",
+          plan: userPlan,
+          limit: currentLimits.monthlyAnalysis,
+          used: user.monthlyUsage.marketAnalysis
+        };
+      }
+    }
+
+    return { 
+      allowed: true, 
+      user,
+      plan: userPlan,
+      limits: currentLimits
+    };
+  } catch (error) {
+    console.error("Subscription check error:", error);
+    return { allowed: false, error: "خطأ في التحقق من الاشتراك" };
+  }
+}
+
 // ✅ نقطة النهاية الرئيسية لتوليد الإعلانات
 export async function POST(req: Request) {
   try {
@@ -418,6 +504,39 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "🚫 تم تجاوز الحد المسموح للطلبات. حاول بعد قليل." },
         { status: 429 }
+      );
+    }
+
+    // ✅ التحقق من التوكن والمستخدم
+    const token = (await cookies()).get("token")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { error: "⚠ لم يتم العثور على التوكن. يرجى تسجيل الدخول." },
+        { status: 401 }
+      );
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    } catch {
+      return NextResponse.json(
+        { error: "🔒 التوكن غير صالح أو منتهي الصلاحية." },
+        { status: 403 }
+      );
+    }
+
+    // ✅ التحقق من حدود الاشتراك
+    const subscriptionCheck = await checkSubscriptionLimits(decoded.email, 'ad');
+    if (!subscriptionCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: subscriptionCheck.error,
+          plan: subscriptionCheck.plan,
+          limit: subscriptionCheck.limit,
+          used: subscriptionCheck.used
+        },
+        { status: 402 } // Payment Required
       );
     }
 
@@ -451,7 +570,7 @@ export async function POST(req: Request) {
 
     // ✅ البحث عن معلومات المنتج
     let researchData: {features: string[], benefits: string[], tags: string[]} | undefined = undefined;
-    if (includeResearch) {
+    if (includeResearch && subscriptionCheck.user.subscription !== "free") {
       researchData = await fetchProductResearch(product, category, 'basic');
     }
 
@@ -486,7 +605,7 @@ export async function POST(req: Request) {
         "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: API_MODELS.groq, // استخدام النموذج المحدث
+        model: API_MODELS.groq,
         messages: [
           { 
             role: "system", 
@@ -539,12 +658,22 @@ export async function POST(req: Request) {
       );
     }
 
+    // ✅ تحديث عدد الإعلانات المستخدمة
+    if (subscriptionCheck.user) {
+      subscriptionCheck.user.monthlyUsage.adsGenerated += 1;
+      await subscriptionCheck.user.save();
+    }
+
     // ✅ الرد بنجاح مع معلومات إضافية
     return NextResponse.json({ 
       adText,
       model: data.model,
       tokens: data.usage?.total_tokens,
-      research: includeResearch ? researchData : undefined
+      research: includeResearch ? researchData : undefined,
+      plan: subscriptionCheck.plan,
+      remainingAds: subscriptionCheck.limits.monthlyAds === -1 ? 
+        'unlimited' : 
+        subscriptionCheck.limits.monthlyAds - subscriptionCheck.user.monthlyUsage.adsGenerated
     }, { status: 200 });
   } catch (error: any) {
     console.error("❌ Error in /api/generate-ad:", error);
@@ -558,7 +687,7 @@ export async function POST(req: Request) {
   }
 }
 
-// ✅ نقطة نهاية جديدة لتحليل السوق
+// ✅ نقطة نهاية جديدة لتحليل السوق (للمشتركين Pro وPremium فقط)
 export async function POSTAnalyzeMarket(req: Request) {
   try {
     // التحقق من وجود مفتاح API
@@ -577,6 +706,50 @@ export async function POSTAnalyzeMarket(req: Request) {
       return NextResponse.json(
         { error: "🚫 تم تجاوز الحد المسموح للطلبات. حاول بعد قليل." },
         { status: 429 }
+      );
+    }
+
+    // التحقق من التوكن والمستخدم
+    const token = (await cookies()).get("token")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { error: "⚠ لم يتم العثور على التوكن. يرجى تسجيل الدخول." },
+        { status: 401 }
+      );
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    } catch {
+      return NextResponse.json(
+        { error: "🔒 التوكن غير صالح أو منتهي الصلاحية." },
+        { status: 403 }
+      );
+    }
+
+    // ✅ التحقق من أن المستخدم لديه اشتراك Pro أو Premium
+    await connectToDB();
+    const user = await User.findOne({ email: decoded.email });
+    
+    if (!user || user.subscription === "free") {
+      return NextResponse.json(
+        { error: "❌ هذه الميزة متاحة فقط للمشتركين في الخطط الاحترافية." },
+        { status: 402 }
+      );
+    }
+
+    // ✅ التحقق من حدود تحليلات السوق
+    const subscriptionCheck = await checkSubscriptionLimits(decoded.email, 'analysis');
+    if (!subscriptionCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: subscriptionCheck.error,
+          plan: subscriptionCheck.plan,
+          limit: subscriptionCheck.limit,
+          used: subscriptionCheck.used
+        },
+        { status: 402 } // Payment Required
       );
     }
 
@@ -604,7 +777,7 @@ export async function POSTAnalyzeMarket(req: Request) {
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: API_MODELS.groq, // استخدام النموذج المحدث
+        model: API_MODELS.groq,
         messages: [
           { 
             role: "system", 
@@ -659,6 +832,12 @@ export async function POSTAnalyzeMarket(req: Request) {
     // تحليل النتيجة إلى structured data
     const analysis = parseMarketAnalysis(analysisText);
 
+    // ✅ تحديث عدد تحليلات السوق المستخدمة
+    if (user) {
+      user.monthlyUsage.marketAnalysis += 1;
+      await user.save();
+    }
+
     // الرد بنجاح مع تحليل السوق
     return NextResponse.json({ 
       analysis,
@@ -677,18 +856,81 @@ export async function POSTAnalyzeMarket(req: Request) {
   }
 }
 
-// ✅ نقطة نهاية اختبارية
-export async function GET() {
-  // التحقق من وجود مفتاح API (بدون استخدامه)
-  const hasApiKey = !!process.env.GROQ_API_KEY;
-  
-  return NextResponse.json({
-    status: hasApiKey ? '🟢 تعمل' : '🟡 تحتاج إعداد',
-    message: 'استخدم POST مع { product: "...", audience: "...", type: "..." }',
-    provider: 'Groq API',
-    hasApiKey: hasApiKey,
-    platformTypes: PLATFORM_TYPES,
-    rateLimit: `${RATE_LIMIT.MAX} requests per ${RATE_LIMIT.WINDOW/1000} seconds`,
-    currentModel: API_MODELS.groq
-  });
+// ✅ نقطة نهاية للحصول على معلومات الاشتراك
+export async function GET(_req: Request) {
+  try {
+    // التحقق من التوكن والمستخدم
+    const token = (await cookies()).get("token")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { error: "⚠ لم يتم العثور على التوكن. يرجى تسجيل الدخول." },
+        { status: 401 }
+      );
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    } catch {
+      return NextResponse.json(
+        { error: "🔒 التوكن غير صالح أو منتهي الصلاحية." },
+        { status: 403 }
+      );
+    }
+
+    await connectToDB();
+    const user = await User.findOne({ email: decoded.email });
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "🚫 المستخدم غير موجود." },
+        { status: 404 }
+      );
+    }
+
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    // إذا لم يكن هناك سجل للشهر الحالي، نبدأ من الصفر
+    if (!user.monthlyUsage || user.monthlyUsage.month !== currentMonth || user.monthlyUsage.year !== currentYear) {
+      user.monthlyUsage = {
+        month: currentMonth,
+        year: currentYear,
+        adsGenerated: 0,
+        marketAnalysis: 0
+      };
+      await user.save();
+    }
+
+    // تعريف حدود كل خطة
+    const planLimits = {
+      'free': { monthlyRequests: 5, marketAnalysis: 0 },
+      'pro': { monthlyRequests: 50, marketAnalysis: 10 },
+      'premium': { monthlyRequests: -1, marketAnalysis: -1 } // -1 يعني غير محدود
+    };
+
+    const currentPlan = user.subscription || 'free';
+    const currentLimits = planLimits[currentPlan];
+
+    return NextResponse.json({
+      type: currentPlan,
+      limits: currentLimits,
+      usage: user.monthlyUsage,
+      remainingAds: currentLimits.monthlyRequests === -1 ? 
+        'unlimited' : 
+        currentLimits.monthlyRequests - user.monthlyUsage.adsGenerated,
+      remainingAnalysis: currentLimits.marketAnalysis === -1 ? 
+        'unlimited' : 
+        currentLimits.marketAnalysis - user.monthlyUsage.marketAnalysis
+    });
+  } catch (error: any) {
+    console.error("❌ Error getting subscription info:", error);
+    return NextResponse.json(
+      {
+        error: "حدث خطأ أثناء جلب معلومات الاشتراك.",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
+      { status: 500 }
+    );
+  }
 }

@@ -11,29 +11,41 @@ if (!process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET غير معرف في متغيرات البيئة");
 }
 
+if (!process.env.MONGODB_URI) {
+  throw new Error("MONGODB_URI غير معرف في متغيرات البيئة");
+}
+
 function createJWT(payload: object): string {
   const secret = process.env.JWT_SECRET as string;
   
-  // استخدام الطريقة الصحيحة لإنشاء التوكن
   return jwt.sign(payload, secret, { 
     expiresIn: process.env.JWT_EXPIRES_IN || "1d",
-    algorithm: "HS256" // تحديد الخوارزمية بشكل صريح
+    algorithm: "HS256"
   } as jwt.SignOptions);
 }
 
-export async function POST(req: Request) {
+// دالة مساعدة للتحقق من اتصال قاعدة البيانات
+async function ensureDBConnection() {
   try {
-    // التحقق من اتصال قاعدة البيانات أولاً
-    try {
-      await connectToDB();
-    } catch (dbError) {
-      console.error("❌ Database connection error:", dbError);
-      return NextResponse.json(
-        { error: "تعذر الاتصال بقاعدة البيانات" },
-        { status: 500 }
-      );
-    }
+    await connectToDB();
+    return true;
+  } catch (error) {
+    console.error("❌ Database connection failed:", error);
+    return false;
+  }
+}
 
+export async function POST(req: Request) {
+  // التحقق من اتصال قاعدة البيانات أولاً
+  const dbConnected = await ensureDBConnection();
+  if (!dbConnected) {
+    return NextResponse.json(
+      { error: "تعذر الاتصال بقاعدة البيانات. يرجى التحقق من اتصال الإنترنت وإعدادات قاعدة البيانات." },
+      { status: 500 }
+    );
+  }
+
+  try {
     // الحصول على IP العميل (لـ Rate Limiting)
     const forwarded = req.headers.get('x-forwarded-for');
     const realIp = req.headers.get('x-real-ip');
@@ -178,17 +190,39 @@ export async function POST(req: Request) {
     return response;
 
   } catch (error: any) {
-    console.error("❌ Unexpected error:", error);
+    console.error("❌ Unexpected error in login route:", error);
+    
+    // تقديم رسالة خطأ أكثر وضوحاً
+    let errorMessage = "حدث خطأ غير متوقع في الخادم";
+    if (error.name === "MongoServerSelectionError") {
+      errorMessage = "تعذر الاتصال بقاعدة البيانات. يرجى التحقق من اتصال الإنترنت وإعدادات قاعدة البيانات.";
+    }
+    
     return NextResponse.json(
-      { error: "حدث خطأ غير متوقع في الخادم" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
 }
 
 export async function GET() {
+  // التحقق من اتصال قاعدة البيانات أولاً
+  const dbConnected = await ensureDBConnection();
+  if (!dbConnected) {
+    return NextResponse.json(
+      { 
+        message: "Auth API - Database connection failed",
+        timestamp: new Date().toISOString(),
+        status: "database_error"
+      },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json({
     message: "Auth API is working",
     timestamp: new Date().toISOString(),
+    status: "ok",
+    database: "connected"
   });
 }

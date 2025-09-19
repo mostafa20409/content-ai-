@@ -3,15 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "prisma generate && next dev --turbopack",
-    "build": "prisma generate && next build",
-    "start": "next start",
+    "dev": "cross-env NODE_OPTIONS='--max-old-space-size=4096' prisma generate && next dev",
+    "build": "cross-env NODE_OPTIONS='--max-old-space-size=4096' prisma generate && next build",
+    "start": "cross-env NODE_OPTIONS='--max-old-space-size=2048' next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "analyze": "cross-env ANALYZE=true next build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
-    "@prisma/client": "^6.14.0",
+    "@prisma/client": "^6.16.2",
     "@svgr/webpack": "^8.1.0",
     "@types/lru-cache": "^7.10.9",
     "@types/next-auth": "^3.13.0",
@@ -19,6 +20,7 @@
     "@upstash/ratelimit": "^2.0.5",
     "@upstash/redis": "^1.35.1",
     "bcryptjs": "^2.4.3",
+    "critters": "^0.0.23",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
@@ -48,6 +50,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.5.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
@@ -61,11 +64,16 @@
     "@types/react-dom": "^19.1.7",
     "@types/react-i18next": "^7.8.3",
     "autoprefixer": "^10.4.21",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "15.3.3",
     "postcss": "^8.5.6",
     "prisma": "^6.14.0",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }

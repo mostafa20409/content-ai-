@@ -1,4 +1,3 @@
-
 "use client";
 import { useState } from "react";
 
@@ -17,11 +16,18 @@ export default function UpgradePage() {
       features: [
         "🔹 10 طلبات شهريًا",
         "🔹 دعم أساسي",
-        "🔹 وصول محدود",
-        "❌ إعلانات AI",
-        "❌ كتب AI",
+        "🔹 وصول محدود للكتب",
+        "❌ توليد صور للشخصيات",
+        "❌ توليد أغلفة للكتب",
+        "❌ تصدير PDF",
       ],
       color: "#ccc",
+      limits: {
+        coverGeneration: 0,
+        imageGeneration: 0,
+        booksPerMonth: 5,
+        wordsPerMonth: 10000
+      }
     },
     {
       id: "pro",
@@ -31,11 +37,17 @@ export default function UpgradePage() {
         "✨ 500 طلب شهريًا",
         "✨ دعم على مدار الساعة",
         "✨ جميع الميزات الأساسية",
-        "✨ تصدير PDF",
-        "✅ إعلانات AI (محدودة)",
-        "❌ كتب AI",
+        "✨ تصدير PDF (5 مرات شهريًا)",
+        "✅ توليد صور للشخصيات (50 صورة شهريًا)",
+        "✅ توليد أغلفة للكتب (10 أغلفة شهريًا)",
       ],
       color: "#0070f3",
+      limits: {
+        coverGeneration: 10,
+        imageGeneration: 50,
+        booksPerMonth: 20,
+        wordsPerMonth: 50000
+      }
     },
     {
       id: "premium",
@@ -45,11 +57,17 @@ export default function UpgradePage() {
         "💎 طلبات غير محدودة",
         "💎 دعم VIP",
         "💎 وصول مبكر للميزات الجديدة",
-        "💎 تخصيص كامل",
-        "✅ إعلانات AI غير محدودة",
-        "✅ كتب AI غير محدودة",
+        "💎 تصدير PDF غير محدود",
+        "✅ توليد صور للشخصيات غير محدود",
+        "✅ توليد أغلفة للكتب غير محدود",
       ],
       color: "#ff9800",
+      limits: {
+        coverGeneration: -1, // -1 يعني غير محدود
+        imageGeneration: -1,
+        booksPerMonth: -1,
+        wordsPerMonth: -1
+      }
     },
   ];
 
@@ -74,12 +92,20 @@ export default function UpgradePage() {
       const res = await fetch("/api/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, plan }),
+        body: JSON.stringify({ 
+          email, 
+          plan, 
+          limits: plans.find(p => p.id === plan)?.limits 
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "حدث خطأ");
 
+      // تحديث حالة المستخدم محلياً
+      localStorage.setItem('userPlan', plan);
+      localStorage.setItem('userLimits', JSON.stringify(plans.find(p => p.id === plan)?.limits));
+      
       setMessage(`✅ ${data.message} - الخطة الحالية: ${data.subscription}`);
     } catch (error: any) {
       setMessage(`❌ ${error.message}`);
@@ -276,13 +302,10 @@ export default function UpgradePage() {
           </thead>
           <tbody>
             {[
-              "عدد الطلبات",
-              "دعم العملاء",
-              "تصدير PDF",
-              "وصول مبكر",
-              "تخصيص كامل",
-              "ميزة إعلانات AI",
-              "ميزة كتب AI",
+              "توليد أغلفة الكتب",
+              "توليد صور الشخصيات",
+              "الكتب الشهرية",
+              "الكلمات الشهرية",
             ].map((feature, i) => (
               <tr key={i}>
                 <td style={tdStyle}>{feature}</td>
@@ -294,16 +317,32 @@ export default function UpgradePage() {
                       textAlign: "center",
                     }}
                   >
-                    {p.features.some((f) =>
-                      f.toLowerCase().includes(
-                        feature
-                          .replace(/ميزة |عدد |AI/g, "")
-                          .toLowerCase()
-                          .trim()
-                      )
-                    )
-                      ? "✅"
-                      : "❌"}
+                    {(() => {
+                      switch (feature) {
+                        case "توليد أغلفة الكتب":
+                          return p.limits.coverGeneration === -1 
+                            ? "غير محدود" 
+                            : p.limits.coverGeneration === 0 
+                            ? "❌" 
+                            : `${p.limits.coverGeneration} غلاف`;
+                        case "توليد صور الشخصيات":
+                          return p.limits.imageGeneration === -1 
+                            ? "غير محدود" 
+                            : p.limits.imageGeneration === 0 
+                            ? "❌" 
+                            : `${p.limits.imageGeneration} صورة`;
+                        case "الكتب الشهرية":
+                          return p.limits.booksPerMonth === -1 
+                            ? "غير محدود" 
+                            : p.limits.booksPerMonth;
+                        case "الكلمات الشهرية":
+                          return p.limits.wordsPerMonth === -1 
+                            ? "غير محدود" 
+                            : p.limits.wordsPerMonth.toLocaleString();
+                        default:
+                          return "❌";
+                      }
+                    })()}
                   </td>
                 ))}
               </tr>

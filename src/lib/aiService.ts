@@ -23,30 +23,93 @@ interface GeneratedContent {
   coverImage: string;
 }
 
-export const generateContent = async (title: string, genre: string, chaptersCount: number): Promise<GeneratedContent> => {
+// قائمة بالنماذج البديلة بالترتيب (نماذج Groq المتاحة حالياً)
+const AVAILABLE_GROQ_MODELS = [
+  "llama-3.1-8b-instant",           // النموذج الأساسي
+  "llama-3.2-3b-preview",           // جديد
+  "gemma2-9b-it",                   // بديل جيد
+  "mixtral-8x7b-32768"              // احتياطي
+];
+
+// دالة محسنة لتوليد المحتوى مع fallback
+async function generateContentWithFallback(title: string, genre: string, chaptersCount: number, userPlan: string = 'free'): Promise<GeneratedContent> {
+  let lastError;
+  
+  // تحديد إعدادات الجودة بناء على خطة المستخدم
+  const getPlanConfig = (plan: string) => {
+    const plans = {
+      'free': { minWords: 1800, temperature: 0.7, modelPriority: ['llama-3.1-8b-instant', 'gemma2-9b-it'] },
+      'pro': { minWords: 2200, temperature: 0.75, modelPriority: ['llama-3.2-3b-preview', 'llama-3.1-8b-instant'] },
+      'premium': { minWords: 2800, temperature: 0.8, modelPriority: ['llama-3.2-90b-vision-preview', 'llama-3.2-3b-preview'] }
+    };
+    return plans[plan] || plans.free;
+  };
+
+  const userConfig = getPlanConfig(userPlan);
+  
+  for (const model of userConfig.modelPriority) {
+    try {
+      console.log(`Trying model: ${model} for plan: ${userPlan}`);
+      return await generateContentWithModel(title, genre, chaptersCount, model, userConfig);
+    } catch (error) {
+      lastError = error;
+      console.warn(`Model ${model} failed:`, error.message);
+      continue;
+    }
+  }
+  
+  // إذا فشلت جميع النماذج المفضلة، جرب النماذج الاحتياطية
+  const fallbackModels = AVAILABLE_GROQ_MODELS.filter(model => !userConfig.modelPriority.includes(model));
+  for (const model of fallbackModels) {
+    try {
+      console.log(`Trying fallback model: ${model}`);
+      return await generateContentWithModel(title, genre, chaptersCount, model, userConfig);
+    } catch (error) {
+      lastError = error;
+      console.warn(`Fallback model ${model} failed:`, error.message);
+      continue;
+    }
+  }
+  
+  throw lastError || new Error('All models failed');
+}
+
+// دالة لتوليد المحتوى باستخدام نموذج محدد
+async function generateContentWithModel(title: string, genre: string, chaptersCount: number, model: string, userConfig: any): Promise<GeneratedContent> {
   try {
     const completion = await groq.chat.completions.create({
       messages: [
         {
           role: "system",
-          content: `أنت كاتب محترف متخصص في تأليف الكتب باللغة العربية. قم بإنشاء محتوى لكتاب بعنوان "${title}" من نوع ${genre}.`
+          content: `أنت كاتب محترف متخصص في تأليف الكتب باللغة العربية. 
+                   قم بإنشاء محتوى لكتاب بعنوان "${title}" من نوع ${genre}.
+                   المحتوى يجب أن يكون غنياً بالتفاصيل والحبكة والشخصيات.
+                   الحد الأدنى للكلمات: ${userConfig.minWords} كلمة لكل فصل.`
         },
         {
           role: "user",
-          content: `ألف كتابًا باللغة العربية بعنوان "${title}" من نوع ${genre} مكون من ${chaptersCount} فصول. قدم عناوين ومحتوى مفصل لكل فصل. المحتوى يجب أن يكون باللغة العربية ومناسب للثقافة العربية.`
+          content: `ألف كتابًا باللغة العربية بعنوان "${title}" من نوع ${genre} مكون من ${chaptersCount} فصول. 
+                   قدم عناوين ومحتوى مفصل لكل فصل. 
+                   المحتوى يجب أن يكون باللغة العربية ومناسب للثقافة العربية.
+                   لا تقل عن ${userConfig.minWords} كلمة لكل فصل.
+                   أضف حوارات وتفاصيل غنية.`
         }
       ],
-      model: "llama-3.1-8b-instant", // تم التعديل إلى نموذج متوفر ومضمون
-      temperature: 0.7,
-      max_tokens: 32000, // زيادة tokens للمحتوى الطويل
+      model: model,
+      temperature: userConfig.temperature,
+      max_tokens: 32000,
     });
 
     const content = completion.choices[0]?.message?.content;
-    return parseGeneratedContent(content, title, genre, chaptersCount);
+    return parseGeneratedContent(content, title, genre, chaptersCount, userConfig.minWords);
   } catch (error) {
     console.error("Groq API error:", error);
     throw new Error("فشل في توليد المحتوى");
   }
+}
+
+export const generateContent = async (title: string, genre: string, chaptersCount: number, userPlan: string = 'free'): Promise<GeneratedContent> => {
+  return generateContentWithFallback(title, genre, chaptersCount, userPlan);
 };
 
 export const generateCoverImage = async (title: string, genre: string): Promise<string> => {
@@ -71,12 +134,12 @@ export const generateChapterImages = async (bookTitle: string, chapterTitle: str
   }
 };
 
-function parseGeneratedContent(content: string | null, title: string, genre: string, chaptersCount: number): GeneratedContent {
+function parseGeneratedContent(content: string | null, title: string, genre: string, chaptersCount: number, _minWords: number): GeneratedContent {
   if (!content) {
     // إرجاع محتوى افتراضي إذا فشل التحليل
     const chapters: Chapter[] = Array.from({ length: chaptersCount }, (_, i) => ({
       title: `الفصل ${i + 1}: ${title}`,
-      content: `هذا هو محتوى الفصل ${i + 1} من الكتاب "${title}" من نوع ${genre}. تم إنشاء هذا المحتوى تلقائيًا.`
+      content: `هذا هو محتوى الفصل ${i + 1} من الكتاب "${title}" من نوع ${genre}. تم إنشاء هذا المحتوى تلقائيًا. المحتوى يجب أن يكون غنياً بالتفاصيل والحبكة والشخصيات.`
     }));
     
     return {
@@ -93,7 +156,7 @@ function parseGeneratedContent(content: string | null, title: string, genre: str
     for (let i = 0; i < chaptersCount; i++) {
       chapters.push({
         title: `الفصل ${i + 1}: ${title}`,
-        content: lines[i] || `محتوى الفصل ${i + 1} من الكتاب "${title}"`
+        content: lines[i] || `محتوى الفصل ${i + 1} من الكتاب "${title}". هذا المحتوى غني بالتفاصيل والحبكة.`
       });
     }
     
@@ -103,7 +166,7 @@ function parseGeneratedContent(content: string | null, title: string, genre: str
     // إرجاع محتوى افتراضي في حالة الخطأ
     const chapters: Chapter[] = Array.from({ length: chaptersCount }, (_, i) => ({
       title: `الفصل ${i + 1}: ${title}`,
-      content: `محتوى الفصل ${i + 1} من الكتاب "${title}" من نوع ${genre}`
+      content: `محتوى الفصل ${i + 1} من الكتاب "${title}" من نوع ${genre}. هذا المحتوى غني بالتفاصيل والحبكة والشخصيات.`
     }));
     
     return {

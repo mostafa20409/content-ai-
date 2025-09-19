@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -27,7 +26,6 @@ type BookState = {
   chaptersCount: number;
   lang: LangKey;
   darkMode: boolean;
-  plan: "free" | "pro" | "premium";
   generating: boolean;
   progressPercent: number;
   error: string | null;
@@ -94,7 +92,6 @@ const TRANSLATIONS = {
     emptyState: "لا يوجد محتوى حتى الآن — ابدأ بتوليد كتابك",
     darkMode: "وضع داكن",
     lightMode: "وضع فاتح",
-    planLabel: "الخطة",
     draftStatus: "المسودة",
     wordsLabel: "كلمات الكتاب",
     edit: "تعديل",
@@ -150,7 +147,12 @@ const TRANSLATIONS = {
     academicStyle: "أكاديمي",
     creativeStyle: "إبداعي",
     conversationalStyle: "محادثة",
-    formalStyle: "رسمي"
+    formalStyle: "رسمي",
+    upgradeNow: "ترقية الخطة",
+    upgradeTitle: "ترقية الخطة",
+    upgradeDesc: "اختر الخطة المناسبة لاحتياجاتك",
+    upgradeToGenerate: "يجب ترقية الخطة لاستخدام هذه الميزة",
+    visitUpgradePage: "زيارة صفحة الترقية"
   },
   en: {
     brand: "Book.AI",
@@ -170,7 +172,6 @@ const TRANSLATIONS = {
     emptyState: "No content yet — start generating your book",
     darkMode: "Dark mode",
     lightMode: "Light mode",
-    planLabel: "Plan",
     draftStatus: "Draft",
     wordsLabel: "Book words",
     edit: "Edit",
@@ -226,7 +227,12 @@ const TRANSLATIONS = {
     academicStyle: "Academic",
     creativeStyle: "Creative",
     conversationalStyle: "Conversational",
-    formalStyle: "Formal"
+    formalStyle: "Formal",
+    upgradeNow: "Upgrade Plan",
+    upgradeTitle: "Upgrade Plan",
+    upgradeDesc: "Choose the plan that fits your needs",
+    upgradeToGenerate: "Upgrade your plan to use this feature",
+    visitUpgradePage: "Visit Upgrade Page"
   },
 } as const;
 
@@ -236,27 +242,7 @@ const SAMPLE_CONTENT = {
     chapters: [
       {
         title: "مقدمة في الكتابة",
-        content: `الكتابة هي فن التعبير عن الأفكار والمشاعر باستخدام الكلمات. تمتلك الكتابة قوة سحرية تمكن الكاتب من نقل تجاربه ورؤيته للعالم إلى القارئ. في هذا الفصل، سنستكشف الأساسيات التي يحتاجها كل كاتب مبتدئ لبدء رحلته في عالم التأليف.
-
-تتطلب الكتابة الجودة الممارسة المستمرة والقراءة الواسعة. كلما قرأت أكثر، كلما اكتسبت أدوات أكثر للتعبير عن أفكارك بطلاقة ووضوح. ليس المهم فقط ما تكتبه، ولكن كيف تكتبه والأسلوب الذي تتبناه في صياغة جملك.
-
-ستتعلم في هذا الفصل كيفية تنظيم أفكارك، وإنشاء مخطط أولي لكتابك، والتغلب على عقبات الكاتب التي يواجهها الكثيرون في البداية.`
-      },
-      {
-        title: "بناء الشخصيات في الرواية",
-        content: `الشخصيات هي قلب أي قصة روائية. بدون شخصيات ذات عمق ومصداقية، تفقد القصة بريقها وقدرتها على جذب القارئ. في هذا الفصل، سنتعمق في فن创建 شخصيات لا تنسى.
-
-أولاً، يجب أن تمتلك الشخصية دافعًا واضحًا وأهدافًا تسعى لتحقيقها. ثانيًا، تحتاج إلى خلفية تاريخية تشرح تصرفاتها وتفكيرها. ثالثًا، يجب أن تكون هناك تطورات في الشخصية مع تقدم الأحداث.
-
-سنتعلم أيضًا كيفية كتابة الحوار المقنع الذي يعكس شخصية المتحدث، وكيفية وصف الملامح والإيمونات التي تعبر عن حالة الشخصية العاطفية دون الحاجة إلى شرح مباشر.`
-      },
-      {
-        title: "الخاتمة والإرث",
-        content: `إنهاء الكتاب بشكل مناسب هو تحدي يواجه العديد من الكتاب. الخاتمة الجيدة تترك أثرًا دائمًا في ذهن القارئ وتغلق جميع الأقواس الدرامية التي فتحت خلال القصة.
-
-في هذا الفصل، سنناقش أنواع النهايات المختلفة: النهايات المفتوحة التي تترك مجالاً للتخيل، النهايات المغلقة التي تقدم حلًا نهائيًا لكل الأسئلة، والنهايات المفاجئة التي تغير منظور القارئ للقصة بأكملها.
-
-سنتعلم أيضًا كيفية كتابة خاتمة تليق بالرحلة التي مر بها القارئ، وتوفر الإشباع العاطفي مع ترك بعض الأسئلة الفلسفية للتفكير فيها بعد انتهاء القراءة.`
+        content: `الكتابة هي فن التعبير عن الأفكار والمشاعر باستخدام الكلمات. تمتلك الكتابة قوة سحرية تمكن الكاتب من نقل تجاربه ورؤيته للعالم إلى القارئ. في هذا الفصل، سنستكشف الأساسيات التي يحتاجها كل كاتب مبتدئ لبدء رحلته في عالم التأليف.`
       }
     ]
   },
@@ -264,34 +250,14 @@ const SAMPLE_CONTENT = {
     chapters: [
       {
         title: "Introduction to Writing",
-        content: `Writing is the art of expressing ideas and emotions using words. It possesses a magical power that enables the writer to transfer their experiences and worldview to the reader. In this chapter, we will explore the fundamentals that every beginner writer needs to start their journey in the world of authorship.
-
-Good writing requires continuous practice and extensive reading. The more you read, the more tools you acquire to express your ideas fluently and clearly. It's not only important what you write, but how you write it and the style you adopt in formulating your sentences.
-
-In this chapter, you will learn how to organize your ideas, create an initial outline for your book, and overcome writer's block that many face at the beginning.`
-      },
-      {
-        title: "Character Building in Novels",
-        content: `Characters are the heart of any novel story. Without characters with depth and credibility, the story loses its luster and its ability to attract the reader. In this chapter, we will delve into the art of creating unforgettable characters.
-
-First, the character must have a clear motivation and goals to achieve. Second, they need a historical background that explains their actions and thinking. Third, there must be developments in the character as events progress.
-
-We will also learn how to write convincing dialogue that reflects the speaker's personality, and how to describe features and gestures that express the character's emotional state without the need for direct explanation.`
-      },
-      {
-        title: "Conclusion and Legacy",
-        content: `Ending a book appropriately is a challenge many writers face. A good conclusion leaves a lasting impression in the reader's mind and closes all the dramatic arcs opened during the story.
-
-In this chapter, we will discuss different types of endings: open endings that leave room for imagination, closed endings that provide a final solution to all questions, and surprising endings that change the reader's perspective of the entire story.
-
-We will also learn how to write a conclusion worthy of the journey the reader has undergone, providing emotional satisfaction while leaving some philosophical questions to ponder after finishing reading.`
+        content: `Writing is the art of expressing ideas and emotions using words. It possesses a magical power that enables the writer to transfer their experiences and worldview to the reader.`
       }
     ]
   }
 };
 
 /* ---------- المكون الرئيسي ---------- */
-export default function BooksPage() {
+export default function BookPage() {
   
   // الحالة الرئيسية
   const [state, setState] = useState<BookState>({
@@ -303,7 +269,6 @@ export default function BooksPage() {
     chaptersCount: 3,
     lang: "ar",
     darkMode: false,
-    plan: "free",
     generating: false,
     progressPercent: 0,
     error: null,
@@ -318,8 +283,10 @@ export default function BooksPage() {
     totalWords: 0,
     generatingChapterImages: false,
     authorStyle: "professional",
-    saveToLibrary: true
+    saveToLibrary: true,
   });
+
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | "premium">("free");
 
   const genCancelRef = useRef<{ cancelled?: boolean }>({ cancelled: false });
   const autosaveTimer = useRef<number | null>(null);
@@ -388,18 +355,22 @@ export default function BooksPage() {
             ...parsed,
             lang,
             darkMode,
-            plan,
             generating: false,
             progressPercent: 0,
             error: null,
             notice: null,
             editingChapter: null,
             autoSaveStatus: "idle",
-            generatingChapterImages: false
+            generatingChapterImages: false,
           }));
         } else {
-          setState(prev => ({ ...prev, lang, darkMode, plan }));
+          setState(prev => ({ 
+            ...prev, 
+            lang, 
+            darkMode
+          }));
         }
+        setUserPlan(plan);
       } catch (e) {
         console.error("Failed to load saved data", e);
       }
@@ -408,13 +379,48 @@ export default function BooksPage() {
     loadSavedData();
   }, []);
 
+  // تحميل خطة المستخدم من API
+  useEffect(() => {
+    const loadUserPlan = async () => {
+      try {
+        const response = await fetch('/api/user/plan');
+        if (response.ok) {
+          const data = await response.json();
+          setUserPlan(data.subscription);
+          localStorage.setItem('userPlan', data.subscription);
+          localStorage.setItem('userLimits', JSON.stringify(data.limits));
+          
+          // تحديث حالة التطبيق بناءً على الخطة
+          if (data.subscription === 'premium') {
+            console.log('تم تحميل خطة Premium بنجاح');
+          } else if (data.subscription === 'pro') {
+            console.log('تم تحميل خطة Pro بنجاح');
+          } else {
+            console.log('تم تحميل خطة Free بنجاح');
+          }
+        } else {
+          console.error('فشل في تحميل خطة المستخدم:', response.status);
+        }
+      } catch (error) {
+        console.error('Failed to load user plan:', error);
+        // استخدام القيم الافتراضية من localStorage في حالة الخطأ
+        const savedPlan = localStorage.getItem('userPlan');
+        if (savedPlan) {
+          setUserPlan(savedPlan as "free" | "pro" | "premium");
+        }
+      }
+    };
+
+    loadUserPlan();
+  }, []);
+
   // تطبيق إعدادات اللغة والوضع الداكن
   useEffect(() => {
     document.documentElement.setAttribute("dir", state.lang === "ar" ? "rtl" : "ltr");
     document.documentElement.setAttribute("data-theme", state.darkMode ? "dark" : "light");
   }, [state.lang, state.darkMode]);
 
-  // الحفظ التلقائي - تم التصحيح لمنع التكرار اللانهائي
+  // الحفظ التلقائي
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -422,7 +428,6 @@ export default function BooksPage() {
       clearTimeout(autosaveTimer.current);
     }
 
-    // الحفظ فقط عند تغيير البيانات المهمة، وليس عند كل تغيير في state
     const shouldSave = 
       state.title !== prevStateRef.current?.title ||
       state.description !== prevStateRef.current?.description ||
@@ -440,7 +445,7 @@ export default function BooksPage() {
           console.error("Autosave failed", e);
           setState(prev => ({ ...prev, autoSaveStatus: "idle" }));
         }
-      }, 2000); // زيادة وقت التأخير إلى 2 ثانية
+      }, 2000);
     }
 
     prevStateRef.current = state;
@@ -450,9 +455,9 @@ export default function BooksPage() {
         clearTimeout(autosaveTimer.current);
       }
     };
-  }, [state.title, state.description, state.chapters, state.authorName]); // dependencies محدودة
+  }, [state.title, state.description, state.chapters, state.authorName]);
 
-  // استخدام useCallback لمنع إنشاء دوال جديدة في كل render
+  // دوال معالجة التغيير
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setState(prev => ({ ...prev, title: e.target.value }));
   }, []);
@@ -471,13 +476,6 @@ export default function BooksPage() {
 
   const handleAuthorNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setState(prev => ({ ...prev, authorName: e.target.value }));
-  }, []);
-
-  const handlePlanChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setState(prev => ({
-      ...prev,
-      plan: e.target.value as "free" | "pro" | "premium"
-    }));
   }, []);
 
   const handleChaptersCountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -517,7 +515,6 @@ export default function BooksPage() {
     setState(prev => ({ ...prev, currentStep: step, error: null }));
   }, [validateStep1, validateChapters]);
 
-  // معالج التغيير لمحرر الفصول - تم التصحيح لمنع التكرار اللانهائي
   const handleEditChapterChange = useCallback((field: 'title' | 'description' | 'imageDescription', value: string) => {
     setState(prev => {
       if (!prev.editingChapter) return prev;
@@ -559,15 +556,28 @@ export default function BooksPage() {
     }));
   };
 
+  /* ---------- دوال التوجيه إلى صفحة الترقية ---------- */
+  const handleUpgradeRedirect = () => {
+    window.location.href = "/upgrade";
+  };
+
+  const handleFeatureUpgrade = (featureName: string) => {
+    setState(prev => ({
+      ...prev,
+      notice: `${t.upgradeToGenerate} (${featureName})`
+    }));
+    setTimeout(() => {
+      window.location.href = "/upgrade";
+    }, 2000);
+  };
+
   /* ---------- توليد المحتوى الحقيقي باستخدام API ---------- */
   const handleGenerateBook = async () => {
-    // التحقق من الحقول الأساسية
     if (!state.title.trim()) {
       setState(prev => ({ ...prev, error: t.titleLabel + (state.lang === "ar" ? " مطلوب" : " is required") }));
       return;
     }
 
-    // التحقق من وصف الفصول
     const validationError = validateChapters();
     if (validationError) {
       setState(prev => ({ ...prev, error: validationError }));
@@ -587,12 +597,11 @@ export default function BooksPage() {
     let timeoutId: NodeJS.Timeout | null = null;
 
     try {
-      // إضافة مؤقت للتحقق من اتصال API
       timeoutId = setTimeout(() => {
         if (controller && !controller.signal.aborted) {
           controller.abort();
         }
-      }, 60000); // 60 ثانية timeout
+      }, 600000);
       
       const response = await fetch("/api/books/generate", {
         method: "POST",
@@ -613,7 +622,7 @@ export default function BooksPage() {
           authorName: state.authorName,
           authorStyle: state.authorStyle,
           coverDescription: state.coverDescription,
-          generateChapterImages: true,
+          generateChapterImages: userPlan !== 'free',
           saveToLibrary: state.saveToLibrary
         }),
         signal: controller.signal
@@ -627,13 +636,15 @@ export default function BooksPage() {
         if (response.status === 401) {
           throw new Error(state.lang === "ar" ? "غير مصرح بالوصول" : "Unauthorized access");
         }
+        if (response.status === 403) {
+          throw new Error(state.lang === "ar" ? "غير مسموح به في خطتك الحالية" : "Not allowed in your current plan");
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || t.genError);
       }
 
       const data = await response.json();
       
-      // تحديث الفصول بالمحتوى الحقيقي من API
       if (data.chapters && Array.isArray(data.chapters)) {
         data.chapters.forEach((generatedChapter: any, index: number) => {
           if (index < state.chapters.length) {
@@ -645,12 +656,10 @@ export default function BooksPage() {
         });
       }
 
-      // تحديث رابط الغلاف إذا تم توليده
       if (data.book && data.book.coverUrl) {
         setState(prev => ({ ...prev, coverUrl: data.book.coverUrl }));
       }
 
-      // تحديث إجمالي الكلمات إذا كان متوفراً في الاستجابة
       if (data.totalWords) {
         setState(prev => ({ ...prev, totalWords: data.totalWords }));
       }
@@ -673,7 +682,6 @@ export default function BooksPage() {
         errorMessage = t.genError;
       }
       
-      // في حالة فشل الاتصال، نعرض خيار استخدام المحتوى التجريبي
       if (err.name === 'AbortError' || err.message?.includes('Failed to fetch') || err.message?.includes('connection')) {
         setState(prev => ({
           ...prev,
@@ -683,7 +691,6 @@ export default function BooksPage() {
             "You can use sample content to continue"
         }));
         
-        // استخدام المحتوى التجريبي مباشرة بدلاً من استدعاء دالة
         const sampleChapters = SAMPLE_CONTENT[state.lang].chapters;
         setState(prev => {
           const updatedChapters = prev.chapters.map((chapter, index) => {
@@ -710,7 +717,6 @@ export default function BooksPage() {
         }));
       }
     } finally {
-      // تنظيف المؤقتات
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
@@ -740,6 +746,11 @@ export default function BooksPage() {
       return;
     }
 
+    if (userPlan === 'free') {
+      handleFeatureUpgrade(t.generateCoverBtn);
+      return;
+    }
+
     setState(prev => ({ ...prev, generatingCover: true, error: null }));
 
     try {
@@ -763,7 +774,10 @@ export default function BooksPage() {
 
       const data = await response.json();
       if (data.coverUrl) {
-        setState(prev => ({ ...prev, coverUrl: data.coverUrl }));
+        setState(prev => ({ 
+          ...prev, 
+          coverUrl: data.coverUrl
+        }));
       }
     } catch (error: any) {
       console.error('Cover generation error:', error);
@@ -778,6 +792,11 @@ export default function BooksPage() {
 
   /* ---------- توليد صور الفصول ---------- */
   const handleGenerateChapterImages = async () => {
+    if (userPlan === 'free') {
+      handleFeatureUpgrade(t.generateChapterImages);
+      return;
+    }
+
     setState(prev => ({ ...prev, generatingChapterImages: true, error: null }));
 
     try {
@@ -805,7 +824,6 @@ export default function BooksPage() {
 
       const data = await response.json();
       
-      // تحديث صور الفصول
       if (data.result && Array.isArray(data.result)) {
         data.result.forEach((result: any) => {
           if (result.success && result.imageUrl) {
@@ -821,7 +839,7 @@ export default function BooksPage() {
 
       setState(prev => ({ 
         ...prev, 
-        notice: state.lang === "ar" ? "تم توليد صور الفصول بنجاح" : "Chapter images generated successfully" 
+        notice: state.lang === "ar" ? "تم توليد صور الفصول بنجاح" : "Chapter images generated successfully"
       }));
     } catch (error: any) {
       console.error('Chapter images generation error:', error);
@@ -872,7 +890,6 @@ export default function BooksPage() {
 
   const handleSaveFinal = () => {
     try {
-      // حفظ محلي فقط بدون إرسال إلى الخادم
       localStorage.setItem("book:final:v1", JSON.stringify({
         title: state.title,
         subtitle: state.subtitle,
@@ -927,19 +944,6 @@ export default function BooksPage() {
         </div>
 
         <div className="top-actions">
-          <div className="plan-select">
-            <label className="sr-only">{t.planLabel}</label>
-            <select 
-              value={state.plan} 
-              onChange={handlePlanChange}
-              aria-label={t.planLabel}
-            >
-              <option value="free">Free</option>
-              <option value="pro">Pro</option>
-              <option value="premium">Premium</option>
-            </select>
-          </div>
-
           <div className="lang-toggle" role="group" aria-label="language">
             <button
               onClick={() => {
@@ -976,6 +980,13 @@ export default function BooksPage() {
               {state.darkMode ? "🌙" : "☀"}
             </button>
           </div>
+
+          <button
+            className="btn-primary"
+            onClick={handleUpgradeRedirect}
+          >
+            {t.upgradeNow}
+          </button>
         </div>
       </header>
 

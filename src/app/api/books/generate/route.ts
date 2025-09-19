@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { connectToDB } from '@/lib/connectToDB';
 import User from '@/models/User';
 import Book from '@/models/Book';
+import { arabicToEnglishDescription } from '@/lib/utils';
 
 // تخزين مؤقت بسيط لإدارة المعدل
 const requestCache = new Map();
@@ -103,6 +104,65 @@ function verifyToken(token: string, secret: string): JWTPayload {
   }
 }
 
+// دالة للتحقق من خطة المستخدم وتحديد جودة المحتوى
+function getUserContentQuality(user: any): {
+  minWords: number;
+  maxWords: number;
+  temperature: number;
+  modelPriority: string[];
+  canGenerateImages: boolean;
+  canGenerateCover: boolean;
+} {
+  const plan = user.subscription || 'free';
+  
+  // تعريف الحدود لكل خطة
+  const defaultLimits = {
+    'free': {
+      minWords: 1800,
+      maxWords: 2500,
+      temperature: 0.7,
+      modelPriority: ['llama-3.1-8b-instant', 'gemma2-9b-it'],
+      canGenerateImages: false,
+      canGenerateCover: false
+    },
+    'pro': {
+      minWords: 2200,
+      maxWords: 3200,
+      temperature: 0.75,
+      modelPriority: ['llama-3.2-3b-preview', 'llama-3.1-8b-instant', 'gemma2-9b-it'],
+      canGenerateImages: true,
+      canGenerateCover: true
+    },
+    'premium': {
+      minWords: 2800,
+      maxWords: 3800,
+      temperature: 0.8,
+      modelPriority: ['llama-3.2-90b-vision-preview', 'llama-3.3-70b-versatile', 'llama-3.2-3b-preview'],
+      canGenerateImages: true,
+      canGenerateCover: true
+    }
+  };
+
+  // الحصول على التكوين الأساسي للخطة
+  const baseConfig = defaultLimits[plan] || defaultLimits.free;
+  
+  // التحقق من الحدود الفعلية للمستخدم
+  const canGenerateImages = user.subscriptionLimits?.imageGeneration !== undefined 
+    ? user.subscriptionLimits.imageGeneration > 0 || user.subscriptionLimits.imageGeneration === -1
+    : baseConfig.canGenerateImages;
+    
+  const canGenerateCover = user.subscriptionLimits?.coverGeneration !== undefined 
+    ? user.subscriptionLimits.coverGeneration > 0 || user.subscriptionLimits.coverGeneration === -1
+    : baseConfig.canGenerateCover;
+
+  // إرجاع التكوين النهائي
+  return {
+    ...baseConfig,
+    canGenerateImages,
+    canGenerateCover
+  };
+}
+
 // دالة إنشاء الـ prompt مع كل التفاصيل مع التركيز على الاستمرارية
 function createAdvancedPrompt(
   bookTitle: string,
@@ -112,7 +172,8 @@ function createAdvancedPrompt(
   chapter: BookChapter,
   totalChapters: number,
   previousChaptersContent: string[] = [],
-  authorStyle: string = 'professional'
+  authorStyle: string = 'professional',
+  minWords: number = 2500
 ): string {
   
   const isArabic = language === 'ar';
@@ -123,10 +184,10 @@ function createAdvancedPrompt(
   if (previousChaptersContent.length > 0) {
     previousContentSummary = isArabic ? 
       `## محتوى الفصول السابقة (للحفاظ على الاستمرارية):
-${previousChaptersContent.map((content, index) => `الفصل ${index + 1}: ${content.substring(0, 500)}...`).join('\n')}`
+${previousChaptersContent.map((content, index) => `الفصل ${index + 1}: ${content.substring(0, 300)}...`).join('\n')}`
       : 
       `## Previous Chapters Content (for continuity):
-${previousChaptersContent.map((content, index) => `Chapter ${index + 1}: ${content.substring(0, 500)}...`).join('\n')}`;
+${previousChaptersContent.map((content, index) => `Chapter ${index + 1}: ${content.substring(0, 300)}...`).join('\n')}`;
   }
 
   return isArabic ? `
@@ -139,32 +200,41 @@ ${previousChaptersContent.map((content, index) => `Chapter ${index + 1}: ${conte
     - عنوان الفصل: ${chapter.title}
     - وصف الفصل: ${chapter.description}
     - الأسلوب: ${authorStyle}
+    - الحد الأدنى للكلمات: ${minWords} كلمة
 
     ${previousContentSummary}
 
-    ## متطلبات المحتوى:
-    - الطول: 8000+ كلمة (محتوى غني ومفصل)
-    - الهيكل: مقدمة (10%)، محتوى رئيسي (80%)، خاتمة (10%)
-    - الأسلوب: ${authorStyle} يناسب نوع ${bookTypeName}
-    - الدقة: المعلومات يجب أن تكون موثقة ودقيقة
-    - السلاسة: الانتقال بين الأفكار يجب أن يكون طبيعياً
-    - العمق: معالجة الموضوع بعمق وتحليل متقدم شامل
-    - التنظيم: تقسيم المحتوى إلى أقسام وعناوين فرعية واضحة
-    - الاستمرارية: يجب أن يكون المحتوى امتداداً طبيعياً للفصول السابقة
+    ## متطلبات المحتوى الأساسية (إلزامية):
+    - الطول: ${minWords}+ كلمة (محتوى غني ومفصل جداً)
+    - لا تقل عن ${minWords} كلمة تحت أي ظرف
+    - المحتوى يجب أن يكون غنياً بالتفاصيل والحبكة
+    - أضف حوارات بين الشخصيات إذا كان النوع مناسباً
+    - وصف مشاهد تفصيلية
+    - تطوير شخصيات عميق
+    - حبكة قوية ومثيرة
 
-    ## تعليمات خاصة:
-    1. ابدأ بمقدمة شاملة وجذابة تعرض أهمية الموضوع وأهداف الفصل مع الربط بما سبق
-    2. استخدم لغة عربية فصحى سليمة وغنية بالمفردات
-    3. حافظ على التسلسل المنطقي والترابط بين الأفكار مع الفصول السابقة
-    4. أنهِ الفصل بخلاصة شاملة تضع أساساً للفصل التالي
-    5. استخدم العناوين الفرعية لتنظيم المحتوى بشكل واضح
-    6. أضف أمثلة وتطبيقات عملية للمفاهيم المطروحة
-    7. راعي الخصائص الفنية لنوع الكتاب بشكل متعمق
-    8. تأكد من أن المحتوى شامل ويغطي جميع جوانب الموضوع
-    9. استخدم أسلوباً سردياً يجذب القارئ ويحافظ على اهتمامه مع الحفاظ على تسلسل الأحداث
-    10. تجنب التكرار غير الضروري وركز على تقديم قيمة حقيقية
-    11. تأكد من أن الأحداث والشخصيات تتابع بشكل منطقي من الفصول السابقة
-    12. لا تغير حقائق أو أحداث تم تأسيسها في الفصول السابقة
+    ## الهيكل المطلوب:
+    - مقدمة شاملة (15%): تقديم الشخصيات والحدث الرئيسي
+    - تطوير الأحداث (60%): حبكة مفصلة، تطور الشخصيات، صراعات
+    - ذروة الأحداث (15%): نقطة التحول الرئيسية
+    - خاتمة وتحضير للفصل التالي (10%)
+
+    ## تعليمات صارمة:
+    1. لا تقل عن ${minWords} كلمة بأي حال من الأحوال
+    2. المحتوى يجب أن يكون غنياً بالتفاصيل والحوارات
+    3. استخدم لغة عربية فصحى سليمة ولكن بأسلوب سلس
+    4. حافظ على الاستمرارية مع الفصول السابقة
+    5. أضف عنصر التشويق والإثارة
+    6. طور الشخصيات بشكل عميق
+    7. لا تكرر المحتوى السابق
+    8. اجعل النهاية تترك القارئ متشوقاً للفصل التالي
+
+    ## أمثلة للتفاصيل المطلوبة:
+    - وصف المشاهد: الأماكن، الأجواء، الأزمنة
+    - الحوارات: محادثات واقعية بين الشخصيات
+    - المشاعر: وصف المشاعر الداخلية للشخصيات
+    - الأحداث: تسلسل الأحداث بطريقة منطقية ومثيرة
+    - الرموز: استخدام الرموز والإيحاءات المناسبة للنوع
   ` : `
     # Advanced Content Generation Task with Continuity
     ## Basic Information:
@@ -175,32 +245,41 @@ ${previousChaptersContent.map((content, index) => `Chapter ${index + 1}: ${conte
     - Chapter Title: ${chapter.title}
     - Chapter Description: ${chapter.description}
     - Writing Style: ${authorStyle}
+    - Minimum words: ${minWords} words
 
     ${previousContentSummary}
 
-    ## Content Requirements:
-    - Length: 8000+ words (rich and detailed content)
-    - Structure: Introduction (10%), main content (80%), conclusion (10%)
-    - Style: ${authorStyle} appropriate for ${bookTypeName} genre
-    - Accuracy: Information must be verified and precise
-    - Flow: Natural transition between ideas and previous chapters
-    - Depth: Comprehensive analysis and deep treatment of the subject
-    - Organization: Divide content into clear sections and subheadings
-    - Continuity: Content must be a natural extension of previous chapters
+    ## Mandatory Requirements:
+    - Length: ${minWords}+ words (rich and detailed content)
+    - Minimum ${minWords} words under any circumstances
+    - Content must be rich in details and plot
+    - Add character dialogues if genre-appropriate
+    - Detailed scene descriptions
+    - Deep character development
+    - Strong and exciting plot
 
-    ## Special Instructions:
-    1. Start with a comprehensive introduction linking to previous chapters
-    2. Use professional ${language} language with rich vocabulary
-    3. Maintain logical sequence and connection with previous content
-    4. End the chapter with a comprehensive summary that sets the stage for the next chapter
-    5. Use subheadings to organize content clearly
-    6. Add practical examples and applications of the concepts discussed
-    7. Focus on comprehensive analysis
-    8. Consider the technical characteristics of the book genre in depth
-    9. Ensure the content is comprehensive and covers all aspects of the topic
-    10. Use a narrative style that maintains reader interest while preserving story continuity
-    11. Ensure events and characters follow logically from previous chapters
-    12. Do not change facts or events established in previous chapters
+    ## Required Structure:
+    - Comprehensive introduction (15%): Introduce characters and main event
+    - Event development (60%): Detailed plot, character development, conflicts
+    - Climax (15%): Main turning point
+    - Conclusion and setup for next chapter (10%)
+
+    ## Strict Instructions:
+    1. Do not write less than ${minWords} words under any circumstances
+    2. Content must be rich in details and dialogues
+    3. Use professional language with smooth flow
+    4. Maintain continuity with previous chapters
+    5. Add elements of suspense and excitement
+    6. Develop characters deeply
+    7. Do not repeat previous content
+    8. Make the ending leave the reader eager for the next chapter
+
+    ## Examples of required details:
+    - Scene descriptions: places, atmospheres, times
+    - Dialogues: realistic conversations between characters
+    - Emotions: description of characters' internal feelings
+    - Events: logical and exciting sequence of events
+    - Symbols: use of appropriate symbols and suggestions for the genre
   `;
 }
 
@@ -254,33 +333,158 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(word => word.length > 0).length;
 }
 
+// قائمة بالنماذج البديلة بالترتيب (نماذج Groq المتاحة حالياً)
+const AVAILABLE_GROQ_MODELS = [
+  "llama-3.1-8b-instant",           // النموذج الأساسي
+  "llama-3.2-3b-preview",           // جديد
+  "gemma2-9b-it",                   // بديل جيد
+  "mixtral-8x7b-32768"              // احتياطي
+];
+
+// دالة محسنة لتوليد المحتوى مع fallback
+async function generateChapterContentWithFallback(
+  prompt: string, 
+  bookLanguage: string, 
+  bookType: string,
+  userConfig: any
+): Promise<{content: string, tokens: number}> {
+  let lastError;
+  
+  // استخدام النماذج المفضلة حسب خطة المستخدم
+  for (const model of userConfig.modelPriority) {
+    try {
+      console.log(`Trying model: ${model} for ${userConfig.minWords}-${userConfig.maxWords} words`);
+      return await generateChapterContentWithModel(prompt, bookLanguage, bookType, model, userConfig);
+    } catch (error) {
+      lastError = error;
+      console.warn(`Model ${model} failed:`, error.message);
+      continue;
+    }
+  }
+  
+  // إذا فشلت جميع النماذج المفضلة، جرب النماذج الاحتياطية
+  const fallbackModels = AVAILABLE_GROQ_MODELS.filter(model => !userConfig.modelPriority.includes(model));
+  for (const model of fallbackModels) {
+    try {
+      console.log(`Trying fallback model: ${model}`);
+      return await generateChapterContentWithModel(prompt, bookLanguage, bookType, model, userConfig);
+    } catch (error) {
+      lastError = error;
+      console.warn(`Fallback model ${model} failed:`, error.message);
+      continue;
+    }
+  }
+  
+  throw lastError || new Error(bookLanguage === 'ar' 
+    ? "فشل في توليد المحتوى باستخدام جميع النماذج المتاحة" 
+    : "Failed to generate content using all available models");
+}
+
+// دالة لتوليد محتوى الفصل باستخدام نموذج محدد
+async function generateChapterContentWithModel(
+  prompt: string, 
+  bookLanguage: string, 
+  bookType: string,
+  model: string,
+  userConfig: any
+): Promise<{content: string, tokens: number}> {
+  try {
+    const requestBody = {
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: bookLanguage === 'ar' 
+            ? `أنت كاتب محترف متخصص في ${BOOK_TYPES[bookType as BookType] || bookType}. 
+               مهمتك هي كتابة محتوى غني ومفصل لا يقل عن ${userConfig.minWords} كلمة لكل فصل.
+               استخدم لغة عربية فصحى سليمة، وأسلوباً أدبياً راقياً، وتعمق في التحليل.
+               قدم محتوى ذا قيمة حقيقية، مع أمثلة عملية وتفاصيل دقيقة.
+               حافظ على الاستمرارية مع الفصول السابقة واهتم بتطوير الأحداث والشخصيات.
+               المحتوى يجب أن يكون غنياً بالحبكة والشخصيات والحوارات.`
+            : `You are a professional writer specialized in ${bookType}. 
+               Your task is to write rich, detailed content of at least ${userConfig.minWords} words per chapter.
+               Use professional language with deep analysis and practical examples.
+               Maintain continuity with previous chapters and focus on character and plot development.
+               Content must be rich in plot, characters, and dialogues.`
+        },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 32000,
+      temperature: userConfig.temperature,
+      stream: false,
+      frequency_penalty: 0.1,
+      presence_penalty: 0.1
+    };
+
+    const GROQ_API_BASE = 'https://api.groq.com/openai/v1';
+    const GROQ_CHAT_ENDPOINT = '/chat/completions';
+
+    const aiRes = await fetch(`${GROQ_API_BASE}${GROQ_CHAT_ENDPOINT}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!aiRes.ok) {
+      const errorText = await aiRes.text();
+      console.error("Groq API error:", errorText);
+      throw new Error(bookLanguage === 'ar' 
+        ? "فشل في توليد المحتوى باستخدام الذكاء الاصطناعي" 
+        : "Failed to generate content using AI");
+    }
+
+    const data = await aiRes.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    const tokens = data.usage?.total_tokens || 0;
+    
+    // التحقق من عدد الكلمات
+    const actualWordCount = countWords(content);
+    if (actualWordCount < userConfig.minWords) {
+      console.warn(`Warning: Generated only ${actualWordCount} words, minimum required is ${userConfig.minWords}`);
+    }
+    
+    return { content, tokens };
+  } catch (error) {
+    console.error("Error in generateChapterContentWithModel:", error);
+    throw error;
+  }
+}
+
 // دالة لتوليد غلاف الكتاب باستخدام Stability AI
 async function generateBookCover(
   bookTitle: string, 
   coverDescription: string, 
   bookType: string, 
-  _language: string,
+  language: string,
   authorName: string
 ): Promise<string> {
   try {
     const bookTypeName = BOOK_TYPES[bookType as BookType] || bookType;
     
+    // تحويل الوصف العربي إلى إنجليزي إذا لزم الأمر
+    let processedDescription = coverDescription;
+    if (language === 'ar') {
+      processedDescription = arabicToEnglishDescription(coverDescription);
+    }
+    
     // استخدام الإنجليزية فقط لـ Stability AI
     const prompt = `
-      Classic black and white book cover titled "${bookTitle}"
-      By: ${authorName}
-      Book type: ${bookTypeName}
-      ${coverDescription}
+      Professional book cover titled "${bookTitle}"
+      Author: ${authorName}
+      Genre: ${bookTypeName}
+      ${processedDescription}
       
       Specifications:
-      - Elegant classic black and white design
-      - Clear Arabic fonts for title and author name
-      - Simple decorative frame around the cover
-      - Vintage elegant appearance suitable for print books
-      - Enough space for book title and author name
+      - Clear display of book title and author name
+      - Professional design suitable for publishing
+      - High contrast for readability
+      - Elegant typography for title and author name
       - 2:3 aspect ratio
-      - No colors, only grayscale
-      - High quality suitable for publishing
+      - High quality 300 DPI
+      - Include decorative elements related to the book's genre
     `;
 
     // استخدام Stability AI v2beta مع multipart/form-data
@@ -291,8 +495,8 @@ async function generateBookCover(
     formData.append('mode', 'text-to-image');
     formData.append('aspect_ratio', '2:3');
     formData.append('seed', '0');
-    formData.append('steps', '30');
-    formData.append('cfg_scale', '7');
+    formData.append('steps', '40');
+    formData.append('cfg_scale', '8');
     formData.append('style_preset', 'enhance');
 
     const response = await fetch('https://api.stability.ai/v2beta/stable-image/generate/sd3', {
@@ -327,25 +531,30 @@ async function generateChapterImage(
   chapterImageDescription: string,
   bookTitle: string,
   bookType: string,
-  _language: string
+  language: string
 ): Promise<string> {
   try {
     const bookTypeName = BOOK_TYPES[bookType as BookType] || bookType;
     
+    // تحويل الوصف العربي إلى إنجليزي إذا لزم الأمر
+    let processedDescription = chapterImageDescription;
+    if (language === 'ar') {
+      processedDescription = arabicToEnglishDescription(chapterImageDescription);
+    }
+    
     // استخدام الإنجليزية فقط لـ Stability AI
     const prompt = `
-      Black and white illustration for chapter: "${chapterTitle}"
+      Illustration for chapter: "${chapterTitle}"
       From book: "${bookTitle}"
       Book type: ${bookTypeName}
       Chapter description: ${chapterDescription}
-      ${chapterImageDescription ? `Image description: ${chapterImageDescription}` : ''}
+      ${processedDescription ? `Image description: ${processedDescription}` : ''}
       
       Specifications:
-      - Elegant black and white drawing
+      - Black and white illustration
       - Simple and clear design
       - No text included
       - 1:1 aspect ratio
-      - Grayscale only
       - High quality suitable for publishing
     `;
 
@@ -357,8 +566,8 @@ async function generateChapterImage(
     formData.append('mode', 'text-to-image');
     formData.append('aspect_ratio', '1:1');
     formData.append('seed', '0');
-    formData.append('steps', '25');
-    formData.append('cfg_scale', '6');
+    formData.append('steps', '30');
+    formData.append('cfg_scale', '7');
     formData.append('style_preset', 'line-art');
 
     const response = await fetch('https://api.stability.ai/v2beta/stable-image/generate/sd3', {
@@ -456,6 +665,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "المستخدم غير موجود" }, { status: 404 });
     }
 
+    // الحصول على إعدادات جودة المحتوى بناء على خطة المستخدم
+    const userQualityConfig = getUserContentQuality(user);
+
     // التحقق من معدل الطلبات
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
     if (!checkRateLimit(ip)) {
@@ -507,11 +719,21 @@ export async function POST(req: Request) {
       console.warn('STABILITY_API_KEY not found, image generation will be disabled');
     }
 
-    // توليد غلاف الكتاب إذا تم تقديم وصف
+    // التحقق من صلاحية المستخدم لتوليد الأغلفة والصور حسب خطته
+    const canGenerateCover = coverDescription && userQualityConfig.canGenerateCover;
+    const canGenerateChapterImages = generateChapterImages && userQualityConfig.canGenerateImages;
+
+    // توليد غلاف الكتاب إذا كان مسموحاً للمستخدم
     let coverUrl: string | null = null;
-    if (coverDescription && coverDescription.trim() && process.env.STABILITY_API_KEY) {
+    if (canGenerateCover && process.env.STABILITY_API_KEY) {
       try {
         coverUrl = await generateBookCover(title, coverDescription, bookType, bookLanguage, authorName);
+        
+        // تحديث عدد المرات المتبقية للمستخدم
+        if (user.subscriptionLimits.coverGeneration > 0) {
+          user.subscriptionLimits.coverGeneration -= 1;
+          await user.save();
+        }
       } catch (error) {
         console.error('Cover generation failed, continuing without cover:', error);
       }
@@ -519,7 +741,7 @@ export async function POST(req: Request) {
 
     const results: GeneratedChapter[] = [];
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 900000); // 15 دقيقة للمحتوى الطويل
+    const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30 دقيقة للمحتوى الطويل
 
     try {
       // تخزين محتوى الفصول السابقة لضمان الاستمرارية
@@ -538,61 +760,23 @@ export async function POST(req: Request) {
           chapter,
           chapters.length,
           previousChaptersContent,
-          authorStyle
+          authorStyle,
+          userQualityConfig.minWords
         );
 
-        // استخدام نموذج متوفر من Groq
-        const requestBody = {
-          model: "llama-3.1-8b-instant", // نموذج متوفر ومضمون
-          messages: [
-            {
-              role: "system",
-              content: bookLanguage === 'ar' 
-                ? `أنت كاتب محترف متخصص في ${BOOK_TYPES[bookType as BookType] || bookType}. 
-                   مهمتك هي كتابة محتوى غني ومفصل لا يقل عن 3000 كلمة لكل فصل.
-                   استخدم لغة عربية فصحى سليمة، وأسلوباً أدبياً راقياً، وتعمق في التحليل.`
-                : `You are a professional writer specialized in ${bookType}. 
-                   Your task is to write rich, detailed content of at least 3000 words per chapter.`
-            },
-            { role: "user", content: prompt }
-          ],
-          max_tokens: 32000,
-          temperature: 0.7,
-          stream: false,
-          frequency_penalty: 0.1,
-          presence_penalty: 0.1
-        };
-
-        const GROQ_API_BASE = 'https://api.groq.com/openai/v1';
-        const GROQ_CHAT_ENDPOINT = '/chat/completions';
-
-        const aiRes = await fetch(`${GROQ_API_BASE}${GROQ_CHAT_ENDPOINT}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal
-        });
-
-        if (!aiRes.ok) {
-          const errorText = await aiRes.text();
-          console.error("Groq API error:", errorText);
-          throw new Error(bookLanguage === 'ar' 
-            ? "فشل في توليد المحتوى باستخدام الذكاء الاصطناعي" 
-            : "Failed to generate content using AI");
-        }
-
-        const data = await aiRes.json();
-        let content = data.choices?.[0]?.message?.content || "";
+        const { content, tokens } = await generateChapterContentWithFallback(
+          prompt,
+          bookLanguage,
+          bookType,
+          userQualityConfig
+        );
         
         // تخزين محتوى هذا الفصل للفصول القادمة
         previousChaptersContent.push(content);
 
-        // توليد صورة الفصل إذا طلب المستخدم ذلك وكان المفتاح متوفراً
+        // توليد صورة الفصل إذا كان مسموحاً للمستخدم
         let chapterImageUrl: string | null = null;
-        if (generateChapterImages && process.env.STABILITY_API_KEY) {
+        if (canGenerateChapterImages && process.env.STABILITY_API_KEY) {
           try {
             chapterImageUrl = await generateChapterImage(
               chapter.title,
@@ -602,6 +786,12 @@ export async function POST(req: Request) {
               bookType,
               bookLanguage
             );
+            
+            // تحديث عدد المرات المتبقية للمستخدم
+            if (user.subscriptionLimits.imageGeneration > 0) {
+              user.subscriptionLimits.imageGeneration -= 1;
+              await user.save();
+            }
           } catch (error) {
             console.error('Chapter image generation failed:', error);
             // نستمر بدون صورة الفصل في حالة الفشل
@@ -614,7 +804,7 @@ export async function POST(req: Request) {
           description: chapter.description,
           content,
           imageUrl: chapterImageUrl || undefined,
-          tokens: data.usage?.total_tokens,
+          tokens: tokens,
           wordCount: countWords(content)
         });
 
@@ -661,7 +851,8 @@ export async function POST(req: Request) {
         },
         chapters: results,
         totalTokens: results.reduce((sum, chapter) => sum + (chapter.tokens || 0), 0),
-        totalWords
+        totalWords,
+        userPlan: user.subscription
       });
 
     } catch (error: any) {

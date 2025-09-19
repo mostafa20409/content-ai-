@@ -553,56 +553,73 @@ function HistoryList({
 export default function LandingPage() {
   const router = useRouter();
 
-  // ui state
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    try {
-      if (typeof window === "undefined") return false;
-      return (localStorage.getItem(LS_UI_DARK) ?? "false") === "true";
-    } catch {
-      return false;
-    }
-  });
-  const [lang, setLang] = useState<Lang>(() => {
-    try {
-      if (typeof window === "undefined") return "ar";
-      return (localStorage.getItem(LS_UI_LANG) as Lang) || "ar";
-    } catch {
-      return "ar";
-    }
-  });
+  // ui state - initialize with default values
+  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [lang, setLang] = useState<Lang>("en");
+  const [isMounted, setIsMounted] = useState(false);
 
   // demo modal
   const [showDemo, setShowDemo] = useState(false);
 
   // history
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // Load data from localStorage only after component mounts
+  useEffect(() => {
+    setIsMounted(true);
+    
+    // Load dark mode preference
+    try {
+      const savedDark = safeGet(LS_UI_DARK);
+      if (savedDark !== null) {
+        setDarkMode(savedDark === "true");
+      }
+    } catch {}
+    
+    // Load language preference
+    try {
+      const savedLang = safeGet(LS_UI_LANG) as Lang;
+      if (savedLang === "ar" || savedLang === "en") {
+        setLang(savedLang);
+      }
+    } catch {}
+    
+    // Load history
     try {
       const raw = safeGet(LS_DEMO_HISTORY);
-      if (!raw) return [];
-      const parsed: HistoryItem[] = JSON.parse(raw);
-      return parsed;
-    } catch {
-      return [];
-    }
-  });
+      if (raw) {
+        const parsed: HistoryItem[] = JSON.parse(raw);
+        setHistory(parsed);
+      }
+    } catch {}
+  }, []);
 
   // effect: persist dark & lang to localStorage
   useEffect(() => {
+    if (!isMounted) return;
+    
     try {
       safeSet(LS_UI_DARK, darkMode ? "true" : "false");
-      if (darkMode) document.documentElement.classList.add("dark-mode");
-      else document.documentElement.classList.remove("dark-mode");
+      if (darkMode) {
+        document.documentElement.classList.add("dark-mode");
+      } else {
+        document.documentElement.classList.remove("dark-mode");
+      }
     } catch {}
-  }, [darkMode]);
+  }, [darkMode, isMounted]);
 
   useEffect(() => {
+    if (!isMounted) return;
+    
     try {
       safeSet(LS_UI_LANG, lang);
     } catch {}
-  }, [lang]);
+  }, [lang, isMounted]);
 
   // auth check + redirect to dashboard if token exists
   useEffect(() => {
+    if (!isMounted) return;
+    
     try {
       const cookieToken =
         typeof document !== "undefined"
@@ -621,8 +638,7 @@ export default function LandingPage() {
     } catch {
       // ignore
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]); // تم إضافة router إلى dependencies
+  }, [router, isMounted]);
 
   // helpers to update history (persist)
   const saveHistoryItem = (item: HistoryItem) => {
@@ -716,6 +732,15 @@ export default function LandingPage() {
   );
 
   const L = t[lang];
+
+  // Don't render anything until component is mounted to avoid hydration mismatch
+  if (!isMounted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <FiLoader className="animate-spin" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div dir={lang === "ar" ? "rtl" : "ltr"} className={darkMode ? "dark-mode" : ""}>

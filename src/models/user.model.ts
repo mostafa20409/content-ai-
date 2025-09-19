@@ -2,75 +2,44 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 
-// 📌 واجهة TypeScript لتعريف المستخدم
 export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
   phone?: string;
-
-  // 📌 حالة التفعيل
   active: boolean;
-
-  // 📌 إعلانات
   adsUsedThisMonth: number;
   lastAdReset: Date;
-
-  // 📌 كلمات مفتاحية
   keywordsUsedThisMonth: number;
   lastKeywordReset: Date;
-
-  // 📌 محتوى
   contentUsedThisMonth: number;
   lastContentReset: Date;
-
-  // 📌 كتب
   booksUsedThisMonth: number;
   lastBookReset: Date;
-
-  // 📌 حدود الخطة الشهرية
   adsLimitPerMonth: number;
   keywordsLimitPerMonth: number;
   contentLimitPerMonth: number;
   booksLimitPerMonth: number;
-
-  // 📌 الصلاحيات
   role: "user" | "admin" | "premium";
-
-  // 📌 الاشتراك
   subscription: "free" | "pro" | "premium";
-
-  // 📌 حدود الاشتراك الجديدة
   subscriptionLimits: {
     coverGeneration: number;
     imageGeneration: number;
     booksPerMonth: number;
     wordsPerMonth: number;
   };
-
-  // 📌 إعادة تعيين كلمة المرور
   passwordResetToken?: string;
   passwordResetExpires?: Date;
-
-  // 📌 تسجيلات الدخول
   lastLogin: Date;
-
-  // 📌 Timestamps
   createdAt: Date;
   updatedAt: Date;
   __v?: number;
 
-  // 📌 دالة مقارنة كلمات المرور
   comparePassword(candidatePassword: string): Promise<boolean>;
-
-  // 📌 دالة التحقق من إمكانية استخدام ميزة
   canUseFeature(feature: string): { allowed: boolean; remaining?: number };
-
-  // 📌 دالة إعادة تعيين العدادات الشهرية
   resetMonthlyCounters(): Promise<void>;
 }
 
-// 📌 مخطط قاعدة البيانات
 const userSchema: Schema<IUser> = new Schema(
   {
     name: {
@@ -100,14 +69,10 @@ const userSchema: Schema<IUser> = new Schema(
       sparse: true,
       match: [/^\+?[0-9]{8,15}$/, "رقم الهاتف غير صحيح"]
     },
-
-    // 📌 حالة التفعيل
     active: {
       type: Boolean,
       default: true,
     },
-
-    // 📌 إعلانات
     adsUsedThisMonth: {
       type: Number,
       default: 0,
@@ -117,8 +82,6 @@ const userSchema: Schema<IUser> = new Schema(
       type: Date,
       default: Date.now,
     },
-
-    // 📌 كلمات مفتاحية
     keywordsUsedThisMonth: {
       type: Number,
       default: 0,
@@ -128,8 +91,6 @@ const userSchema: Schema<IUser> = new Schema(
       type: Date,
       default: Date.now,
     },
-
-    // 📌 محتوى
     contentUsedThisMonth: {
       type: Number,
       default: 0,
@@ -139,8 +100,6 @@ const userSchema: Schema<IUser> = new Schema(
       type: Date,
       default: Date.now,
     },
-
-    // 📌 كتب
     booksUsedThisMonth: {
       type: Number,
       default: 0,
@@ -150,8 +109,6 @@ const userSchema: Schema<IUser> = new Schema(
       type: Date,
       default: Date.now,
     },
-
-    // 📌 حدود الخطة الشهرية
     adsLimitPerMonth: {
       type: Number,
       default: 10,
@@ -172,22 +129,16 @@ const userSchema: Schema<IUser> = new Schema(
       default: 5,
       min: 0
     },
-
-    // 📌 الصلاحيات
     role: {
       type: String,
       enum: ["user", "admin", "premium"],
       default: "user",
     },
-
-    // 📌 الاشتراك
     subscription: {
       type: String,
       enum: ["free", "pro", "premium"],
       default: "free",
     },
-
-    // 📌 حدود الاشتراك الجديدة
     subscriptionLimits: {
       coverGeneration: {
         type: Number,
@@ -210,8 +161,6 @@ const userSchema: Schema<IUser> = new Schema(
         min: 0
       }
     },
-
-    // 📌 إعادة تعيين كلمة المرور
     passwordResetToken: { 
       type: String,
       select: false
@@ -220,8 +169,6 @@ const userSchema: Schema<IUser> = new Schema(
       type: Date,
       select: false
     },
-
-    // 📌 تسجيلات الدخول
     lastLogin: {
       type: Date,
       default: Date.now
@@ -231,7 +178,6 @@ const userSchema: Schema<IUser> = new Schema(
     timestamps: true,
     toJSON: {
       transform: function(_doc, ret) {
-        // إصلاح: استخدام طريقة آمنة لإزالة الحقول الحساسة
         const { password, passwordResetToken, passwordResetExpires, ...safeRet } = ret;
         return safeRet;
       }
@@ -239,16 +185,14 @@ const userSchema: Schema<IUser> = new Schema(
   }
 );
 
-// 📌 إزالة الفهرس المكرر - التعليق على الفهرس المنفصل
+// إزالة الفهرس المكرر - التعليق على الفهرس المنفصل
 // userSchema.index({ phone: 1 }, { 
 //   unique: true, 
 //   sparse: true,
 //   partialFilterExpression: { phone: { $type: 'string' } } 
 // });
 
-// 📌 Middleware: تشفير كلمة المرور قبل الحفظ
 userSchema.pre<IUser>("save", async function (next) {
-  // فقط إذا تم تعديل كلمة المرور
   if (!this.isModified("password")) return next();
   
   try {
@@ -260,155 +204,77 @@ userSchema.pre<IUser>("save", async function (next) {
   }
 });
 
-// 📌 Middleware: التحقق من إعادة التعيين الشهري قبل أي عملية findOne/update
+// تبسيط middleware لتجنب التكرار المفرط
 userSchema.pre(/^findOneAndUpdate/, async function(next) {
   try {
     const query = this as any;
     const doc = await query.model.findOne(query.getFilter());
-    
     if (doc) {
       await doc.resetMonthlyCounters();
     }
-    
     next();
   } catch (error) {
     next();
   }
 });
 
-// 📌 دالة لمقارنة كلمات المرور
 userSchema.methods.comparePassword = async function (
   candidatePassword: string
 ): Promise<boolean> {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// 📌 دالة للتحقق من إمكانية استخدام ميزة معينة
 userSchema.methods.canUseFeature = function (feature: string): { allowed: boolean; remaining?: number } {
-  // تعريف حدود كل نوع اشتراك
   const subscriptionLimits = {
-    free: {
-      imageGeneration: 0,
-      coverGeneration: 0,
-      pdfExport: 0,
-      ads: 10,
-      keywords: 50,
-      content: 2000,
-      books: 5
-    },
-    pro: {
-      imageGeneration: 50,
-      coverGeneration: 10,
-      pdfExport: 5,
-      ads: 50,
-      keywords: 200,
-      content: 10000,
-      books: 20
-    },
-    premium: {
-      imageGeneration: -1, // -1 يعني غير محدود
-      coverGeneration: -1,
-      pdfExport: -1,
-      ads: -1,
-      keywords: -1,
-      content: -1,
-      books: -1
-    }
+    free: { imageGeneration: 0, coverGeneration: 0, pdfExport: 0, ads: 10, keywords: 50, content: 2000, books: 5 },
+    pro: { imageGeneration: 50, coverGeneration: 10, pdfExport: 5, ads: 50, keywords: 200, content: 10000, books: 20 },
+    premium: { imageGeneration: -1, coverGeneration: -1, pdfExport: -1, ads: -1, keywords: -1, content: -1, books: -1 }
   };
 
   const limits = subscriptionLimits[this.subscription as keyof typeof subscriptionLimits];
-  
   if (!limits || !limits.hasOwnProperty(feature)) {
     return { allowed: false };
   }
 
   const limit = limits[feature as keyof typeof limits];
-  
-  // إذا كانت القيمة -1 فهذا يعني غير محدود
   if (limit === -1) return { allowed: true };
 
-  // التحقق من الميزات الخاصة بالاستخدام الشهري
   let used = 0;
   let remaining = 0;
 
   switch(feature) {
-    case 'imageGeneration':
-      used = this.subscriptionLimits.imageGeneration;
-      remaining = Math.max(0, limit - used);
-      return { 
-        allowed: used < limit, 
-        remaining 
-      };
-    case 'coverGeneration':
-      used = this.subscriptionLimits.coverGeneration;
-      remaining = Math.max(0, limit - used);
-      return { 
-        allowed: used < limit, 
-        remaining 
-      };
-    case 'pdfExport':
-      // هذه الميزات لا تتبع النظام الشهري في النموذج الحالي
-      return { allowed: true };
-    case 'ads':
-      used = this.adsUsedThisMonth;
-      remaining = Math.max(0, limit - used);
-      return { 
-        allowed: used < limit, 
-        remaining 
-      };
-    case 'keywords':
-      used = this.keywordsUsedThisMonth;
-      remaining = Math.max(0, limit - used);
-      return { 
-        allowed: used < limit, 
-        remaining 
-      };
-    case 'content':
-      used = this.contentUsedThisMonth;
-      remaining = Math.max(0, limit - used);
-      return { 
-        allowed: used < limit, 
-        remaining 
-      };
-    case 'books':
-      used = this.booksUsedThisMonth;
-      remaining = Math.max(0, limit - used);
-      return { 
-        allowed: used < limit, 
-        remaining 
-      };
-    default:
-      return { allowed: false };
+    case 'imageGeneration': used = this.subscriptionLimits.imageGeneration; break;
+    case 'coverGeneration': used = this.subscriptionLimits.coverGeneration; break;
+    case 'pdfExport': return { allowed: true };
+    case 'ads': used = this.adsUsedThisMonth; break;
+    case 'keywords': used = this.keywordsUsedThisMonth; break;
+    case 'content': used = this.contentUsedThisMonth; break;
+    case 'books': used = this.booksUsedThisMonth; break;
+    default: return { allowed: false };
   }
+
+  remaining = Math.max(0, limit - used);
+  return { allowed: used < limit, remaining };
 };
 
-// 📌 دالة إعادة تعيين العدادات الشهرية
 userSchema.methods.resetMonthlyCounters = async function (): Promise<void> {
   const now = new Date();
   const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  // إعادة تعيين العدادات إذا مر شهر منذ آخر إعادة تعيين
-  if (this.lastAdReset < oneMonthAgo) {
-    this.adsUsedThisMonth = 0;
-    this.lastAdReset = now;
+  const counters = [
+    { field: 'lastAdReset', used: 'adsUsedThisMonth' },
+    { field: 'lastKeywordReset', used: 'keywordsUsedThisMonth' },
+    { field: 'lastContentReset', used: 'contentUsedThisMonth' },
+    { field: 'lastBookReset', used: 'booksUsedThisMonth' }
+  ];
+
+  for (const counter of counters) {
+    if (this[counter.field] < oneMonthAgo) {
+      this[counter.used] = 0;
+      this[counter.field] = now;
+    }
   }
-  
-  if (this.lastKeywordReset < oneMonthAgo) {
-    this.keywordsUsedThisMonth = 0;
-    this.lastKeywordReset = now;
-  }
-  
-  if (this.lastContentReset < oneMonthAgo) {
-    this.contentUsedThisMonth = 0;
-    this.lastContentReset = now;
-  }
-  
-  if (this.lastBookReset < oneMonthAgo) {
-    this.booksUsedThisMonth = 0;
-    this.lastBookReset = now;
-  }
-  
-  // إعادة تعيين حدود الاشتراك إذا كان بداية شهر جديد
+
   if (now.getMonth() !== this.lastLogin.getMonth() || now.getFullYear() !== this.lastLogin.getFullYear()) {
     const subscriptionResetValues = {
       free: { coverGeneration: 0, imageGeneration: 0, booksPerMonth: 5, wordsPerMonth: 10000 },
@@ -416,25 +282,20 @@ userSchema.methods.resetMonthlyCounters = async function (): Promise<void> {
       premium: { coverGeneration: -1, imageGeneration: -1, booksPerMonth: -1, wordsPerMonth: -1 }
     };
     
-    const resetValues = subscriptionResetValues[this.subscription as keyof typeof subscriptionResetValues] || 
-                        subscriptionResetValues.free;
-    
-    this.subscriptionLimits = resetValues;
+    this.subscriptionLimits = subscriptionResetValues[this.subscription as keyof typeof subscriptionResetValues] || 
+                             subscriptionResetValues.free;
   }
-  
+
   await this.save({ validateBeforeSave: false });
 };
 
-// 📌 دالة ثابتة للبحث عن مستخدم بالبريد الإلكتروني
 userSchema.statics.findByEmail = function(email: string) {
   return this.findOne({ email: email.toLowerCase().trim() });
 };
 
-// 📌 دالة ثابتة للبحث عن مستخدم بالهاتف
 userSchema.statics.findByPhone = function(phone: string) {
   return this.findOne({ phone: phone.trim() });
 };
 
-// 📌 إنشاء الموديل
 const User = mongoose.models.User || mongoose.model<IUser>("User", userSchema);
 export default User;
