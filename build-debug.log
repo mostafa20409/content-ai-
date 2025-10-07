@@ -1,0 +1,62 @@
+﻿
+> content-ai@0.1.0 build
+> cross-env NODE_OPTIONS='--max-old-space-size=4096' prisma generate && next build
+
+Prisma schema loaded from prisma\schema.prisma
+node.exe : Environment variables loaded from .env
+At C:\Program Files\nodejs\npm.ps1:29 char:3
++   & $NODE_EXE $NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Environment variables loaded from .env:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Γ£ö Generated Prisma Client (v6.14.0) to .\prisma\generated in 5.01s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+   Γû▓ Next.js 15.5.3
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully in 17.3s
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/6) ...
+   Generating static pages (1/6) 
+   Generating static pages (2/6) 
+   Generating static pages (4/6) 
+ Γ£ô Generating static pages (6/6)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+
+Redirects
+Γöî source: /:path+/
+Γö£ destination: /:path+
+Γöö permanent: true
+
+
+Route (app)                                  Size  First Load JS
+Γöî ╞Æ /api/books/delete                       133 B         101 kB
+Γö£ ╞Æ /api/books/list                         133 B         101 kB
+Γö£ ╞Æ /api/books/update                       133 B         101 kB
+Γöö ╞Æ /api/user/profile                       133 B         101 kB
++ First Load JS shared by all              101 kB
+  Γö£ chunks/4bd1b696-c023c6e3521b1417.js   54.2 kB
+  Γö£ chunks/58-93a3d7472b0a3d1f.js         44.8 kB
+  Γöö other shared chunks (total)           1.84 kB
+
+Route (pages)                                Size  First Load JS
+ΓöÇ Γùï /404                                  2.29 kB        97.2 kB
++ First Load JS shared by all             94.9 kB
+  Γö£ chunks/framework-b1e5f14688f9ffe6.js  57.7 kB
+  Γö£ chunks/main-4eee62af4736b558.js       34.9 kB
+  Γöö other shared chunks (total)           2.23 kB
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

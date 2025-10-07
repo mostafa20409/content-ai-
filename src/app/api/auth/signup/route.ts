@@ -1,9 +1,14 @@
 // app/api/auth/signup/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { connectToDB } from "@/lib/connectToDB";
 import User from "@/models/User";
+
+// التحقق من وجود متغيرات البيئة الضرورية
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET غير معرف في متغيرات البيئة");
+}
 
 // دالة مساعدة للتحقق من البريد الإلكتروني
 function isValidEmail(email: string): boolean {
@@ -16,7 +21,20 @@ function isValidPassword(password: string): boolean {
   return password.length >= 8;
 }
 
-export async function POST(req: Request) {
+// دالة محسنة لإنشاء JWT token
+function createJWT(payload: object): string {
+  const secret = process.env.JWT_SECRET as string;
+  
+  // استخدام any لتجنب مشاكل TypeScript مع jsonwebtoken
+  const options: any = {
+    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    algorithm: "HS256"
+  };
+  
+  return jwt.sign(payload, secret, options);
+}
+
+export async function POST(req: NextRequest) {
   // إضافة headers للتحكم في CORS مباشرة
   const corsHeaders = {
     'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:3000',
@@ -26,6 +44,18 @@ export async function POST(req: Request) {
   };
 
   try {
+    // التحقق من نوع المحتوى
+    const contentType = req.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      return NextResponse.json(
+        { error: "يجب أن يكون نوع المحتوى application/json" },
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
+    }
+
     // معالجة سريعة للطلب
     let body;
     try {
@@ -41,6 +71,14 @@ export async function POST(req: Request) {
     }
 
     const { name, email, password, confirmPassword, phone } = body;
+
+    // 🔍 DEBUG: سجل محاولة التسجيل
+    console.log('🔍 Signup attempt:', { 
+      name: name?.substring(0, 3) + '...', 
+      email: email,
+      hasPassword: !!password,
+      passwordLength: password?.length 
+    });
 
     // تحقق سريع من البيانات
     if (!name || !email || !password || !confirmPassword) {
@@ -120,6 +158,7 @@ export async function POST(req: Request) {
     }
     
     if (existingUser) {
+      console.log('❌ User already exists:', normalizedEmail);
       return NextResponse.json(
         { error: "هذا البريد الإلكتروني مسجل بالفعل" },
         { 
@@ -154,6 +193,7 @@ export async function POST(req: Request) {
     let hashedPassword;
     try {
       hashedPassword = await bcrypt.hash(password, 10);
+      console.log('✅ Password hashed successfully');
     } catch (hashError) {
       console.error("❌ خطأ في تشفير كلمة المرور:", hashError);
       return NextResponse.json(
@@ -179,14 +219,30 @@ export async function POST(req: Request) {
       lastLogin: new Date(),
     });
 
+    // 🔍 DEBUG: قبل حفظ المستخدم
+    console.log('💾 Creating user with:', {
+      name: name.trim(),
+      email: normalizedEmail,
+      hashedPassword: !!hashedPassword,
+      phone: phone || 'not provided'
+    });
+
     try {
       await newUser.save();
-    } catch (saveError) {
+      console.log('✅ User saved successfully:', newUser._id);
+    } catch (saveError: any) {
       console.error("❌ خطأ في حفظ المستخدم:", saveError);
+      
+      // تحسين رسالة الخطأ
+      let errorMessage = "خطأ في إنشاء الحساب";
+      if (saveError.code === 11000) {
+        errorMessage = "البريد الإلكتروني أو رقم الهاتف مسجل بالفعل";
+      }
+      
       return NextResponse.json(
         { 
-          error: "خطأ في إنشاء الحساب",
-          details: process.env.NODE_ENV === 'development' ? (saveError as Error).message : undefined
+          error: errorMessage,
+          details: process.env.NODE_ENV === 'development' ? saveError.message : undefined
         },
         { 
           status: 500,
@@ -195,34 +251,18 @@ export async function POST(req: Request) {
       );
     }
 
-    // التحقق من وجود JWT_SECRET
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      console.error("JWT_SECRET غير معروف في البيئة");
-      return NextResponse.json(
-        { error: "خطأ في إعدادات الخادم" },
-        { 
-          status: 500,
-          headers: corsHeaders
-        }
-      );
-    }
-
-    // إنشاء token
+    // إنشاء token باستخدام الدالة المحسنة
     let token;
     try {
-      token = jwt.sign(
-        {
-          id: newUser._id.toString(),
-          email: newUser.email,
-          name: newUser.name,
-          role: newUser.role,
-        },
-        jwtSecret,
-        {
-          expiresIn: 60 * 60 * 24 * 7 // 7 أيام بالثواني
-        }
-      );
+      const tokenPayload = {
+        id: newUser._id.toString(),
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+      };
+
+      token = createJWT(tokenPayload);
+      console.log('✅ JWT token created successfully');
     } catch (jwtError) {
       console.error("❌ خطأ في إنشاء التوكن:", jwtError);
       return NextResponse.json(
@@ -267,10 +307,11 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24 * 7, // 7 أيام
     });
 
+    console.log('🎉 Signup completed successfully for:', newUser.email);
     return response;
 
   } catch (error: any) {
-    console.error("❌ خطأ غير متوقع في إنشاء الحساب:", error.message);
+    console.error("❌ خطأ غير متوقع في إنشاء الحساب:", error);
     
     return NextResponse.json(
       { 
@@ -279,12 +320,7 @@ export async function POST(req: Request) {
       },
       { 
         status: 500,
-        headers: {
-          'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:3000',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Credentials': 'true',
-        }
+        headers: corsHeaders
       }
     );
   }

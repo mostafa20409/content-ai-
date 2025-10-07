@@ -797,7 +797,7 @@ export default function LandingPage() {
               {L.login}
             </button>
             <button 
-              onClick={() => router.push("/register")} 
+              onClick={() => router.push("/signup")} 
               style={{ 
                 padding: "12px 24px", 
                 borderRadius: 8, 

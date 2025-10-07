@@ -1,223 +1,457 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+// تعريف نوع البيانات للنموذج
+interface FormData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone?: string;
+}
+
+// تعريف نوع الأخطاء
+interface FormErrors {
+  name?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+  phone?: string;
+  submit?: string;
+}
 
 const locales = {
   en: {
     registerTitle: "Create a New Account",
-    name: "Name",
+    name: "Full Name",
     email: "Email",
     password: "Password",
     confirmPassword: "Confirm Password",
-    submit: "Register",
+    phone: "Phone (Optional)",
+    submit: "Create Account",
     languageToggle: "عربي",
     requiredField: "This field is required.",
     invalidEmail: "Please enter a valid email.",
     passwordMismatch: "Passwords do not match.",
     minPassword: "Password must be at least 8 characters.",
-    nameMinLength: "Name must be at least 3 characters.",
+    nameMinLength: "Name must be at least 2 characters.",
+    invalidPhone: "Invalid phone number format.",
+    loginText: "Already have an account?",
+    loginLink: "Sign In",
+    loading: "Creating account...",
+    namePlaceholder: "Enter your full name",
+    emailPlaceholder: "example@email.com",
+    passwordPlaceholder: "At least 8 characters",
+    confirmPasswordPlaceholder: "Re-enter password",
+    phonePlaceholder: "+1234567890",
+    timeoutError: "Request timeout. Please try again.",
+    serverError: "Server connection error",
   },
   ar: {
     registerTitle: "إنشاء حساب جديد",
-    name: "الاسم",
+    name: "الاسم الكامل",
     email: "البريد الإلكتروني",
     password: "كلمة المرور",
     confirmPassword: "تأكيد كلمة المرور",
-    submit: "تسجيل",
+    phone: "رقم الهاتف (اختياري)",
+    submit: "إنشاء حساب",
     languageToggle: "English",
     requiredField: "هذا الحقل مطلوب.",
     invalidEmail: "يرجى إدخال بريد إلكتروني صحيح.",
     passwordMismatch: "كلمتا المرور غير متطابقتين.",
     minPassword: "كلمة المرور يجب أن تكون 8 أحرف على الأقل.",
-    nameMinLength: "يجب أن يحتوي الاسم على 3 أحرف على الأقل.",
+    nameMinLength: "الاسم يجب أن يكون على الأقل حرفين.",
+    invalidPhone: "صيغة رقم الهاتف غير صحيحة.",
+    loginText: "لديك حساب بالفعل؟",
+    loginLink: "تسجيل الدخول",
+    loading: "جاري إنشاء الحساب...",
+    namePlaceholder: "أدخل اسمك الكامل",
+    emailPlaceholder: "example@email.com",
+    passwordPlaceholder: "8 أحرف على الأقل",
+    confirmPasswordPlaceholder: "أعد إدخال كلمة المرور",
+    phonePlaceholder: "+1234567890",
+    timeoutError: "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.",
+    serverError: "حدث خطأ في الاتصال بالخادم",
   },
 };
 
 export default function RegisterPage() {
   const [lang, setLang] = useState<"ar" | "en">("ar");
   const t = locales[lang];
-
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  
+  const [formData, setFormData] = useState<FormData>({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    phone: ""
+  });
+  
+  const [loading, setLoading] = useState<boolean>(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+  const controllerRef = useRef<AbortController | null>(null);
 
-  const [error, setError] = useState<{
-    name?: string;
-    email?: string;
-    password?: string;
-    confirmPassword?: string;
-    general?: string;
-  }>({});
-  const [loading, setLoading] = useState(false);
-
-  // حل مشكلة localStorage مع SSR
+  // تنظيف الـ AbortController عند unmount
   useEffect(() => {
-    const savedEmail = localStorage.getItem("email");
-    if (savedEmail) {
-      setEmail(savedEmail);
-    }
+    return () => {
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+      }
+    };
   }, []);
 
-  useEffect(() => {
-    if (email) {
-      localStorage.setItem("email", email);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // مسح الخطأ عند البدء في الكتابة
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
     }
-  }, [email]);
-
-  const validate = () => {
-    let valid = true;
-    const errs: typeof error = {};
-
-    if (!name.trim()) {
-      errs.name = t.requiredField;
-      valid = false;
-    } else if (name.trim().length < 3) {
-      errs.name = t.nameMinLength;
-      valid = false;
-    }
-
-    if (!email.trim()) {
-      errs.email = t.requiredField;
-      valid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      errs.email = t.invalidEmail;
-      valid = false;
-    }
-
-    if (!password.trim()) {
-      errs.password = t.requiredField;
-      valid = false;
-    } else if (password.length < 8) {
-      errs.password = t.minPassword;
-      valid = false;
-    }
-
-    if (!confirmPassword.trim()) {
-      errs.confirmPassword = t.requiredField;
-      valid = false;
-    } else if (password !== confirmPassword) {
-      errs.confirmPassword = t.passwordMismatch;
-      valid = false;
-    }
-
-    setError(errs);
-    return valid;
   };
 
-  const handleRegister = async () => {
-    if (!validate()) return;
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = t.requiredField;
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = t.nameMinLength;
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = t.requiredField;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = t.invalidEmail;
+    }
+    
+    if (!formData.password) {
+      newErrors.password = t.requiredField;
+    } else if (formData.password.length < 8) {
+      newErrors.password = t.minPassword;
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = t.passwordMismatch;
+    }
+    
+    // التحقق من رقم الهاتف إذا تم إدخاله
+    if (formData.phone && formData.phone.trim() !== "") {
+      const phoneRegex = /^\+?[0-9]{8,15}$/;
+      if (!phoneRegex.test(formData.phone.trim())) {
+        newErrors.phone = t.invalidPhone;
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setLoading(true);
-    setError({});
+    setErrors({});
+
+    // إلغاء أي طلب سابق
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+
+    controllerRef.current = new AbortController();
+    let timeoutId: NodeJS.Timeout | null = null;
 
     try {
-      const res = await fetch("/api/register", {
+      timeoutId = setTimeout(() => {
+        if (controllerRef.current) {
+          controllerRef.current.abort();
+        }
+      }, 15000); // 15 ثانية timeout
+
+      const response = await fetch("/api/auth/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.toLowerCase().trim(),
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          phone: formData.phone ? formData.phone.trim() : undefined
+        }),
+        signal: controllerRef.current.signal
       });
 
-      const data = await res.json();
+      if (timeoutId) clearTimeout(timeoutId);
 
-      if (!res.ok) {
-        // معالجة أخطاء Zod من الـ API
-        if (data.details && Array.isArray(data.details)) {
-          const fieldErrors: Record<string, string> = {};
-          data.details.forEach((detail: { field: string; message: string }) => {
-            fieldErrors[detail.field] = detail.message;
-          });
-          setError(fieldErrors);
-        } else {
-          setError({ general: data.error || data.message || "Registration failed" });
-        }
-        setLoading(false);
-        return;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
-      alert(lang === "ar" ? "تم التسجيل بنجاح!" : "Registration successful!");
-      // إعادة توجيه بعد التسجيل
-      window.location.href = "/login";
+      const data = await response.json();
 
-    } catch (err) {
-      setError({ general: lang === "ar" ? "خطأ في الشبكة. يرجى المحاولة مرة أخرى." : "Network error. Please try again." });
+      if (data.success) {
+        router.push(data.redirect || "/dashboard");
+      } else {
+        throw new Error(data.error || "Unexpected error occurred");
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        setErrors({ submit: t.timeoutError });
+      } else {
+        setErrors({ submit: error.message || t.serverError });
+      }
     } finally {
       setLoading(false);
+      if (timeoutId) clearTimeout(timeoutId);
+      controllerRef.current = null;
     }
   };
 
   return (
-    <>
-      <style>{`
+    <div className="container">
+      <button
+        className="lang-toggle"
+        aria-label="Toggle Language"
+        onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+        type="button"
+      >
+        {t.languageToggle}
+      </button>
+
+      <form onSubmit={handleSubmit} className="signup-form">
+        <h2 className="signup-title">
+          {t.registerTitle}
+        </h2>
+
+        {errors.submit && (
+          <div className="error-message">
+            {errors.submit}
+          </div>
+        )}
+
+        <div className="form-group">
+          <label className="form-label">{t.name}</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            required
+            disabled={loading}
+            className={`form-input ${errors.name ? 'error' : ''}`}
+            placeholder={t.namePlaceholder}
+          />
+          {errors.name && <span className="error-text">{errors.name}</span>}
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">{t.email}</label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            disabled={loading}
+            className={`form-input ${errors.email ? 'error' : ''}`}
+            placeholder={t.emailPlaceholder}
+          />
+          {errors.email && <span className="error-text">{errors.email}</span>}
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">{t.password}</label>
+          <div className="password-wrapper">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className={`form-input ${errors.password ? 'error' : ''}`}
+              placeholder={t.passwordPlaceholder}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="toggle-password"
+              aria-label={showPassword ? (lang === "ar" ? "إخفاء كلمة المرور" : "Hide password") : (lang === "ar" ? "إظهار كلمة المرور" : "Show password")}
+            >
+              {showPassword ? "🙈" : "👁"}
+            </button>
+          </div>
+          {errors.password && <span className="error-text">{errors.password}</span>}
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">{t.confirmPassword}</label>
+          <input
+            type={showPassword ? "text" : "password"}
+            name="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            required
+            disabled={loading}
+            className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+            placeholder={t.confirmPasswordPlaceholder}
+          />
+          {errors.confirmPassword && <span className="error-text">{errors.confirmPassword}</span>}
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">
+            {t.phone}
+          </label>
+          <input
+            type="tel"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            disabled={loading}
+            className={`form-input ${errors.phone ? 'error' : ''}`}
+            placeholder={t.phonePlaceholder}
+          />
+          {errors.phone && <span className="error-text">{errors.phone}</span>}
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="submit-button"
+        >
+          {loading ? t.loading : t.submit}
+        </button>
+
+        <div className="login-link">
+          <span>{t.loginText} </span>
+          <Link href="/login" className="link">
+            {t.loginLink}
+          </Link>
+        </div>
+      </form>
+
+      <style jsx>{`
         .container {
-          max-width: 420px;
-          margin: 60px auto;
-          background: #fff;
-          padding: 32px 28px 40px 28px;
-          border-radius: 14px;
-          box-shadow: 0 12px 25px rgba(0,0,0,0.1);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          padding: 20px;
           direction: ${lang === "ar" ? "rtl" : "ltr"};
-          position: relative;
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+        
         .lang-toggle {
           position: absolute;
-          top: 18px;
+          top: 20px;
           ${lang === "ar" ? "left: 20px;" : "right: 20px;"}
           background: transparent;
           border: none;
           font-weight: 700;
-          color: #0070f3;
+          color: #fff;
           cursor: pointer;
           font-size: 14px;
           user-select: none;
           transition: color 0.3s ease;
+          z-index: 10;
         }
+        
         .lang-toggle:hover {
-          color: #005bb5;
+          color: #ddd;
         }
-        h2 {
-          margin-bottom: 28px;
-          font-weight: 700;
-          font-size: 26px;
-          color: #222;
+        
+        .signup-form {
+          background: #fff;
+          padding: 2rem;
+          border-radius: 12px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+          width: 100%;
+          max-width: 450px;
+          position: relative;
+        }
+        
+        .signup-title {
+          margin-bottom: 1.5rem;
           text-align: center;
+          color: #333;
+          font-size: 1.8rem;
+          font-weight: 700;
         }
-        label {
+        
+        .error-message {
+          padding: 10px;
+          background: #ffebee;
+          color: #c62828;
+          border-radius: 6px;
+          margin-bottom: 1rem;
+          text-align: center;
+          font-weight: 600;
+        }
+        
+        .form-group {
+          margin-bottom: 1.2rem;
+        }
+        
+        .form-label {
           display: block;
-          margin-bottom: 8px;
+          margin-bottom: 0.5rem;
           font-weight: 600;
           color: #333;
         }
-        input[type="text"], input[type="email"], input[type="password"] {
+        
+        .form-input {
           width: 100%;
           padding: 14px 16px;
-          font-size: 16px;
+          border-radius: 8px;
           border: 2px solid #ddd;
-          border-radius: 10px;
-          transition: border-color 0.3s ease, box-shadow 0.3s ease;
-          outline: none;
-          margin-bottom: 12px;
+          font-size: 1rem;
+          box-sizing: border-box;
+          transition: border-color 0.3s, box-shadow 0.3s;
         }
-        input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
+        
+        .form-input:focus {
+          outline: none;
           border-color: #0070f3;
           box-shadow: 0 0 6px rgba(0,112,243,0.4);
         }
-        .error-text {
-          color: #d93025;
-          font-size: 13px;
-          margin-top: -10px;
-          margin-bottom: 12px;
-          min-height: 18px;
-          font-weight: 600;
-          user-select: none;
+        
+        .form-input.error {
+          border-color: #d32f2f;
         }
+        
+        .form-input:disabled {
+          background-color: #f5f5f5;
+          cursor: not-allowed;
+        }
+        
+        .error-text {
+          color: #d32f2f;
+          font-size: 0.85rem;
+          display: block;
+          margin-top: 0.25rem;
+          font-weight: 600;
+        }
+        
         .password-wrapper {
           position: relative;
           display: flex;
           align-items: center;
         }
+        
         .toggle-password {
           position: absolute;
           top: 50%;
@@ -232,128 +466,52 @@ export default function RegisterPage() {
           transition: color 0.3s ease;
           ${lang === "ar" ? "left: 16px;" : "right: 16px;"}
         }
+        
         .toggle-password:hover {
           color: #005bb5;
         }
-        button.submit-btn {
+        
+        .submit-button {
           width: 100%;
-          padding: 14px 0;
-          margin-top: 8px;
+          padding: 14px;
+          border-radius: 8px;
+          border: none;
           background: #0070f3;
           color: #fff;
-          font-weight: 700;
-          font-size: 18px;
-          border: none;
-          border-radius: 12px;
+          font-weight: bold;
+          font-size: 1rem;
           cursor: pointer;
-          transition: background-color 0.3s ease;
-          user-select: none;
+          transition: background 0.3s;
+          margin-bottom: 1rem;
         }
-        button.submit-btn:hover:not(:disabled) {
-          background: #005bb5;
+        
+        .submit-button:hover:not(:disabled) {
+          background: #0056b3;
         }
-        button.submit-btn:disabled {
-          background: #999;
+        
+        .submit-button:disabled {
+          background: #aaa;
           cursor: not-allowed;
         }
-        .general-error {
-          margin-top: 16px;
-          color: #d93025;
-          font-weight: 700;
+        
+        .login-link {
           text-align: center;
-          user-select: none;
+        }
+        
+        .login-link span {
+          color: #666;
+        }
+        
+        .link {
+          color: #0070f3;
+          text-decoration: none;
+          font-weight: 500;
+        }
+        
+        .link:hover {
+          text-decoration: underline;
         }
       `}</style>
-
-      <div className="container" role="main" aria-labelledby="register-title">
-        <button
-          className="lang-toggle"
-          aria-label="Toggle Language"
-          onClick={() => setLang(lang === "ar" ? "en" : "ar")}
-          type="button"
-        >
-          {t.languageToggle}
-        </button>
-
-        <h2 id="register-title">{t.registerTitle}</h2>
-
-        <label htmlFor="name">{t.name}</label>
-        <input
-          id="name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          aria-invalid={!!error.name}
-          aria-describedby={error.name ? "name-error" : undefined}
-          placeholder={t.name}
-        />
-        <div id="name-error" className="error-text" role="alert">
-          {error.name || "\u00A0"}
-        </div>
-
-        <label htmlFor="email">{t.email}</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          aria-invalid={!!error.email}
-          aria-describedby={error.email ? "email-error" : undefined}
-          placeholder={t.email}
-        />
-        <div id="email-error" className="error-text" role="alert">
-          {error.email || "\u00A0"}
-        </div>
-
-        <label htmlFor="password">{t.password}</label>
-        <div className="password-wrapper">
-          <input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            aria-invalid={!!error.password}
-            aria-describedby={error.password ? "password-error" : undefined}
-            placeholder={t.password}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="toggle-password"
-            aria-label={showPassword ? (lang === "ar" ? "إخفاء كلمة المرور" : "Hide password") : (lang === "ar" ? "إظهار كلمة المرور" : "Show password")}
-          >
-            {showPassword ? "🙈" : "👁"}
-          </button>
-        </div>
-        <div id="password-error" className="error-text" role="alert">
-          {error.password || "\u00A0"}
-        </div>
-
-        <label htmlFor="confirmPassword">{t.confirmPassword}</label>
-        <input
-          id="confirmPassword"
-          type={showPassword ? "text" : "password"}
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          aria-invalid={!!error.confirmPassword}
-          aria-describedby={error.confirmPassword ? "confirmPassword-error" : undefined}
-          placeholder={t.confirmPassword}
-        />
-        <div id="confirmPassword-error" className="error-text" role="alert">
-          {error.confirmPassword || "\u00A0"}
-        </div>
-
-        <button
-          className="submit-btn"
-          onClick={handleRegister}
-          disabled={loading}
-          aria-busy={loading}
-        >
-          {loading ? (lang === "ar" ? "جاري التسجيل..." : "Registering...") : t.submit}
-        </button>
-
-        {error.general && <p className="general-error" role="alert">{error.general}</p>}
-      </div>
-    </>
+    </div>
   );
 }
